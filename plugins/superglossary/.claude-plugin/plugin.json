@@ -1,0 +1,18 @@
+{
+  "name": "superglossary",
+  "description": "프로젝트별 용어사전을 관리하고 일관된 용어 사용을 돕는 Claude Code 플러그인",
+  "version": "0.1.0",
+  "author": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com"
+  },
+  "homepage": "https://github.com/Cho-D-YoungRae/superglossary",
+  "repository": "https://github.com/Cho-D-YoungRae/superglossary",
+  "license": "MIT",
+  "keywords": [
+    "glossary",
+    "terminology",
+    "documentation",
+    "korean"
+  ]
+}
