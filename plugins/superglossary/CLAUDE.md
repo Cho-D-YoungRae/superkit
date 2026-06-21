@@ -1,18 +1,29 @@
 # superglossary
 
-프로젝트별 도메인 용어를 파일(`GLOSSARY.md`)로 관리하고, Claude가 일관된 용어를 사용하도록 돕는 **Claude Code 플러그인**입니다. 현재는 운영 인프라만 구성된 매니페스트-only 상태이며, 용어사전 기능(스킬)은 추후 추가합니다.
+프로젝트별 도메인 용어를 파일로 관리하고, Claude가 일관된 용어를 사용하도록 돕는 **Claude Code 플러그인**입니다. v0.2.0부터 커맨드·스킬·서브에이전트·CLI를 포함한 용어사전 기능이 구현되어 있습니다.
 
 ## 저장소 구조
 
 - `.claude-plugin/plugin.json` — 플러그인 매니페스트. **`version` 필드가 버전의 유일한 출처**입니다.
 - `.claude-plugin/marketplace.json` — 자체 호스팅 마켓플레이스(`source: "./"`).
 - `scripts/bump-version.mjs` — 버전 갱신·검증 스크립트.
-- 컴포넌트(`skills/`, `commands/`, `agents/`, `hooks/`)는 추후 추가하며 **반드시 저장소 루트**에 둡니다. `.claude-plugin/` 안에는 매니페스트(JSON)만 넣습니다.
+- `commands/` — 커맨드 정의 (`superglossary-init.md`, `superglossary-add.md`).
+- `skills/` — 스킬 정의 (`glossary-check.md`).
+- `agents/` — 서브에이전트 정의 (`check-analyzer.md`, `glossary-scanner.md`).
+- `templates/glossary.mjs` — 사용자 프로젝트에 배포되는 CLI 원본 (의존성 0).
+- `tests/` — 테스트 스위트 (node:test, `pnpm test`).
+- `.claude-plugin/` 안에는 매니페스트(JSON)만 넣습니다.
+
+## 컴포넌트 규칙
+
+- `commands/`, `skills/`, `agents/`는 **반드시 저장소 루트**에 둡니다.
+- 용어사전 데이터는 사용자 프로젝트의 `.claude/superglossary/`에 생성됩니다(glossary.json·core.md·terms.md·glossary.mjs).
 
 ## 로컬 개발·검증
 
 - 매니페스트 검증: `claude plugin validate .`
 - 로컬 로드: `claude --plugin-dir .` (세션 중 변경 적용은 `/reload-plugins`)
+- 테스트 실행: `pnpm test`
 
 ## 버전·릴리즈
 
