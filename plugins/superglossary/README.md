@@ -31,7 +31,7 @@
   glossary.json   — 용어 원본 데이터
   core.md         — Claude 상시 로드용 핵심 용어 요약
   terms.md        — 전체 용어 목록
-  glossary.mjs    — 빌드·lint용 CLI (templates/glossary.mjs 복사본)
+  glossary.mjs    — 용어사전 관리 CLI (init/build/add/update/remove/list/lookup/lint, templates/glossary.mjs 복사본)
 ```
 
 **상시 로드**: `.claude/CLAUDE.md`에 `@superglossary/core.md`를 추가하면 Claude가 세션마다 자동으로 용어를 참조합니다.
