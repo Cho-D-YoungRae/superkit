@@ -20,7 +20,7 @@
 | 스킬 | `glossary-check` | 작업 결과물의 용어 일관성 검사 |
 | 서브에이전트 | `check-analyzer` | 검사 결과 분석 |
 | 서브에이전트 | `glossary-scanner` | 코드·문서에서 용어 스캔(model: sonnet) |
-| CLI | `glossary.mjs` | 의존성 0의 독립 CLI (서브커맨드: `init`/`build`/`add`/`update`/`remove`/`list`/`lookup`/`lint`) |
+| CLI | `templates/glossary.mjs` | 의존성 0의 독립 CLI (서브커맨드: `init`/`build`/`add`/`update`/`remove`/`list`/`lookup`/`lint`) |
 
 ## 데이터 및 로딩
 
@@ -88,9 +88,7 @@ node .claude/superglossary/glossary.mjs lint || true
 
 ## 출처
 
-이 플러그인의 용어사전 개념은 강의 **「김영한의 실전 데이터베이스 - 설계 1편, 현대적 데이터 모델링 완전 정복」** 의 '용어 사전' 파트를 참고했습니다.
-
-- 강의 링크: https://www.inflearn.com/course/김영한-실전-데이터베이스-설계1편/dashboard?cid=338886
+이 플러그인의 용어사전 개념은 강의 **[「김영한의 실전 데이터베이스 - 설계 1편, 현대적 데이터 모델링 완전 정복」](https://www.inflearn.com/course/김영한-실전-데이터베이스-설계1편/dashboard?cid=338886)** 의 '용어 사전' 파트를 참고했습니다.
 
 ## 라이선스
 
