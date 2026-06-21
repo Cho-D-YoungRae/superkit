@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- 커맨드 `/superglossary:init` — 사용자 프로젝트에 용어사전 초기화 (`commands/init.md`)
+- 커맨드 `/superglossary:add` — 새 용어 추가 (`commands/add.md`)
+- 스킬 `glossary-check` — 작업 결과물의 용어 일관성 검사 (`skills/glossary-check/SKILL.md`)
+- 서브에이전트 `check-analyzer` — 검사 결과 분석 (`agents/check-analyzer.md`)
+- 서브에이전트 `glossary-scanner` — 코드·문서에서 용어 스캔, model: sonnet (`agents/glossary-scanner.md`)
+- CLI `templates/glossary.mjs` — 의존성 0의 독립 CLI (서브커맨드: `init`/`build`/`add`/`update`/`remove`/`list`/`lookup`/`lint`)
+- 테스트 스위트 (`tests/`, node:test, 24개)
+
 ## [0.1.0] - 2026-06-20
 
 ### Added
