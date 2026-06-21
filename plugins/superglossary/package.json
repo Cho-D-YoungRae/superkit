@@ -5,6 +5,7 @@
   "description": "프로젝트별 용어사전을 관리하고 일관된 용어 사용을 돕는 Claude Code 플러그인",
   "scripts": {
     "bump": "node scripts/bump-version.mjs",
-    "version:check": "node scripts/bump-version.mjs --check"
+    "version:check": "node scripts/bump-version.mjs --check",
+    "test": "node --test"
   }
 }
