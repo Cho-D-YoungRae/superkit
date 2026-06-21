@@ -17,3 +17,21 @@ export function saveGlossary(dir, data) {
 export function sortedTerms(data) {
   return [...data.terms].sort((a, b) => a.korean.localeCompare(b.korean, "ko"));
 }
+
+export function addTerm(data, { korean, english, abbreviation = null, description = "", relatedElements = [] }) {
+  if (!korean || !english) throw new Error("korean과 english는 필수입니다.");
+  if (data.terms.find((t) => t.korean === korean)) {
+    const e = data.terms.find((t) => t.korean === korean);
+    throw new Error(`이미 등록된 한글: ${korean} → ${e.english}`);
+  }
+  if (data.terms.find((t) => t.english.toLowerCase() === english.toLowerCase())) {
+    const e = data.terms.find((t) => t.english.toLowerCase() === english.toLowerCase());
+    throw new Error(`이미 등록된 영문: ${english} (${e.korean})`);
+  }
+  if (abbreviation) {
+    const e = data.terms.find((t) => t.abbreviation && t.abbreviation.toLowerCase() === abbreviation.toLowerCase());
+    if (e) throw new Error(`이미 등록된 축약어: ${abbreviation} (${e.korean})`);
+  }
+  data.terms.push({ korean, english, abbreviation, description, relatedElements });
+  return data;
+}
