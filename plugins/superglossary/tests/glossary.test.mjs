@@ -38,6 +38,11 @@ test("addTerm: 새 용어를 정규화해 추가한다", () => {
   });
 });
 
+test("addTerm: data를 반환한다", () => {
+  const data = { terms: [] };
+  assert.strictEqual(addTerm(data, { korean: "주문", english: "order" }), data);
+});
+
 test("addTerm: 같은 한글은 거부한다", () => {
   const data = { terms: [{ korean: "회원", english: "member", abbreviation: null }] };
   assert.throws(() => addTerm(data, { korean: "회원", english: "customer" }), /이미 등록된 한글/);
