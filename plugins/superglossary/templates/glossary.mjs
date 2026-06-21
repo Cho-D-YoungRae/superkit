@@ -32,3 +32,23 @@ export function addTerm(data, { korean, english, abbreviation = null, descriptio
   data.terms.push({ korean, english, abbreviation, description, relatedElements });
   return data;
 }
+
+export function findTerm(data, korean) {
+  return data.terms.find((t) => t.korean === korean);
+}
+
+export function updateTerm(data, korean, fields) {
+  const term = findTerm(data, korean);
+  if (!term) throw new Error(`등록되지 않은 용어: ${korean}`);
+  for (const key of ["english", "abbreviation", "description", "relatedElements"]) {
+    if (fields[key] !== undefined) term[key] = fields[key];
+  }
+  return data;
+}
+
+export function removeTerm(data, korean) {
+  const idx = data.terms.findIndex((t) => t.korean === korean);
+  if (idx === -1) throw new Error(`등록되지 않은 용어: ${korean}`);
+  data.terms.splice(idx, 1);
+  return data;
+}

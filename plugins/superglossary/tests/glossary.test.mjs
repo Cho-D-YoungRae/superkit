@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -56,4 +56,25 @@ test("addTerm: 같은 영문은 거부한다", () => {
 test("addTerm: 같은 축약어는 거부한다", () => {
   const data = { terms: [{ korean: "식별자", english: "identifier", abbreviation: "id" }] };
   assert.throws(() => addTerm(data, { korean: "지수", english: "index", abbreviation: "ID" }), /이미 등록된 축약어/);
+});
+
+test("updateTerm: 지정 필드만 갱신한다", () => {
+  const data = { terms: [{ korean: "청구", english: "claim", abbreviation: null, description: "", relatedElements: [] }] };
+  updateTerm(data, "청구", { english: "billing", description: "요금 청구" });
+  assert.equal(findTerm(data, "청구").english, "billing");
+  assert.equal(findTerm(data, "청구").description, "요금 청구");
+});
+
+test("updateTerm: 없는 용어는 throw", () => {
+  assert.throws(() => updateTerm({ terms: [] }, "없음", { english: "x" }), /등록되지 않은 용어/);
+});
+
+test("removeTerm: 용어를 삭제한다", () => {
+  const data = { terms: [{ korean: "청구", english: "claim" }] };
+  removeTerm(data, "청구");
+  assert.equal(data.terms.length, 0);
+});
+
+test("removeTerm: 없는 용어는 throw", () => {
+  assert.throws(() => removeTerm({ terms: [] }, "없음"), /등록되지 않은 용어/);
 });
