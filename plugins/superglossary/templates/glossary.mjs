@@ -242,7 +242,7 @@ export function run(argv, dataDir) {
       return lintFiles(data, positional).map((r) => `${r.token}\t${r.count}`).join("\n");
     }
     default:
-      return "사용법: glossary.mjs <init|build|add|update|remove|list|lookup|lint> ...";
+      throw new Error(`알 수 없는 커맨드: ${cmd}\n사용법: glossary.mjs <init|build|add|update|remove|list|lookup|lint> ...`);
   }
 }
 

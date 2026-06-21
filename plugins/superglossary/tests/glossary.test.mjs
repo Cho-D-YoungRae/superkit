@@ -217,3 +217,7 @@ test("run remove가 용어를 제거한다", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("run: 알 수 없는 커맨드는 throw", () => {
+  assert.throws(() => run(["nope"], "/tmp"), /알 수 없는 커맨드/);
+});
