@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -183,5 +183,37 @@ test("scaffold: 기존 CLAUDE.md에 중복 추가하지 않는다", () => {
     assert.ok(claude.includes("# 기존"), "기존 내용 보존");
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("parseArgs: positional과 옵션 분리", () => {
+  const { positional, options } = parseArgs(["청구", "claim", "--desc", "요금", "--related=a,b"]);
+  assert.deepEqual(positional, ["청구", "claim"]);
+  assert.equal(options.desc, "요금");
+  assert.equal(options.related, "a,b");
+});
+
+test("run add → list가 등록을 반영하고 생성물을 빌드한다", () => {
+  const dir = tmp();
+  try {
+    saveGlossary(dir, { terms: [] });
+    run(["add", "회원", "member"], dir);
+    run(["add", "식별자", "identifier", "id", "--desc", "고유값"], dir);
+    const listed = run(["list"], dir);
+    assert.ok(listed.includes("회원") && listed.includes("member"));
+    assert.ok(loadFile(join(dir, "core.md")).includes("identifier"), "add가 재빌드한다");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("run remove가 용어를 제거한다", () => {
+  const dir = tmp();
+  try {
+    saveGlossary(dir, { terms: [{ korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [] }] });
+    run(["remove", "회원"], dir);
+    assert.equal(loadGlossary(dir).terms.length, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

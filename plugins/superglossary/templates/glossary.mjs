@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // .claude/superglossary/glossary.mjs — 프로젝트 용어사전 CLI (의존성 0)
 import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const AUTOGEN =
   "<!-- 이 파일은 glossary.json에서 자동 생성됩니다. 직접 편집하지 마세요. (glossary.mjs build) -->";
@@ -162,5 +163,98 @@ export function scaffold(dataDir) {
   if (!existing.includes("## 용어 사전")) {
     const next = existing.trimEnd();
     writeFileSync(claudeMd, (next ? next + "\n\n" : "") + CLAUDE_BLOCK);
+  }
+}
+
+export function parseArgs(rest) {
+  const positional = [];
+  const options = {};
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
+    if (a.startsWith("--")) {
+      const eq = a.indexOf("=");
+      if (eq !== -1) options[a.slice(2, eq)] = a.slice(eq + 1);
+      else options[a.slice(2)] = rest[++i];
+    } else {
+      positional.push(a);
+    }
+  }
+  return { positional, options };
+}
+
+function relatedFromOptions(options) {
+  return options.related ? options.related.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+}
+
+export function run(argv, dataDir) {
+  const [cmd, ...rest] = argv;
+  const { positional, options } = parseArgs(rest);
+  switch (cmd) {
+    case "init":
+      scaffold(dataDir);
+      return `초기화 완료: ${dataDir}`;
+    case "build":
+      build(dataDir);
+      return "빌드 완료: core.md, terms.md";
+    case "add": {
+      const [korean, english, abbreviation] = positional;
+      const data = loadGlossary(dataDir);
+      addTerm(data, {
+        korean, english, abbreviation: abbreviation ?? null,
+        description: options.desc ?? "", relatedElements: relatedFromOptions(options) ?? [],
+      });
+      saveGlossary(dataDir, data);
+      build(dataDir);
+      return `추가: ${korean} → ${english}`;
+    }
+    case "update": {
+      const [korean] = positional;
+      const data = loadGlossary(dataDir);
+      const fields = {};
+      if (options.english !== undefined) fields.english = options.english;
+      if (options.abbreviation !== undefined) fields.abbreviation = options.abbreviation || null;
+      if (options.desc !== undefined) fields.description = options.desc;
+      const related = relatedFromOptions(options);
+      if (related !== undefined) fields.relatedElements = related;
+      updateTerm(data, korean, fields);
+      saveGlossary(dataDir, data);
+      build(dataDir);
+      return `수정: ${korean}`;
+    }
+    case "remove": {
+      const [korean] = positional;
+      const data = loadGlossary(dataDir);
+      removeTerm(data, korean);
+      saveGlossary(dataDir, data);
+      build(dataDir);
+      return `삭제: ${korean}`;
+    }
+    case "list": {
+      const data = loadGlossary(dataDir);
+      return listTerms(data).map((t) => `${t.korean}\t${t.english}\t${t.abbreviation ?? ""}`).join("\n");
+    }
+    case "lookup": {
+      const data = loadGlossary(dataDir);
+      return lookup(data, positional[0] ?? "").map((t) => `${t.korean}\t${t.english}\t${t.abbreviation ?? ""}`).join("\n");
+    }
+    case "lint": {
+      const data = loadGlossary(dataDir);
+      return lintFiles(data, positional).map((r) => `${r.token}\t${r.count}`).join("\n");
+    }
+    default:
+      return "사용법: glossary.mjs <init|build|add|update|remove|list|lookup|lint> ...";
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const SELF_DIR = dirname(fileURLToPath(import.meta.url));
+  const argv = process.argv.slice(2);
+  const dataDir = argv[0] === "init" ? join(process.cwd(), ".claude", "superglossary") : SELF_DIR;
+  try {
+    const out = run(argv, dataDir);
+    if (out) console.log(out);
+  } catch (err) {
+    console.error(`✗ ${err.message}`);
+    process.exitCode = 1;
   }
 }
