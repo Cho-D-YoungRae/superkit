@@ -1,2 +1,12 @@
 ### Mac Book ###
 .DS_Store
+
+### Node ###
+node_modules/
+*.log
+
+### Claude Code (로컬 전용 설정) ###
+.claude/settings.local.json
+
+### Superpowers SDD (로컬 스크래치) ###
+.superpowers/
