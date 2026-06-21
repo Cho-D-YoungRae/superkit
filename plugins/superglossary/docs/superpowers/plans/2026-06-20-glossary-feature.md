@@ -707,7 +707,7 @@ export const CLAUDE_BLOCK = `## 용어 사전
 - 용어 수정·삭제가 필요하면 \`node .claude/superglossary/glossary.mjs update <korean> ...\` 또는 \`remove <korean>\`을 사용한다(둘 다 자동 재빌드).
 - 기존 모듈 수정 시 그 모듈의 기존 컨벤션을 우선하고, 신규 코드에는 사전을 우선한다. 임의 리네이밍은 하지 않는다.
 - 비즈니스 의미·주의사항이 필요하면 \`.claude/superglossary/terms.md\`를 찾는다. core.md·terms.md는 생성물이므로 직접 편집하지 않는다.
-- 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 검색 없이 작성하고 빈 용어만 추가 → 완료 후 \`glossary-check\`로 검토.
+- 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 검색 없이 작성하고 사전에 없는 용어만 추가 → 완료 후 \`glossary-check\`로 검토.
 `;
 
 export function scaffold(dataDir) {
@@ -1165,7 +1165,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - [ ] **Step 1: README.md 갱신**
 
 기존 "추후 제공" 문구를 걷어내고 다음을 포함한다(한국어):
-- **권장 워크플로우**(상단 가까이): 시작 전 정렬 → 작업 중 검색 없이 작성하고 빈 용어만 추가 → 완료 후 `glossary-check` → (선택) 커밋/PR 검사.
+- **권장 워크플로우**(상단 가까이): 시작 전 정렬 → 작업 중 검색 없이 작성하고 사전에 없는 용어만 추가 → 완료 후 `glossary-check` → (선택) 커밋/PR 검사.
 - **구성 요소**: 커맨드 `/superglossary:init`·`/superglossary:add`, 스킬 `glossary-check`, 서브에이전트 `check-analyzer`·`glossary-scanner`, CLI `glossary.mjs`(의존성 0).
 - **데이터·로딩**: `.claude/superglossary/`(glossary.json·core.md·terms.md·glossary.mjs), 상시 로드는 `.claude/CLAUDE.md`의 `@superglossary/core.md`.
 - **설치·테스트**: 로컬은 `claude --plugin-dir .`, 배포는 `/plugin marketplace add Cho-D-YoungRae/superglossary` → `/plugin install superglossary@superglossary`.

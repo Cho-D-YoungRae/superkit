@@ -6,7 +6,7 @@
 
 ```
 1. 시작 전  — /superglossary:init 또는 glossary-check 스킬로 용어 정렬
-2. 작업 중  — 검색 없이 작업하되, 모르는 용어는 /superglossary:add 로 빈 항목만 추가
+2. 작업 중  — 검색 없이 작업하되, 사전에 없는 용어를 만나면 /superglossary:add 로 그것만 추가
 3. 완료 후  — glossary-check 스킬로 전체 일관성 검사
 4. (선택)   — 커밋/PR 전 자동 lint (아래 '자동 트리거' 참고)
 ```
