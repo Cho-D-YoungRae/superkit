@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -77,4 +77,18 @@ test("removeTerm: 용어를 삭제한다", () => {
 
 test("removeTerm: 없는 용어는 throw", () => {
   assert.throws(() => removeTerm({ terms: [] }, "없음"), /등록되지 않은 용어/);
+});
+
+test("lookup: 한글·영문·축약어 부분일치", () => {
+  const data = { terms: [
+    { korean: "회원", english: "member", abbreviation: null },
+    { korean: "식별자", english: "identifier", abbreviation: "id" },
+  ] };
+  assert.deepEqual(lookup(data, "mem").map(t => t.korean), ["회원"]);
+  assert.deepEqual(lookup(data, "ID").map(t => t.korean), ["식별자"]);
+});
+
+test("listTerms: 가나다순 전체", () => {
+  const data = { terms: [{ korean: "회원", english: "member" }, { korean: "가격", english: "price" }] };
+  assert.deepEqual(listTerms(data).map(t => t.korean), ["가격", "회원"]);
 });

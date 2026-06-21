@@ -52,3 +52,17 @@ export function removeTerm(data, korean) {
   data.terms.splice(idx, 1);
   return data;
 }
+
+export function listTerms(data) {
+  return sortedTerms(data);
+}
+
+export function lookup(data, query) {
+  const q = query.toLowerCase();
+  return sortedTerms(data).filter(
+    (t) =>
+      t.korean.toLowerCase().includes(q) ||
+      t.english.toLowerCase().includes(q) ||
+      (t.abbreviation && t.abbreviation.toLowerCase().includes(q))
+  );
+}
