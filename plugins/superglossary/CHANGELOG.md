@@ -7,12 +7,14 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-21
+
 ### Added
 
 - 커맨드 `/superglossary:init` — 사용자 프로젝트에 용어사전 초기화 (`commands/init.md`)
 - 커맨드 `/superglossary:add` — 새 용어 추가 (`commands/add.md`)
 - 스킬 `glossary-check` — 작업 결과물의 용어 일관성 검사 (`skills/glossary-check/SKILL.md`)
-- 서브에이전트 `check-analyzer` — 검사 결과 분석 (`agents/check-analyzer.md`)
+- 서브에이전트 `check-analyzer` — 코드↔사전 양방향 의미 검토, model: sonnet (`agents/check-analyzer.md`)
 - 서브에이전트 `glossary-scanner` — 코드·문서에서 용어 스캔, model: sonnet (`agents/glossary-scanner.md`)
 - CLI `templates/glossary.mjs` — 의존성 0의 독립 CLI (서브커맨드: `init`/`build`/`add`/`update`/`remove`/`list`/`lookup`/`lint`)
 - 테스트 스위트 (`tests/`, node:test, 24개)
@@ -28,5 +30,6 @@
 - MIT 라이선스
 - PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 
-[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Cho-D-YoungRae/superglossary/releases/tag/v0.1.0
