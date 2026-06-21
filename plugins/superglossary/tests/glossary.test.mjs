@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold } from "../templates/glossary.mjs";
-import { mkdirSync } from "node:fs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -181,6 +180,7 @@ test("scaffold: 기존 CLAUDE.md에 중복 추가하지 않는다", () => {
     scaffold(dataDir);
     const claude = loadFile(join(root, ".claude", "CLAUDE.md"));
     assert.equal(claude.match(/## 용어 사전/g).length, 1, "섹션 1개 유지");
+    assert.ok(claude.includes("# 기존"), "기존 내용 보존");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
