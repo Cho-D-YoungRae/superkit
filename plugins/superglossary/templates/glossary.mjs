@@ -66,3 +66,40 @@ export function lookup(data, query) {
       (t.abbreviation && t.abbreviation.toLowerCase().includes(q))
   );
 }
+
+const RULE_COMMENT =
+  "<!-- 규칙: 단일어만 등록·조합해 사용한다. 축약어는 이 표에 등록된 것만 허용한다. -->";
+
+export function renderCore(data) {
+  const rows = sortedTerms(data)
+    .map((t) => `| ${t.korean} | ${t.english} | ${t.abbreviation ?? ""} |`)
+    .join("\n");
+  return `${AUTOGEN}
+${RULE_COMMENT}
+
+| 한글 | 영문 | 축약 |
+| --- | --- | --- |
+${rows}
+`;
+}
+
+export function renderTerms(data) {
+  const rows = sortedTerms(data)
+    .map(
+      (t) =>
+        `| ${t.korean} | ${t.english} | ${t.abbreviation ?? ""} | ${t.description ?? ""} | ${(t.relatedElements ?? []).join(", ")} |`
+    )
+    .join("\n");
+  return `${AUTOGEN}
+
+| 한글 | 영문 | 축약 | 설명 | 관련 요소 |
+| --- | --- | --- | --- | --- |
+${rows}
+`;
+}
+
+export function build(dir) {
+  const data = loadGlossary(dir);
+  writeFileSync(join(dir, "core.md"), renderCore(data));
+  writeFileSync(join(dir, "terms.md"), renderTerms(data));
+}
