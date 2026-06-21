@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -124,6 +124,31 @@ test("build: 멱등 — 두 번 빌드해도 동일", () => {
     build(dir);
     assert.equal(loadFile(join(dir, "core.md")), core1);
     assert.equal(loadFile(join(dir, "terms.md")), terms1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tokenize: camelCase/snake_case 분해", () => {
+  assert.deepEqual(tokenize("memberId"), ["member", "id"]);
+  assert.deepEqual(tokenize("reg_dt"), ["reg", "dt"]);
+  assert.deepEqual(tokenize("ship_address"), ["ship", "address"]);
+});
+
+test("lintFiles: 미등록 토큰을 빈도와 함께 반환", () => {
+  const dir = tmp();
+  try {
+    const f = join(dir, "sample.js");
+    wf(f, "const customer = 1; const customerName = 2; const memberId = 3;");
+    const data = { terms: [
+      { korean: "회원", english: "member", abbreviation: null },
+      { korean: "식별자", english: "identifier", abbreviation: "id" },
+      { korean: "이름", english: "name", abbreviation: null },
+    ] };
+    const result = lintFiles(data, [f]);
+    const customer = result.find((r) => r.token === "customer");
+    assert.ok(customer && customer.count === 2, "customer 2회 미등록");
+    assert.ok(!result.find((r) => r.token === "member"), "member는 등록되어 제외");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

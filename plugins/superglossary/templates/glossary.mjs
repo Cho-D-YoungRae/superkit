@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // .claude/superglossary/glossary.mjs — 프로젝트 용어사전 CLI (의존성 0)
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export const AUTOGEN =
@@ -102,4 +102,34 @@ export function build(dir) {
   const data = loadGlossary(dir);
   writeFileSync(join(dir, "core.md"), renderCore(data));
   writeFileSync(join(dir, "terms.md"), renderTerms(data));
+}
+
+export function tokenize(identifier) {
+  return identifier
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[_\s]+/)
+    .map((s) => s.toLowerCase())
+    .filter(Boolean);
+}
+
+export function lintFiles(data, files) {
+  const known = new Set();
+  for (const t of data.terms) {
+    known.add(t.english.toLowerCase());
+    if (t.abbreviation) known.add(t.abbreviation.toLowerCase());
+  }
+  const counts = new Map();
+  for (const file of files) {
+    if (!existsSync(file) || statSync(file).isDirectory()) continue;
+    const ids = readFileSync(file, "utf8").match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
+    for (const id of ids) {
+      for (const tok of tokenize(id)) {
+        if (tok.length < 2 || known.has(tok)) continue;
+        counts.set(tok, (counts.get(tok) || 0) + 1);
+      }
+    }
+  }
+  return [...counts.entries()]
+    .map(([token, count]) => ({ token, count }))
+    .sort((a, b) => b.count - a.count);
 }
