@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // .claude/superglossary/glossary.mjs — 프로젝트 용어사전 CLI (의존성 0)
-import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 export const AUTOGEN =
@@ -132,4 +132,35 @@ export function lintFiles(data, files) {
   return [...counts.entries()]
     .map(([token, count]) => ({ token, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+export const INITIAL_DATA = {
+  terms: [
+    { korean: "식별자", english: "identifier", abbreviation: "id", description: "데이터를 고유 식별하는 값. {엔티티}_id 형식", relatedElements: [] },
+    { korean: "일시", english: "datetime", abbreviation: "at", description: "날짜와 시각. created_at 처럼 _at 접미사로 사용", relatedElements: [] },
+    { korean: "이름", english: "name", abbreviation: null, description: "대상을 지칭하는 명칭", relatedElements: [] },
+  ],
+};
+
+export const CLAUDE_BLOCK = `## 용어 사전
+@superglossary/core.md
+
+- 클래스/변수/함수/컬럼/테이블 등 모든 네이밍은 위 표의 영문명만 사용한다. 축약어는 표에 등록된 것만 허용한다.
+- 표에 없는 단일어가 필요하면 임의로 짓지 말고, Claude가 직접 \`node .claude/superglossary/glossary.mjs add <korean> <english> [abbreviation]\`로 추가한다(사용자는 \`/superglossary:add\`도 사용 가능). 복합어는 단일어로 분해해 등록하고, 변경은 같은 diff에 포함한다.
+- 용어 수정·삭제가 필요하면 \`node .claude/superglossary/glossary.mjs update <korean> ...\` 또는 \`remove <korean>\`을 사용한다(둘 다 자동 재빌드).
+- 기존 모듈 수정 시 그 모듈의 기존 컨벤션을 우선하고, 신규 코드에는 사전을 우선한다. 임의 리네이밍은 하지 않는다.
+- 비즈니스 의미·주의사항이 필요하면 \`.claude/superglossary/terms.md\`를 찾는다. core.md·terms.md는 생성물이므로 직접 편집하지 않는다.
+- 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 검색 없이 작성하고 빈 용어만 추가 → 완료 후 \`glossary-check\`로 검토.
+`;
+
+export function scaffold(dataDir) {
+  mkdirSync(dataDir, { recursive: true });
+  if (!existsSync(join(dataDir, "glossary.json"))) saveGlossary(dataDir, INITIAL_DATA);
+  build(dataDir);
+  const claudeMd = join(dataDir, "..", "CLAUDE.md");
+  const existing = existsSync(claudeMd) ? readFileSync(claudeMd, "utf8") : "";
+  if (!existing.includes("## 용어 사전")) {
+    const next = existing.trimEnd();
+    writeFileSync(claudeMd, (next ? next + "\n\n" : "") + CLAUDE_BLOCK);
+  }
 }

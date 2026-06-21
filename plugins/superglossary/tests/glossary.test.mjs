@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold } from "../templates/glossary.mjs";
+import { mkdirSync } from "node:fs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -151,5 +152,36 @@ test("lintFiles: 미등록 토큰을 빈도와 함께 반환", () => {
     assert.ok(!result.find((r) => r.token === "member"), "member는 등록되어 제외");
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("scaffold: 초기 데이터·생성물·CLAUDE.md 블록", () => {
+  const root = tmp();
+  try {
+    const dataDir = join(root, ".claude", "superglossary");
+    scaffold(dataDir);
+    const data = loadGlossary(dataDir);
+    assert.ok(data.terms.find((t) => t.korean === "일시" && t.abbreviation === "at"), "일시=at");
+    assert.ok(!data.terms.find((t) => t.korean === "주소"), "주소 없음");
+    assert.ok(loadFile(join(dataDir, "core.md")).includes("identifier"));
+    const claude = loadFile(join(root, ".claude", "CLAUDE.md"));
+    assert.ok(claude.includes("## 용어 사전"));
+    assert.ok(claude.includes("@superglossary/core.md"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("scaffold: 기존 CLAUDE.md에 중복 추가하지 않는다", () => {
+  const root = tmp();
+  try {
+    const dataDir = join(root, ".claude", "superglossary");
+    mkdirSync(join(root, ".claude"), { recursive: true });
+    wf(join(root, ".claude", "CLAUDE.md"), "# 기존\n\n## 용어 사전\n기존 내용\n");
+    scaffold(dataDir);
+    const claude = loadFile(join(root, ".claude", "CLAUDE.md"));
+    assert.equal(claude.match(/## 용어 사전/g).length, 1, "섹션 1개 유지");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
