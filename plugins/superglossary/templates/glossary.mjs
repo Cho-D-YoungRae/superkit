@@ -8,7 +8,14 @@ export const AUTOGEN =
   "<!-- 이 파일은 glossary.json에서 자동 생성됩니다. 직접 편집하지 마세요. (glossary.mjs build) -->";
 
 export function loadGlossary(dir) {
-  return JSON.parse(readFileSync(join(dir, "glossary.json"), "utf8"));
+  try {
+    return JSON.parse(readFileSync(join(dir, "glossary.json"), "utf8"));
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      throw new Error("용어사전이 없습니다. /superglossary:init(또는 glossary.mjs init)을 먼저 실행하세요.");
+    }
+    throw err;
+  }
 }
 
 export function saveGlossary(dir, data) {
@@ -94,6 +101,15 @@ export function lookup(data, query) {
   );
 }
 
+export function formatTermDetail(t) {
+  const abbr = t.abbreviation ? ` (축약: ${t.abbreviation})` : "";
+  const lines = [`${t.korean} → ${t.english}${abbr}`];
+  if (t.description) lines.push(`  설명: ${t.description}`);
+  if ((t.relatedElements ?? []).length) lines.push(`  관련: ${t.relatedElements.join(", ")}`);
+  if (avoidOf(t).length) lines.push(`  금지: ${avoidOf(t).join(", ")}`);
+  return lines.join("\n");
+}
+
 const RULE_COMMENT =
   "<!-- 규칙: 단일어만 등록·조합해 사용한다. 축약어는 이 표에 등록된 것만 허용한다. -->";
 
@@ -145,6 +161,21 @@ export function build(dir) {
   return lines > CORE_SPLIT_THRESHOLD
     ? `안내: core.md가 ${lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요.`
     : null;
+}
+
+export function isStale(dir, data) {
+  const targets = [["core.md", renderCore], ["terms.md", renderTerms]];
+  for (const [name, render] of targets) {
+    const p = join(dir, name);
+    if (!existsSync(p) || readFileSync(p, "utf8") !== render(data)) return true;
+  }
+  return false;
+}
+
+function warnIfStale(dir, data) {
+  if (isStale(dir, data)) {
+    console.error("⚠ core.md/terms.md가 glossary.json과 다릅니다. 'glossary.mjs build'를 실행하세요.");
+  }
 }
 
 export function tokenize(identifier) {
@@ -345,14 +376,18 @@ export function run(argv, dataDir) {
     }
     case "list": {
       const data = loadGlossary(dataDir);
+      warnIfStale(dataDir, data);
       return listTerms(data).map((t) => `${t.korean}\t${t.english}\t${t.abbreviation ?? ""}`).join("\n");
     }
     case "lookup": {
       const data = loadGlossary(dataDir);
-      return lookup(data, positional[0] ?? "").map((t) => `${t.korean}\t${t.english}\t${t.abbreviation ?? ""}`).join("\n");
+      warnIfStale(dataDir, data);
+      const found = lookup(data, positional[0] ?? "");
+      return found.length ? found.map(formatTermDetail).join("\n\n") : "일치하는 용어 없음";
     }
     case "lint": {
       const data = loadGlossary(dataDir);
+      warnIfStale(dataDir, data);
       const { violations, candidates } = lintFiles(data, positional, { all: options.all === true });
       const lines = [];
       if (violations.length) {

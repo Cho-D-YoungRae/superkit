@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD, STOPWORDS, formatFileList } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD, STOPWORDS, formatFileList, formatTermDetail, isStale } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -455,4 +455,50 @@ test("updateTerm: avoid 갱신과 충돌 검사", () => {
 
 test("findConflict: 충돌 없으면 null", () => {
   assert.equal(findConflict([], { korean: "회원", english: "member", abbreviation: null, avoid: [] }), null);
+});
+
+test("formatTermDetail: 전 필드 출력, 빈 필드 줄 생략", () => {
+  const full = formatTermDetail({ korean: "회원", english: "member", abbreviation: "mbr", description: "가입 사용자", relatedElements: ["member_id"], avoid: ["customer"] });
+  assert.equal(full, "회원 → member (축약: mbr)\n  설명: 가입 사용자\n  관련: member_id\n  금지: customer");
+  const minimal = formatTermDetail({ korean: "주문", english: "order", abbreviation: null, description: "", relatedElements: [], avoid: [] });
+  assert.equal(minimal, "주문 → order");
+});
+
+test("run lookup: 상세를 출력하고 무일치 시 안내한다", () => {
+  const dir = tmp();
+  try {
+    saveGlossary(dir, { terms: [{ korean: "청구", english: "claim", abbreviation: null, description: "요금 청구", relatedElements: [], avoid: [] }] });
+    build(dir);
+    const out = run(["lookup", "청구"], dir);
+    assert.ok(out.includes("청구 → claim"));
+    assert.ok(out.includes("설명: 요금 청구"));
+    assert.equal(run(["lookup", "없는말"], dir), "일치하는 용어 없음");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("isStale: 빌드 직후 false, json 변경 후 true, 생성물 없으면 true", () => {
+  const dir = tmp();
+  try {
+    saveGlossary(dir, { terms: [{ korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [], avoid: [] }] });
+    assert.equal(isStale(dir, loadGlossary(dir)), true, "생성물 없음 = stale");
+    build(dir);
+    assert.equal(isStale(dir, loadGlossary(dir)), false);
+    const data = loadGlossary(dir);
+    data.terms.push({ korean: "주문", english: "order", abbreviation: null, description: "", relatedElements: [], avoid: [] });
+    saveGlossary(dir, data);
+    assert.equal(isStale(dir, loadGlossary(dir)), true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("loadGlossary: glossary.json이 없으면 안내 에러", () => {
+  const dir = tmp();
+  try {
+    assert.throws(() => loadGlossary(dir), /용어사전이 없습니다/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
