@@ -19,18 +19,40 @@ export function sortedTerms(data) {
   return [...data.terms].sort((a, b) => a.korean.localeCompare(b.korean, "ko"));
 }
 
-export function addTerm(data, { korean, english, abbreviation = null, description = "", relatedElements = [] }) {
-  if (!korean || !english) throw new Error("korean과 english는 필수입니다.");
-  // 한글은 대소문자 개념이 없어 완전 일치로 검사
-  const dupKorean = data.terms.find((t) => t.korean === korean);
-  if (dupKorean) throw new Error(`이미 등록된 한글: ${korean} → ${dupKorean.english}`);
-  const dupEnglish = data.terms.find((t) => t.english.toLowerCase() === english.toLowerCase());
-  if (dupEnglish) throw new Error(`이미 등록된 영문: ${english} (${dupEnglish.korean})`);
-  if (abbreviation) {
-    const e = data.terms.find((t) => t.abbreviation && t.abbreviation.toLowerCase() === abbreviation.toLowerCase());
-    if (e) throw new Error(`이미 등록된 축약어: ${abbreviation} (${e.korean})`);
+function avoidOf(term) {
+  return term.avoid ?? [];
+}
+
+export function findConflict(otherTerms, { korean, english, abbreviation = null, avoid = [] }) {
+  const e = english ? english.toLowerCase() : null;
+  const a = abbreviation ? abbreviation.toLowerCase() : null;
+  const av = avoid.map((s) => s.toLowerCase());
+  if (e && av.includes(e)) return `금지 변형 '${english}'이(가) 자신의 영문과 같습니다`;
+  if (a && av.includes(a)) return `금지 변형 '${abbreviation}'이(가) 자신의 축약어와 같습니다`;
+  for (const t of otherTerms) {
+    const te = t.english.toLowerCase();
+    const ta = t.abbreviation ? t.abbreviation.toLowerCase() : null;
+    const tav = avoidOf(t).map((s) => s.toLowerCase());
+    if (t.korean === korean) return `이미 등록된 한글: ${korean} → ${t.english}`;
+    if (e === te) return `이미 등록된 영문: ${english} (${t.korean})`;
+    if (e && e === ta) return `이미 등록된 축약어와 충돌: ${english} (${t.korean})`;
+    if (e && tav.includes(e)) return `'${english}'은(는) 금지 변형입니다. 표준: ${t.english}(${t.korean})`;
+    if (a && a === ta) return `이미 등록된 축약어: ${abbreviation} (${t.korean})`;
+    if (a && a === te) return `이미 등록된 영문과 충돌: ${abbreviation} (${t.korean})`;
+    if (a && tav.includes(a)) return `'${abbreviation}'은(는) 금지 변형입니다. 표준: ${t.english}(${t.korean})`;
+    for (const v of av) {
+      if (v === te || v === ta) return `금지 변형 '${v}'이(가) 등록 용어 ${t.korean}(${t.english})과(와) 충돌합니다`;
+      if (tav.includes(v)) return `금지 변형 '${v}'은(는) 이미 ${t.korean}(${t.english})의 금지 목록에 있습니다`;
+    }
   }
-  data.terms.push({ korean, english, abbreviation, description, relatedElements });
+  return null;
+}
+
+export function addTerm(data, { korean, english, abbreviation = null, description = "", relatedElements = [], avoid = [] }) {
+  if (!korean || !english) throw new Error("korean과 english는 필수입니다.");
+  const conflict = findConflict(data.terms, { korean, english, abbreviation, avoid });
+  if (conflict) throw new Error(conflict);
+  data.terms.push({ korean, english, abbreviation, description, relatedElements, avoid });
   return data;
 }
 
@@ -41,9 +63,13 @@ export function findTerm(data, korean) {
 export function updateTerm(data, korean, fields) {
   const term = findTerm(data, korean);
   if (!term) throw new Error(`등록되지 않은 용어: ${korean}`);
-  for (const key of ["english", "abbreviation", "description", "relatedElements"]) {
-    if (fields[key] !== undefined) term[key] = fields[key];
+  const next = { ...term };
+  for (const key of ["english", "abbreviation", "description", "relatedElements", "avoid"]) {
+    if (fields[key] !== undefined) next[key] = fields[key];
   }
+  const conflict = findConflict(data.terms.filter((t) => t.korean !== korean), next);
+  if (conflict) throw new Error(conflict);
+  Object.assign(term, next);
   return data;
 }
 
@@ -137,9 +163,9 @@ export function lintFiles(data, files) {
 
 export const INITIAL_DATA = {
   terms: [
-    { korean: "식별자", english: "identifier", abbreviation: "id", description: "데이터를 고유 식별하는 값. {엔티티}_id 형식", relatedElements: [] },
-    { korean: "일시", english: "datetime", abbreviation: "at", description: "날짜와 시각. created_at 처럼 _at 접미사로 사용", relatedElements: [] },
-    { korean: "이름", english: "name", abbreviation: null, description: "대상을 지칭하는 명칭", relatedElements: [] },
+    { korean: "식별자", english: "identifier", abbreviation: "id", description: "데이터를 고유 식별하는 값. {엔티티}_id 형식", relatedElements: [], avoid: [] },
+    { korean: "일시", english: "datetime", abbreviation: "at", description: "날짜와 시각. created_at 처럼 _at 접미사로 사용", relatedElements: [], avoid: [] },
+    { korean: "이름", english: "name", abbreviation: null, description: "대상을 지칭하는 명칭", relatedElements: [], avoid: [] },
   ],
 };
 

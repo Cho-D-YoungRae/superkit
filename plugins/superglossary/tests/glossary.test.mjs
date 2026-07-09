@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -36,7 +36,7 @@ test("addTerm: 새 용어를 정규화해 추가한다", () => {
   const data = { terms: [] };
   addTerm(data, { korean: "회원", english: "member" });
   assert.deepEqual(data.terms[0], {
-    korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [],
+    korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [], avoid: [],
   });
 });
 
@@ -220,4 +220,77 @@ test("run remove가 용어를 제거한다", () => {
 
 test("run: 알 수 없는 커맨드는 throw", () => {
   assert.throws(() => run(["nope"], "/tmp"), /알 수 없는 커맨드/);
+});
+
+test("addTerm: avoid를 배열로 저장한다", () => {
+  const data = { terms: [] };
+  addTerm(data, { korean: "회원", english: "member", avoid: ["customer", "user"] });
+  assert.deepEqual(data.terms[0].avoid, ["customer", "user"]);
+});
+
+test("addTerm: 신규 english가 기존 avoid에 있으면 표준을 안내하며 거부한다", () => {
+  const data = { terms: [{ korean: "회원", english: "member", abbreviation: null, avoid: ["customer"] }] };
+  assert.throws(
+    () => addTerm(data, { korean: "고객", english: "Customer" }),
+    /금지 변형입니다. 표준: member/
+  );
+});
+
+test("addTerm: avoid가 기존 english와 겹치면 거부한다", () => {
+  const data = { terms: [{ korean: "회원", english: "member", abbreviation: null }] };
+  assert.throws(
+    () => addTerm(data, { korean: "고객", english: "client", avoid: ["member"] }),
+    /금지 변형 'member'이\(가\) 등록 용어 회원\(member\)과\(와\) 충돌합니다/
+  );
+});
+
+test("addTerm: avoid가 기존 abbreviation과 겹치면 거부한다", () => {
+  const data = { terms: [{ korean: "식별자", english: "identifier", abbreviation: "id" }] };
+  assert.throws(
+    () => addTerm(data, { korean: "지표", english: "metric", avoid: ["ID"] }),
+    /등록 용어 식별자\(identifier\)과\(와\) 충돌합니다/
+  );
+});
+
+test("addTerm: avoid는 전역 유일 — 다른 용어의 avoid와 겹치면 거부한다", () => {
+  const data = { terms: [{ korean: "회원", english: "member", abbreviation: null, avoid: ["customer"] }] };
+  assert.throws(
+    () => addTerm(data, { korean: "고객", english: "client", avoid: ["customer"] }),
+    /이미 회원\(member\)의 금지 목록에 있습니다/
+  );
+});
+
+test("addTerm: avoid가 자신의 english/abbreviation과 같으면 거부한다", () => {
+  assert.throws(
+    () => addTerm({ terms: [] }, { korean: "고객", english: "client", avoid: ["client"] }),
+    /자신의 영문/
+  );
+  assert.throws(
+    () => addTerm({ terms: [] }, { korean: "고객", english: "client", abbreviation: "cl", avoid: ["cl"] }),
+    /자신의 축약어/
+  );
+});
+
+test("addTerm: english↔abbreviation 교차 충돌을 거부한다", () => {
+  const data = { terms: [
+    { korean: "식별자", english: "identifier", abbreviation: "id" },
+    { korean: "회원", english: "member", abbreviation: null },
+  ] };
+  assert.throws(() => addTerm(data, { korean: "지표", english: "id" }), /이미 등록된 축약어와 충돌/);
+  assert.throws(() => addTerm(data, { korean: "고객", english: "client", abbreviation: "member" }), /이미 등록된 영문과 충돌/);
+});
+
+test("updateTerm: avoid 갱신과 충돌 검사", () => {
+  const data = { terms: [
+    { korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [], avoid: [] },
+    { korean: "주문", english: "order", abbreviation: null, description: "", relatedElements: [], avoid: [] },
+  ] };
+  updateTerm(data, "회원", { avoid: ["customer", "user"] });
+  assert.deepEqual(findTerm(data, "회원").avoid, ["customer", "user"]);
+  assert.throws(() => updateTerm(data, "회원", { avoid: ["order"] }), /등록 용어 주문\(order\)과\(와\) 충돌합니다/);
+  assert.deepEqual(findTerm(data, "회원").avoid, ["customer", "user"], "실패 시 원본 불변");
+});
+
+test("findConflict: 충돌 없으면 null", () => {
+  assert.equal(findConflict([], { korean: "회원", english: "member", abbreviation: null, avoid: [] }), null);
 });
