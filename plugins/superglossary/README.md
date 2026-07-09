@@ -5,22 +5,22 @@
 ## 권장 워크플로우
 
 ```
-1. 시작 전  — /superglossary:init 또는 glossary-check 스킬로 용어 정렬
-2. 작업 중  — 검색 없이 작업하되, 사전에 없는 용어를 만나면 /superglossary:add 로 그것만 추가
-3. 완료 후  — glossary-check 스킬로 전체 일관성 검사
-4. (선택)   — 커밋/PR 전 자동 lint (아래 '자동 트리거' 참고)
+1. 최초 1회  — /superglossary:init 으로 초기화 (큰 기능 전엔 다룰 핵심 개념을 사전과 정렬)
+2. 작업 중   — 검색 없이 작업하되, 사전에 없는 용어를 만나면 add 스킬로 그것만 추가
+3. 완료 후   — check 스킬로 일관성 검사 ([위반]은 사전이 확정, 후보는 의미 검토)
+4. (선택)    — 커밋/PR 전 자동 lint (아래 '자동 트리거' 참고)
 ```
 
 ## 구성 요소
 
 | 종류 | 이름 | 역할 |
 |------|------|------|
-| 커맨드 | `/superglossary:init` | 프로젝트에 용어사전 초기화 |
-| 커맨드 | `/superglossary:add` | 새 용어 추가 |
-| 스킬 | `glossary-check` | 작업 결과물의 용어 일관성 검사 |
-| 서브에이전트 | `check-analyzer` | 검사 결과 분석 |
-| 서브에이전트 | `glossary-scanner` | 코드·문서에서 용어 스캔(model: sonnet) |
-| CLI | `templates/glossary.mjs` | 의존성 0의 독립 CLI (서브커맨드: `init`/`build`/`add`/`update`/`remove`/`list`/`lookup`/`lint`) |
+| 스킬 | `/superglossary:init` | 프로젝트에 용어사전 초기화·CLI 업그레이드 (사용자 전용) |
+| 스킬 | `/superglossary:add` | 새 용어 등록 — 사용자 호출 + Claude가 필요 시 자율 호출 |
+| 스킬 | `/superglossary:check` | 용어 일관성 검사 (소규모는 인라인, 대규모는 서브에이전트) |
+| 서브에이전트 | `check-analyzer` | 대규모 후보의 의미 기반 확정 (model: sonnet) |
+| 서브에이전트 | `glossary-scanner` | 코드·문서에서 용어 후보·혼용 스캔 (model: sonnet) |
+| CLI | `templates/glossary.mjs` | 의존성 0의 독립 CLI (`init`/`build`/`add`/`update`/`remove`/`list`/`lookup`/`lint`/`version`/`help`) |
 
 ## 데이터 및 로딩
 
@@ -28,7 +28,7 @@
 
 ```
 .claude/superglossary/
-  glossary.json   — 용어 원본 데이터
+  glossary.json   — 용어 원본 데이터 (금지 변형 avoid 포함)
   core.md         — Claude 상시 로드용 핵심 용어 요약
   terms.md        — 전체 용어 목록
   glossary.mjs    — 용어사전 관리 CLI (init/build/add/update/remove/list/lookup/lint, templates/glossary.mjs 복사본)
@@ -40,6 +40,8 @@
 <!-- .claude/CLAUDE.md 예시 -->
 @superglossary/core.md
 ```
+
+**금지 변형(avoid)**: 표준으로 선정되지 않은 영문 변형을 용어에 보존합니다(예: `member`의 avoid = `customer`, `user`). `lint`가 LLM 판단 없이 `[위반]`으로 확정합니다.
 
 ## 설치
 
@@ -57,6 +59,13 @@ claude --plugin-dir .
 # 세션 중 변경 적용 시
 /reload-plugins
 ```
+
+## 업그레이드
+
+플러그인 업데이트 후 각 프로젝트에서 `/superglossary:init`을 재실행하면 CLI 복사본이 최신으로 갱신됩니다. `glossary.json`과 기존 `.claude/CLAUDE.md` 블록은 보존됩니다.
+
+- 현재 CLI 버전 확인: `node .claude/superglossary/glossary.mjs version`
+- CLAUDE.md 블록 문구까지 최신화하려면: `.claude/CLAUDE.md`의 `## 용어 사전` 섹션을 지우고 init을 재실행
 
 ## 자동 트리거 (선택)
 

@@ -7,8 +7,7 @@
 - `.claude-plugin/plugin.json` — 플러그인 매니페스트. **`version` 필드가 버전의 유일한 출처**입니다.
 - `.claude-plugin/marketplace.json` — 자체 호스팅 마켓플레이스(`source: "./"`).
 - `scripts/bump-version.mjs` — 버전 갱신·검증 스크립트.
-- `commands/` — 커맨드 정의 (`superglossary-init.md`, `superglossary-add.md`).
-- `skills/` — 스킬 정의 (`glossary-check.md`).
+- `skills/` — 스킬 정의 (`init/`, `add/`, `check/` — 각 디렉토리에 `SKILL.md`).
 - `agents/` — 서브에이전트 정의 (`check-analyzer.md`, `glossary-scanner.md`).
 - `templates/glossary.mjs` — 사용자 프로젝트에 배포되는 CLI 원본 (의존성 0).
 - `tests/` — 테스트 스위트 (node:test, `pnpm test`).
@@ -16,7 +15,7 @@
 
 ## 컴포넌트 규칙
 
-- `commands/`, `skills/`, `agents/`는 **반드시 저장소 루트**에 둡니다.
+- `skills/`, `agents/`는 **반드시 저장소 루트**에 둡니다.
 - 용어사전 데이터는 사용자 프로젝트의 `.claude/superglossary/`에 생성됩니다(glossary.json·core.md·terms.md·glossary.mjs).
 
 ## 로컬 개발·검증
