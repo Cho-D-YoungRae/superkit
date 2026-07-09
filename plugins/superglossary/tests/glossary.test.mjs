@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -124,6 +124,52 @@ test("build: 멱등 — 두 번 빌드해도 동일", () => {
     build(dir);
     assert.equal(loadFile(join(dir, "core.md")), core1);
     assert.equal(loadFile(join(dir, "terms.md")), terms1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("escapeCell: 파이프와 개행을 이스케이프한다", () => {
+  assert.equal(escapeCell("현재가|주문시점가"), "현재가\\|주문시점가");
+  assert.equal(escapeCell("첫줄\n둘째줄"), "첫줄<br>둘째줄");
+  assert.equal(escapeCell(null), "");
+});
+
+test("renderTerms: 설명의 파이프가 표를 깨지 않는다", () => {
+  const data = { terms: [{ korean: "가격", english: "price", abbreviation: null, description: "현재가|주문시점가 구분", relatedElements: [], avoid: [] }] };
+  assert.ok(renderTerms(data).includes("현재가\\|주문시점가 구분"));
+});
+
+test("renderCore: avoid 요약 블록 — 있는 용어만, 없으면 블록 생략", () => {
+  const withAvoid = { terms: [
+    { korean: "회원", english: "member", abbreviation: null, avoid: ["customer", "user"] },
+    { korean: "주문", english: "order", abbreviation: null, avoid: [] },
+  ] };
+  const out = renderCore(withAvoid);
+  assert.ok(out.includes("금지 변형(대신 표준 사용):"));
+  assert.ok(out.includes("- customer, user → member(회원)"));
+  assert.ok(!out.includes("order(주문)"), "avoid 없는 용어는 요약에 없음");
+  const without = renderCore({ terms: [{ korean: "주문", english: "order", abbreviation: null }] });
+  assert.ok(!without.includes("금지 변형"));
+});
+
+test("renderTerms: 금지 컬럼을 포함한다", () => {
+  const data = { terms: [{ korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [], avoid: ["customer"] }] };
+  const out = renderTerms(data);
+  assert.ok(out.includes("| 한글 | 영문 | 축약 | 설명 | 관련 요소 | 금지 |"));
+  assert.ok(out.includes("| customer |"));
+});
+
+test("build: core.md가 임계선을 넘으면 분할 안내를 반환한다", () => {
+  const dir = tmp();
+  try {
+    const many = Array.from({ length: CORE_SPLIT_THRESHOLD }, (_, i) => ({
+      korean: `용어${String(i).padStart(3, "0")}`, english: `term${i}`, abbreviation: null, description: "", relatedElements: [], avoid: [],
+    }));
+    saveGlossary(dir, { terms: many });
+    assert.match(build(dir), /core\.md가 \d+줄입니다/);
+    saveGlossary(dir, { terms: many.slice(0, 3) });
+    assert.equal(build(dir), null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

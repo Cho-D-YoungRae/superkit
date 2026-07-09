@@ -97,38 +97,54 @@ export function lookup(data, query) {
 const RULE_COMMENT =
   "<!-- 규칙: 단일어만 등록·조합해 사용한다. 축약어는 이 표에 등록된 것만 허용한다. -->";
 
+export function escapeCell(value) {
+  return String(value ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+
 export function renderCore(data) {
-  const rows = sortedTerms(data)
-    .map((t) => `| ${t.korean} | ${t.english} | ${t.abbreviation ?? ""} |`)
+  const terms = sortedTerms(data);
+  const rows = terms
+    .map((t) => `| ${escapeCell(t.korean)} | ${escapeCell(t.english)} | ${escapeCell(t.abbreviation ?? "")} |`)
     .join("\n");
+  const avoided = terms.filter((t) => avoidOf(t).length > 0);
+  const avoidBlock = avoided.length
+    ? `\n금지 변형(대신 표준 사용):\n${avoided.map((t) => `- ${avoidOf(t).join(", ")} → ${t.english}(${t.korean})`).join("\n")}\n`
+    : "";
   return `${AUTOGEN}
 ${RULE_COMMENT}
 
 | 한글 | 영문 | 축약 |
 | --- | --- | --- |
 ${rows}
-`;
+${avoidBlock}`;
 }
 
 export function renderTerms(data) {
   const rows = sortedTerms(data)
     .map(
       (t) =>
-        `| ${t.korean} | ${t.english} | ${t.abbreviation ?? ""} | ${t.description ?? ""} | ${(t.relatedElements ?? []).join(", ")} |`
+        `| ${escapeCell(t.korean)} | ${escapeCell(t.english)} | ${escapeCell(t.abbreviation ?? "")} | ${escapeCell(t.description ?? "")} | ${escapeCell((t.relatedElements ?? []).join(", "))} | ${escapeCell(avoidOf(t).join(", "))} |`
     )
     .join("\n");
   return `${AUTOGEN}
 
-| 한글 | 영문 | 축약 | 설명 | 관련 요소 |
-| --- | --- | --- | --- | --- |
+| 한글 | 영문 | 축약 | 설명 | 관련 요소 | 금지 |
+| --- | --- | --- | --- | --- | --- |
 ${rows}
 `;
 }
 
+export const CORE_SPLIT_THRESHOLD = 180;
+
 export function build(dir) {
   const data = loadGlossary(dir);
-  writeFileSync(join(dir, "core.md"), renderCore(data));
+  const core = renderCore(data);
+  writeFileSync(join(dir, "core.md"), core);
   writeFileSync(join(dir, "terms.md"), renderTerms(data));
+  const lines = core.split("\n").length;
+  return lines > CORE_SPLIT_THRESHOLD
+    ? `안내: core.md가 ${lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요.`
+    : null;
 }
 
 export function tokenize(identifier) {
