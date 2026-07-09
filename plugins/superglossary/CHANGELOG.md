@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-09
+
 ### Added
 
 - `avoid`(금지 변형) 필드 — brownfield 표준화 결정을 보존, `lint`가 결정론적으로 위반 확정 (`--avoid` 플래그)
@@ -49,6 +51,7 @@
 - MIT 라이선스
 - PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 
-[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Cho-D-YoungRae/superglossary/releases/tag/v0.1.0

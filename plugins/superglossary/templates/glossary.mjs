@@ -5,7 +5,7 @@ import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 
 export const AUTOGEN =
   "<!-- 이 파일은 glossary.json에서 자동 생성됩니다. 직접 편집하지 마세요. (glossary.mjs build) -->";
