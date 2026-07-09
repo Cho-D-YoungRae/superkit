@@ -155,26 +155,86 @@ export function tokenize(identifier) {
     .filter(Boolean);
 }
 
-export function lintFiles(data, files) {
+// 결정 #11: 언어 키워드·표준 타입·기술 계층 어휘만 포함한다.
+// 도메인 개연성이 있는 일반명사(user, order, item, price, status, state 등)는 넣지 않는다.
+export const STOPWORDS = new Set([
+  // 언어 키워드 (JS/TS/Java/Kotlin/Python/Go/SQL)
+  "abstract", "and", "as", "assert", "async", "await", "boolean", "break", "byte", "case", "cascade",
+  "catch", "chan", "char", "class", "const", "constraint", "continue", "def", "default", "defer",
+  "delete", "do", "double", "elif", "else", "enum", "except", "exists", "export", "extends", "false",
+  "final", "finally", "float", "for", "foreign", "from", "fun", "func", "function", "global", "go",
+  "having", "if", "implements", "import", "in", "init", "inner", "insert", "instanceof", "int",
+  "interface", "internal", "is", "join", "key", "lambda", "left", "let", "like", "limit", "long",
+  "module", "namespace", "new", "nil", "none", "nonlocal", "not", "null", "object", "of", "offset",
+  "open", "or", "outer", "override", "package", "pass", "primary", "private", "protected", "public",
+  "raise", "range", "readonly", "references", "require", "return", "right", "sealed", "select",
+  "self", "short", "static", "struct", "super", "switch", "table", "this", "throw", "throws", "true",
+  "try", "type", "typeof", "union", "unique", "val", "var", "void", "when", "where", "while", "with", "yield",
+  // 표준 타입·라이브러리 어휘
+  "array", "bigdecimal", "bigint", "biginteger", "buffer", "bytes", "calendar", "collection",
+  "collections", "column", "com", "console", "date", "datetime", "dict", "duration", "error",
+  "errors", "example", "exception", "file", "files", "fs", "http", "https", "index", "instant",
+  "integer", "io", "iterator", "java", "javax", "json", "kotlin", "list", "local", "locale", "map",
+  "math", "net", "node", "number", "optional", "os", "path", "process", "promise", "regex",
+  "runtime", "set", "sql", "stream", "string", "sys", "time", "timestamp", "tuple", "uri", "url",
+  "util", "utils", "uuid", "xml", "zone", "zoned",
+  // 범용 프로그래밍 어휘
+  "add", "app", "application", "apply", "arg", "args", "bar", "baz", "bin", "build", "builder",
+  "by", "call", "check", "config", "configuration", "context", "convert", "count", "create",
+  "current", "data", "dist", "doc", "docs", "empty", "execute", "fetch", "find", "first", "foo",
+  "format", "get", "handle", "handler", "impl", "info", "invoke", "last", "length", "lib", "load",
+  "main", "make", "max", "meta", "min", "mock", "next", "now", "old", "on", "opts", "options",
+  "param", "params", "parse", "prev", "read", "remove", "request", "response", "result", "results",
+  "run", "save", "size", "spec", "src", "start", "stop", "stub", "sum", "temp", "test", "tests",
+  "tmp", "to", "token", "update", "validate", "value", "values", "verify", "view", "write",
+  // 기술 계층 어휘 (결정 #11)
+  "adapter", "api", "cli", "controller", "dao", "db", "dto", "entity", "facade", "factory", "grpc",
+  "manager", "model", "orm", "provider", "proxy", "repository", "rest", "sdk", "service",
+  "singleton", "ui", "vo",
+]);
+
+export function lintFiles(data, files, { all = false } = {}) {
   const known = new Set();
+  const avoidMap = new Map();
   for (const t of data.terms) {
-    known.add(t.english.toLowerCase());
+    const e = t.english.toLowerCase();
+    known.add(e);
+    if (e.includes(" ")) for (const w of e.split(/\s+/)) known.add(w);
     if (t.abbreviation) known.add(t.abbreviation.toLowerCase());
+    for (const v of avoidOf(t)) avoidMap.set(v.toLowerCase(), t);
   }
-  const counts = new Map();
+  const hits = new Map();
   for (const file of files) {
     if (!existsSync(file) || statSync(file).isDirectory()) continue;
     const ids = readFileSync(file, "utf8").match(/[A-Za-z_][A-Za-z0-9_]*/g) || [];
     for (const id of ids) {
       for (const tok of tokenize(id)) {
         if (tok.length < 2 || known.has(tok)) continue;
-        counts.set(tok, (counts.get(tok) || 0) + 1);
+        if (!avoidMap.has(tok) && !all && STOPWORDS.has(tok)) continue;
+        const hit = hits.get(tok) ?? { count: 0, files: new Set() };
+        hit.count += 1;
+        hit.files.add(file);
+        hits.set(tok, hit);
       }
     }
   }
-  return [...counts.entries()]
-    .map(([token, count]) => ({ token, count }))
+  const entries = [...hits.entries()]
+    .map(([token, hit]) => ({ token, count: hit.count, files: [...hit.files] }))
     .sort((a, b) => b.count - a.count);
+  return {
+    violations: entries
+      .filter((entry) => avoidMap.has(entry.token))
+      .map((entry) => {
+        const standard = avoidMap.get(entry.token);
+        return { ...entry, standard: standard.english, korean: standard.korean };
+      }),
+    candidates: entries.filter((entry) => !avoidMap.has(entry.token)),
+  };
+}
+
+export function formatFileList(files) {
+  const shown = files.slice(0, 3).join(", ");
+  return files.length > 3 ? `${shown} 외 ${files.length - 3}` : shown;
 }
 
 export const INITIAL_DATA = {
@@ -293,7 +353,17 @@ export function run(argv, dataDir) {
     }
     case "lint": {
       const data = loadGlossary(dataDir);
-      return lintFiles(data, positional).map((r) => `${r.token}\t${r.count}`).join("\n");
+      const { violations, candidates } = lintFiles(data, positional, { all: options.all === true });
+      const lines = [];
+      if (violations.length) {
+        lines.push("[위반]");
+        for (const v of violations) lines.push(`${v.token}\t${v.standard}(${v.korean})\t${v.count}\t${formatFileList(v.files)}`);
+      }
+      if (candidates.length) {
+        lines.push("[후보]");
+        for (const c of candidates) lines.push(`${c.token}\t${c.count}\t${formatFileList(c.files)}`);
+      }
+      return lines.length ? lines.join("\n") : "이상 없음";
     }
     default:
       throw new Error(`알 수 없는 커맨드: ${cmd}\n사용법: glossary.mjs <init|build|add|update|remove|list|lookup|lint> ...`);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD } from "../templates/glossary.mjs";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD, STOPWORDS, formatFileList } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -181,7 +181,7 @@ test("tokenize: camelCase/snake_case 분해", () => {
   assert.deepEqual(tokenize("ship_address"), ["ship", "address"]);
 });
 
-test("lintFiles: 미등록 토큰을 빈도와 함께 반환", () => {
+test("lintFiles: 미등록 토큰을 빈도와 함께 candidates로 반환", () => {
   const dir = tmp();
   try {
     const f = join(dir, "sample.js");
@@ -191,10 +191,97 @@ test("lintFiles: 미등록 토큰을 빈도와 함께 반환", () => {
       { korean: "식별자", english: "identifier", abbreviation: "id" },
       { korean: "이름", english: "name", abbreviation: null },
     ] };
-    const result = lintFiles(data, [f]);
-    const customer = result.find((r) => r.token === "customer");
+    const { candidates } = lintFiles(data, [f]);
+    const customer = candidates.find((r) => r.token === "customer");
     assert.ok(customer && customer.count === 2, "customer 2회 미등록");
-    assert.ok(!result.find((r) => r.token === "member"), "member는 등록되어 제외");
+    assert.deepEqual(customer.files, [f]);
+    assert.ok(!candidates.find((r) => r.token === "member"), "member는 등록되어 제외");
+    assert.ok(!candidates.find((r) => r.token === "const"), "const는 스톱워드로 제외");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("STOPWORDS: 언어·기술 어휘는 포함, 도메인 개연성 일반명사는 제외", () => {
+  for (const w of ["const", "public", "import", "string", "repository", "service"]) {
+    assert.ok(STOPWORDS.has(w), `${w}는 스톱워드여야 함`);
+  }
+  for (const w of ["user", "order", "member", "customer", "item", "price", "product", "address", "status", "state"]) {
+    assert.ok(!STOPWORDS.has(w), `${w}는 스톱워드가 아니어야 함`);
+  }
+});
+
+test("lintFiles: avoid 매치는 violations로 분리되고 스톱워드보다 우선한다", () => {
+  const dir = tmp();
+  try {
+    const f = join(dir, "sample.js");
+    // 'repository'는 스톱워드지만 avoid로 등록되면 위반으로 잡혀야 한다(결정 #10)
+    wf(f, "class MemberStore {} class MemberRepository {} const customerId = 1;");
+    const data = { terms: [
+      { korean: "저장소", english: "store", abbreviation: null, avoid: ["repository"] },
+      { korean: "회원", english: "member", abbreviation: null, avoid: ["customer"] },
+      { korean: "식별자", english: "identifier", abbreviation: "id" },
+    ] };
+    const { violations, candidates } = lintFiles(data, [f]);
+    const repo = violations.find((v) => v.token === "repository");
+    assert.ok(repo && repo.standard === "store" && repo.korean === "저장소");
+    const cust = violations.find((v) => v.token === "customer");
+    assert.ok(cust && cust.standard === "member");
+    assert.ok(!candidates.find((c) => c.token === "customer"), "위반은 후보에 중복되지 않음");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("lintFiles: --all은 스톱워드 필터를 해제한다", () => {
+  const dir = tmp();
+  try {
+    const f = join(dir, "sample.js");
+    wf(f, "const value = 1;");
+    const data = { terms: [] };
+    assert.ok(!lintFiles(data, [f]).candidates.find((c) => c.token === "const"));
+    assert.ok(lintFiles(data, [f], { all: true }).candidates.find((c) => c.token === "const"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("lintFiles: 다단어 english는 구성 단어로 매칭된다", () => {
+  const dir = tmp();
+  try {
+    const f = join(dir, "sample.js");
+    wf(f, "const stockKeepingUnit = 1;");
+    const data = { terms: [{ korean: "재고관리단위", english: "Stock Keeping Unit", abbreviation: "SKU" }] };
+    assert.equal(lintFiles(data, [f]).candidates.length, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("formatFileList: 3개 초과는 '외 N'으로 줄인다", () => {
+  assert.equal(formatFileList(["a", "b"]), "a, b");
+  assert.equal(formatFileList(["a", "b", "c", "d", "e"]), "a, b, c 외 2");
+});
+
+test("run lint: 위반/후보 섹션과 '이상 없음'", () => {
+  const dir = tmp();
+  try {
+    // 식별자(id)를 등록해 두어 clean.js의 memberId가 전부 등록어로 매칭되게 한다
+    saveGlossary(dir, { terms: [
+      { korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [], avoid: ["customer"] },
+      { korean: "식별자", english: "identifier", abbreviation: "id", description: "", relatedElements: [], avoid: [] },
+    ] });
+    build(dir);
+    const f = join(dir, "sample.js");
+    wf(f, "const customerId = 1; const deliveryFee = 2;");
+    const out = run(["lint", f], dir);
+    assert.ok(out.includes("[위반]"));
+    assert.ok(out.includes("customer\tmember(회원)"));
+    assert.ok(out.includes("[후보]"));
+    assert.ok(out.includes("delivery"));
+    const clean = join(dir, "clean.js");
+    wf(clean, "const memberId = 1;");
+    assert.equal(run(["lint", clean], dir), "이상 없음");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
