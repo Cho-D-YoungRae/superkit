@@ -208,6 +208,8 @@ export function scaffold(dataDir) {
   }
 }
 
+const BOOLEAN_OPTIONS = new Set(["all"]);
+
 export function parseArgs(rest) {
   const positional = [];
   const options = {};
@@ -216,6 +218,7 @@ export function parseArgs(rest) {
     if (a.startsWith("--")) {
       const eq = a.indexOf("=");
       if (eq !== -1) options[a.slice(2, eq)] = a.slice(eq + 1);
+      else if (BOOLEAN_OPTIONS.has(a.slice(2))) options[a.slice(2)] = true;
       else options[a.slice(2)] = rest[++i];
     } else {
       positional.push(a);
@@ -228,6 +231,10 @@ function relatedFromOptions(options) {
   return options.related ? options.related.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
 }
 
+function avoidFromOptions(options) {
+  return options.avoid ? options.avoid.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+}
+
 export function run(argv, dataDir) {
   const [cmd, ...rest] = argv;
   const { positional, options } = parseArgs(rest);
@@ -235,19 +242,22 @@ export function run(argv, dataDir) {
     case "init":
       scaffold(dataDir);
       return `초기화 완료: ${dataDir}`;
-    case "build":
-      build(dataDir);
-      return "빌드 완료: core.md, terms.md";
+    case "build": {
+      const notice = build(dataDir);
+      return ["빌드 완료: core.md, terms.md", notice].filter(Boolean).join("\n");
+    }
     case "add": {
       const [korean, english, abbreviation] = positional;
       const data = loadGlossary(dataDir);
       addTerm(data, {
         korean, english, abbreviation: abbreviation ?? null,
-        description: options.desc ?? "", relatedElements: relatedFromOptions(options) ?? [],
+        description: options.desc ?? "",
+        relatedElements: relatedFromOptions(options) ?? [],
+        avoid: avoidFromOptions(options) ?? [],
       });
       saveGlossary(dataDir, data);
-      build(dataDir);
-      return `추가: ${korean} → ${english}`;
+      const notice = build(dataDir);
+      return [`추가: ${korean} → ${english}`, notice].filter(Boolean).join("\n");
     }
     case "update": {
       const [korean] = positional;
@@ -258,18 +268,20 @@ export function run(argv, dataDir) {
       if (options.desc !== undefined) fields.description = options.desc;
       const related = relatedFromOptions(options);
       if (related !== undefined) fields.relatedElements = related;
+      const avoid = avoidFromOptions(options);
+      if (avoid !== undefined) fields.avoid = avoid;
       updateTerm(data, korean, fields);
       saveGlossary(dataDir, data);
-      build(dataDir);
-      return `수정: ${korean}`;
+      const notice = build(dataDir);
+      return [`수정: ${korean}`, notice].filter(Boolean).join("\n");
     }
     case "remove": {
       const [korean] = positional;
       const data = loadGlossary(dataDir);
       removeTerm(data, korean);
       saveGlossary(dataDir, data);
-      build(dataDir);
-      return `삭제: ${korean}`;
+      const notice = build(dataDir);
+      return [`삭제: ${korean}`, notice].filter(Boolean).join("\n");
     }
     case "list": {
       const data = loadGlossary(dataDir);

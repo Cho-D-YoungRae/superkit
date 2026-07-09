@@ -239,6 +239,12 @@ test("parseArgs: positional과 옵션 분리", () => {
   assert.equal(options.related, "a,b");
 });
 
+test("parseArgs: --all은 값 없이 true", () => {
+  const { positional, options } = parseArgs(["--all", "a.js", "b.js"]);
+  assert.equal(options.all, true);
+  assert.deepEqual(positional, ["a.js", "b.js"]);
+});
+
 test("run add → list가 등록을 반영하고 생성물을 빌드한다", () => {
   const dir = tmp();
   try {
@@ -259,6 +265,29 @@ test("run remove가 용어를 제거한다", () => {
     saveGlossary(dir, { terms: [{ korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [] }] });
     run(["remove", "회원"], dir);
     assert.equal(loadGlossary(dir).terms.length, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("run add --avoid → 저장·재빌드에 반영된다", () => {
+  const dir = tmp();
+  try {
+    saveGlossary(dir, { terms: [] });
+    run(["add", "회원", "member", "--avoid", "customer,user"], dir);
+    assert.deepEqual(loadGlossary(dir).terms[0].avoid, ["customer", "user"]);
+    assert.ok(loadFile(join(dir, "core.md")).includes("- customer, user → member(회원)"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("run update --avoid → 갱신된다", () => {
+  const dir = tmp();
+  try {
+    saveGlossary(dir, { terms: [{ korean: "회원", english: "member", abbreviation: null, description: "", relatedElements: [], avoid: [] }] });
+    run(["update", "회원", "--avoid", "customer"], dir);
+    assert.deepEqual(loadGlossary(dir).terms[0].avoid, ["customer"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
