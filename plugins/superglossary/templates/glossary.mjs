@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // .claude/superglossary/glossary.mjs — 프로젝트 용어사전 CLI (의존성 0)
 import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+
+export const VERSION = "0.2.0";
 
 export const AUTOGEN =
   "<!-- 이 파일은 glossary.json에서 자동 생성됩니다. 직접 편집하지 마세요. (glossary.mjs build) -->";
@@ -279,15 +282,39 @@ export const INITIAL_DATA = {
 export const CLAUDE_BLOCK = `## 용어 사전
 @superglossary/core.md
 
-- 클래스/변수/함수/컬럼/테이블 등 모든 네이밍은 위 표의 영문명만 사용한다. 축약어는 표에 등록된 것만 허용한다.
-- 표에 없는 단일어가 필요하면 임의로 짓지 말고, Claude가 직접 \`node .claude/superglossary/glossary.mjs add <korean> <english> [abbreviation]\`로 추가한다(사용자는 \`/superglossary:add\`도 사용 가능). 복합어는 단일어로 분해해 등록하고, 변경은 같은 diff에 포함한다.
-- 용어 수정·삭제가 필요하면 \`node .claude/superglossary/glossary.mjs update <korean> ...\` 또는 \`remove <korean>\`을 사용한다(둘 다 자동 재빌드).
+- 클래스/변수/함수/컬럼/테이블 등 모든 네이밍은 위 표의 영문명만 사용한다. 축약어는 표에 등록된 것만 쓰고, 금지 변형은 표준으로 대체한다.
+- 표에 없는 단일어가 필요하면 임의로 짓지 말고 superglossary의 add 스킬로 등록한다(복합어는 단일어로 분해). 플러그인이 없으면 \`node .claude/superglossary/glossary.mjs add <korean> <english> [abbreviation]\`을 직접 실행한다. 변경은 같은 diff에 포함한다.
+- 용어의 의미가 모호하면 \`node .claude/superglossary/glossary.mjs lookup <질의>\` 또는 \`.claude/superglossary/terms.md\`에서 상세를 확인한다.
+- 수정·삭제는 \`glossary.mjs update/remove\`를 쓴다(자동 재빌드). core.md·terms.md는 생성물이므로 직접 편집하지 않는다.
 - 기존 모듈 수정 시 그 모듈의 기존 컨벤션을 우선하고, 신규 코드에는 사전을 우선한다. 임의 리네이밍은 하지 않는다.
-- 비즈니스 의미·주의사항이 필요하면 \`.claude/superglossary/terms.md\`를 찾는다. core.md·terms.md는 생성물이므로 직접 편집하지 않는다.
-- 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 검색 없이 작성하고 사전에 없는 용어만 추가 → 완료 후 \`glossary-check\`로 검토.
+- 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 사전에 없는 용어만 추가 → 완료 후 check 스킬로 검토.
 `;
 
+export function assertDataDirPlacement(dataDir) {
+  if (basename(dataDir) !== "superglossary" || basename(dirname(dataDir)) !== ".claude") {
+    throw new Error("glossary.mjs를 <프로젝트>/.claude/superglossary/로 복사한 뒤 실행하세요.");
+  }
+}
+
+export function gitIgnoreWarnings(dataDir) {
+  const root = dirname(dirname(dataDir));
+  const warnings = [];
+  for (const rel of [join(".claude", "superglossary", "glossary.json"), join(".claude", "CLAUDE.md")]) {
+    try {
+      execFileSync("git", ["check-ignore", "-q", rel], { cwd: root, stdio: "ignore" });
+      warnings.push(`⚠ ${rel} 이(가) .gitignore에 의해 무시되어 팀과 공유되지 않습니다.`);
+    } catch {
+      // 무시 대상 아님(exit 1) 또는 git 부재·비레포 — 경고 없음
+    }
+  }
+  if (warnings.length) {
+    warnings.push("  .gitignore를 다음과 같이 조정하세요:", "    .claude/*", "    !.claude/CLAUDE.md", "    !.claude/superglossary/");
+  }
+  return warnings;
+}
+
 export function scaffold(dataDir) {
+  assertDataDirPlacement(dataDir);
   mkdirSync(dataDir, { recursive: true });
   if (!existsSync(join(dataDir, "glossary.json"))) saveGlossary(dataDir, INITIAL_DATA);
   build(dataDir);
@@ -297,6 +324,7 @@ export function scaffold(dataDir) {
     const next = existing.trimEnd();
     writeFileSync(claudeMd, (next ? next + "\n\n" : "") + CLAUDE_BLOCK);
   }
+  return gitIgnoreWarnings(dataDir);
 }
 
 const BOOLEAN_OPTIONS = new Set(["all"]);
@@ -326,13 +354,25 @@ function avoidFromOptions(options) {
   return options.avoid ? options.avoid.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
 }
 
+export const USAGE = `사용법: node glossary.mjs <subcommand>
+  init                                          초기화(.claude/superglossary/에 복사 후 실행)
+  build                                         glossary.json → core.md·terms.md 재생성
+  add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "a,b"]
+  update <korean> [--english E] [--abbreviation A] [--desc D] [--related "a,b"] [--avoid "a,b"]
+  remove <korean>
+  list                                          전체 용어(간결)
+  lookup <질의>                                  용어 상세 검색
+  lint [--all] <files...>                       코드 대조([위반]/[후보], --all=스톱워드 해제)
+  version | help`;
+
 export function run(argv, dataDir) {
   const [cmd, ...rest] = argv;
   const { positional, options } = parseArgs(rest);
   switch (cmd) {
-    case "init":
-      scaffold(dataDir);
-      return `초기화 완료: ${dataDir}`;
+    case "init": {
+      const warnings = scaffold(dataDir);
+      return [`초기화 완료: ${dataDir}`, ...warnings].join("\n");
+    }
     case "build": {
       const notice = build(dataDir);
       return ["빌드 완료: core.md, terms.md", notice].filter(Boolean).join("\n");
@@ -400,17 +440,19 @@ export function run(argv, dataDir) {
       }
       return lines.length ? lines.join("\n") : "이상 없음";
     }
+    case "version":
+      return `superglossary CLI v${VERSION}`;
+    case "help":
+      return USAGE;
     default:
-      throw new Error(`알 수 없는 커맨드: ${cmd}\n사용법: glossary.mjs <init|build|add|update|remove|list|lookup|lint> ...`);
+      throw new Error(`알 수 없는 커맨드: ${cmd}\n${USAGE}`);
   }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const SELF_DIR = dirname(fileURLToPath(import.meta.url));
-  const argv = process.argv.slice(2);
-  const dataDir = argv[0] === "init" ? join(process.cwd(), ".claude", "superglossary") : SELF_DIR;
   try {
-    const out = run(argv, dataDir);
+    const out = run(process.argv.slice(2), SELF_DIR);
     if (out) console.log(out);
   } catch (err) {
     console.error(`✗ ${err.message}`);

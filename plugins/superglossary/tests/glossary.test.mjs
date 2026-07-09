@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, readFileSync, writeFileSync as wf, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD, STOPWORDS, formatFileList, formatTermDetail, isStale } from "../templates/glossary.mjs";
+import { execFileSync } from "node:child_process";
+import { loadGlossary, saveGlossary, sortedTerms, addTerm, findTerm, updateTerm, removeTerm, listTerms, lookup, renderCore, renderTerms, build, AUTOGEN, tokenize, lintFiles, scaffold, parseArgs, run, findConflict, escapeCell, CORE_SPLIT_THRESHOLD, STOPWORDS, formatFileList, formatTermDetail, isStale, VERSION, assertDataDirPlacement } from "../templates/glossary.mjs";
 
 function tmp() {
   return mkdtempSync(join(tmpdir(), "glossary-"));
@@ -380,10 +381,6 @@ test("run update --avoid → 갱신된다", () => {
   }
 });
 
-test("run: 알 수 없는 커맨드는 throw", () => {
-  assert.throws(() => run(["nope"], "/tmp"), /알 수 없는 커맨드/);
-});
-
 test("addTerm: avoid를 배열로 저장한다", () => {
   const data = { terms: [] };
   addTerm(data, { korean: "회원", english: "member", avoid: ["customer", "user"] });
@@ -500,5 +497,62 @@ test("loadGlossary: glossary.json이 없으면 안내 에러", () => {
     assert.throws(() => loadGlossary(dir), /용어사전이 없습니다/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("VERSION: plugin.json version과 일치한다", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../.claude-plugin/plugin.json", import.meta.url), "utf8"));
+  assert.equal(VERSION, manifest.version);
+});
+
+test("run version/help", () => {
+  assert.match(run(["version"], "/tmp"), /^superglossary CLI v\d+\.\d+\.\d+/);
+  assert.ok(run(["help"], "/tmp").includes("사용법"));
+  assert.throws(() => run(["nope"], "/tmp"), /알 수 없는 커맨드[\s\S]*사용법/);
+});
+
+test("assertDataDirPlacement: .claude/superglossary만 허용", () => {
+  assert.throws(() => assertDataDirPlacement("/tmp/plugin/templates"), /복사한 뒤 실행하세요/);
+  assert.doesNotThrow(() => assertDataDirPlacement(join("/tmp/proj", ".claude", "superglossary")));
+});
+
+test("scaffold: git 레포가 아니면 gitignore 경고 없음", () => {
+  const root = tmp();
+  try {
+    const warnings = scaffold(join(root, ".claude", "superglossary"));
+    assert.deepEqual(warnings, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("scaffold: .gitignore가 .claude/를 무시하면 경고를 반환한다", () => {
+  try {
+    execFileSync("git", ["--version"], { stdio: "ignore" });
+  } catch {
+    return; // git 없는 환경은 건너뜀
+  }
+  const root = tmp();
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    wf(join(root, ".gitignore"), ".claude/\n");
+    const warnings = scaffold(join(root, ".claude", "superglossary"));
+    assert.ok(warnings.some((w) => w.includes("무시되어")), "무시 경고 포함");
+    assert.ok(warnings.some((w) => w.includes("!.claude/superglossary/")), "해법 안내 포함");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("scaffold: 새 CLAUDE_BLOCK은 add 스킬·lookup 안내를 포함한다", () => {
+  const root = tmp();
+  try {
+    scaffold(join(root, ".claude", "superglossary"));
+    const claude = loadFile(join(root, ".claude", "CLAUDE.md"));
+    assert.ok(claude.includes("add 스킬"));
+    assert.ok(claude.includes("lookup"));
+    assert.ok(claude.includes("@superglossary/core.md"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
