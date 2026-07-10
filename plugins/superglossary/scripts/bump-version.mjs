@@ -18,6 +18,14 @@ import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PLUGIN_MANIFEST = join(ROOT, ".claude-plugin", "plugin.json");
+const CLI_TEMPLATE = join(ROOT, "templates", "glossary.mjs");
+const VERSION_CONST = /^export const VERSION = "([^"]+)";$/m;
+
+async function readCliVersion() {
+  const source = await readFile(CLI_TEMPLATE, "utf8");
+  const matched = source.match(VERSION_CONST);
+  return { source, version: matched ? matched[1] : null };
+}
 
 // SemVer 2.0.0 (선택적 pre-release / build metadata 포함). https://semver.org
 const SEMVER =
@@ -37,7 +45,14 @@ async function check() {
   if (!version || !SEMVER.test(version)) {
     fail(`plugin.json version이 유효한 SemVer가 아닙니다: ${JSON.stringify(version)}`);
   }
-  console.log(`✓ 현재 버전: ${version}`);
+  const cli = await readCliVersion();
+  if (cli.version === null) {
+    fail("templates/glossary.mjs에서 VERSION 상수를 찾지 못했습니다.");
+  }
+  if (cli.version !== version) {
+    fail(`버전 불일치: plugin.json=${version}, glossary.mjs=${cli.version} — pnpm bump로 동기화하세요.`);
+  }
+  console.log(`✓ 현재 버전: ${version} (plugin.json = glossary.mjs)`);
 }
 
 async function bump(version) {
@@ -49,7 +64,13 @@ async function bump(version) {
   manifest.version = version;
   await writeFile(PLUGIN_MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
 
-  console.log(`✓ 버전 갱신: ${previous} → ${version}`);
+  const cli = await readCliVersion();
+  if (cli.version === null) {
+    fail("templates/glossary.mjs에서 VERSION 상수를 찾지 못했습니다.");
+  }
+  await writeFile(CLI_TEMPLATE, cli.source.replace(VERSION_CONST, `export const VERSION = "${version}";`));
+
+  console.log(`✓ 버전 갱신: ${previous} → ${version} (plugin.json + glossary.mjs)`);
   console.log("");
   console.log("다음 단계를 잊지 마세요:");
   console.log(`  1. CHANGELOG.md의 [Unreleased] → [${version}] - <YYYY-MM-DD> 정리`);
