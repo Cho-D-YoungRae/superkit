@@ -1,0 +1,8 @@
+{
+  "name": "infra",
+  "version": "0.1.0",
+  "description": "인프라 하네스(인벤토리·변경기록·직접 제어) 플러그인 — init/register/lookup/connect/ops/change/decide/sync/audit",
+  "author": {
+    "name": "Youngrae Cho"
+  }
+}
