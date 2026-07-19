@@ -38,6 +38,14 @@ class TestParseFrontmatter(unittest.TestCase):
         with self.assertRaises(harness_lib.FrontmatterError):
             harness_lib.parse_frontmatter("---\nparent:\n  child: 1\n---\n")
 
+    def test_strips_comment_after_value(self):
+        fm = harness_lib.parse_frontmatter("---\nid: x  # 코멘트\n---\n")
+        self.assertEqual(fm, {"id": "x"})
+
+    def test_rejects_line_without_colon(self):
+        with self.assertRaises(harness_lib.FrontmatterError):
+            harness_lib.parse_frontmatter("---\nid: x\nnocolonline\n---\n")
+
 
 class TestParseYamlSubset(unittest.TestCase):
     def test_harness_yaml(self):
@@ -47,6 +55,20 @@ class TestParseYamlSubset(unittest.TestCase):
         self.assertEqual(data["iac"]["repos"], ["terraform://github.com/example/infra-tf"])
         self.assertEqual(data["policies"]["mutating"]["prod"], "confirm")
         self.assertIs(data["hooks"]["change_reminder"], True)
+
+    def test_rejects_list_in_populated_map(self):
+        with self.assertRaises(harness_lib.HarnessYamlError):
+            harness_lib.parse_yaml_subset("a: 1\n- x\n")
+
+    def test_rejects_bare_line(self):
+        with self.assertRaises(harness_lib.HarnessYamlError):
+            harness_lib.parse_yaml_subset("just-a-bare-word\n")
+
+    def test_strips_comments(self):
+        data = harness_lib.parse_yaml_subset(
+            "sharing: local  # 주석\n# 전체 주석 줄\nhooks:\n  change_reminder: true\n"
+        )
+        self.assertEqual(data, {"sharing": "local", "hooks": {"change_reminder": True}})
 
 
 class TestIterEntities(unittest.TestCase):
