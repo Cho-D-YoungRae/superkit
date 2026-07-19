@@ -57,5 +57,34 @@ class TestAuditCli(unittest.TestCase):
         self.assertEqual(bad.returncode, 1, bad.stdout + bad.stderr)
 
 
+class TestEncryptedSecretPolicy(unittest.TestCase):
+    def _run(self, files):
+        import tempfile
+        failures = []
+        with tempfile.TemporaryDirectory() as d:
+            sdir = Path(d) / "secrets"
+            sdir.mkdir()
+            for name, content in files.items():
+                (sdir / name).write_bytes(content)
+            audit.check_secret_policy(Path(d), {"sharing": "git", "secrets_mode": "encrypted"}, failures)
+        return failures
+
+    def test_plaintext_file_flagged(self):
+        failures = self._run({"leak.txt": b"this is plaintext, not encrypted\n"})
+        joined = "\n".join(failures)
+        self.assertIn("leak.txt", joined)
+        self.assertIn("암호문 형식이 아님", joined)
+        # 파일 내용(값)이 리포트에 새어나오지 않는지 확인
+        self.assertNotIn("plaintext, not encrypted", joined)
+
+    def test_age_headered_file_passes(self):
+        failures = self._run({"ok.age": b"age-encryption.org/v1\n-> X25519 ...\n"})
+        self.assertEqual(failures, [])
+
+    def test_gitkeep_ignored(self):
+        failures = self._run({".gitkeep": b""})
+        self.assertEqual(failures, [])
+
+
 if __name__ == "__main__":
     unittest.main()
