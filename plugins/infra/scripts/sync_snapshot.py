@@ -83,7 +83,9 @@ def collect(root):
                         {"name": x.get("name"), "namespace": x.get("namespace"), "chart": x.get("chart")}
                         for x in rels]
                 except json.JSONDecodeError:
-                    pass
+                    entry["reachable"] = False
+            else:
+                entry["reachable"] = False
         elif item["kind"] == "instances":
             names = [l.strip() for l in (r.stdout.splitlines() if ok else []) if l.strip() and l.strip() != "None"]
             actual["providers"][item["target"]] = {"reachable": ok, "instances": names}
@@ -155,7 +157,14 @@ def main():
         actual = json.loads(Path(args.mock_actual).read_text(encoding="utf-8"))
     elif args.collect:
         actual = collect(root)
-    else:  # dry: 수집 명령만 보여준다
+    else:  # dry: 기대 스냅샷 요약 + 수집 명령 목록
+        print("# 기대 스냅샷 (인벤토리 문서 기준)")
+        for kind in ("servers", "clusters", "components", "providers"):
+            ids = sorted(expected[kind])
+            line = f"- {kind}: {len(ids)}건"
+            if ids:
+                line += f" — {', '.join(ids)}"
+            print(line)
         print("# 수집 명령 (read-only)")
         for item in build_collect_commands(root):
             print(f"[{item['target']}/{item['kind']}] {' '.join(item['cmd'])}")

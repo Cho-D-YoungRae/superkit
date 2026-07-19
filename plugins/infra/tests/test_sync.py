@@ -62,5 +62,48 @@ class TestUnverifiable(unittest.TestCase):
         self.assertTrue(any("aws-main" in x for x in report["unverifiable"]))
 
 
+class TestCollectReachability(unittest.TestCase):
+    def test_helm_failure_marks_cluster_unverifiable(self):
+        from unittest import mock
+
+        class R:
+            def __init__(self, rc, out=""):
+                self.returncode = rc
+                self.stdout = out
+
+        def fake_run(cmd, **kw):
+            if "nodes" in cmd:            # kubectl get nodes → 성공
+                return R(0, "node/ip-1\n")
+            if "list" in cmd:            # helm list → 실패
+                return R(1, "")
+            return R(0, "")              # aws describe-instances 등 → 성공(빈 결과)
+
+        with mock.patch.object(sync_snapshot.subprocess, "run", side_effect=fake_run):
+            actual = sync_snapshot.collect(OK)
+        self.assertFalse(actual["clusters"]["prod-k8s"]["reachable"])
+        report = sync_snapshot.diff_state(sync_snapshot.build_expected(OK), actual)
+        self.assertTrue(any("prod-k8s" in x for x in report["unverifiable"]))
+        # 유령 오분류가 없어야 한다: prod-k8s 컴포넌트가 ghost로 안 나와야 함
+        self.assertFalse(any("victoria-metrics" in x for x in report["ghost_in_docs"]))
+
+
+class TestDryMode(unittest.TestCase):
+    def test_dry_prints_snapshot_and_commands(self):
+        import io
+        import contextlib
+        from unittest import mock
+
+        buf = io.StringIO()
+        with mock.patch.object(sys, "argv", ["sync_snapshot.py", "--root", str(OK)]):
+            with contextlib.redirect_stdout(buf):
+                rc = sync_snapshot.main()
+        out = buf.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("기대 스냅샷", out)
+        self.assertIn("prod-k8s", out)
+        self.assertIn("수집 명령", out)
+        self.assertIn("--kube-context prod-k8s", out)
+
+
 if __name__ == "__main__":
     unittest.main()
