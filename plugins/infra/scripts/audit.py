@@ -100,7 +100,8 @@ def check_secret_policy(root, cfg, failures):
         for p in sorted(sdir.glob("*")) if sdir.is_dir() else []:
             if p.name == ".gitkeep" or not p.is_file():
                 continue
-            head = p.open("rb").read(512)  # 헤더 판별용 — 내용은 출력하지 않는다
+            with p.open("rb") as fh:
+                head = fh.read(512)  # 헤더 판별용 — 내용은 출력하지 않는다
             if not any(m in head for m in ENC_MAGICS):
                 failures.append(f"[정책] secrets/{p.name}: age/SOPS 암호문 형식이 아님")
 
