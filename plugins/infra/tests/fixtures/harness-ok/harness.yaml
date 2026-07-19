@@ -1,0 +1,12 @@
+sharing: local
+secrets_mode: plaintext
+environments: [prod, dev]
+iac:
+  repos:
+    - terraform://github.com/example/infra-tf
+policies:
+  mutating:
+    prod: confirm
+    dev: allow
+hooks:
+  change_reminder: true
