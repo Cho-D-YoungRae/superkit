@@ -1,0 +1,13 @@
+# 인프라 하네스 설정 — infra 플러그인 스킬이 읽는 정책 데이터 (원칙 8)
+sharing: {{sharing}}            # local | git | shared-drive
+secrets_mode: {{secrets_mode}}  # none(참조만) | plaintext(local에서만 유효) | encrypted(age/SOPS)
+environments: [{{environments}}]
+iac:
+  repos: []
+  # repos:
+  #   - terraform://github.com/org/infra-tf
+policies:
+  mutating:                     # 환경별 mutating 정책: confirm | allow (미정의 env는 confirm — D4)
+    prod: confirm
+hooks:
+  change_reminder: true
