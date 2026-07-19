@@ -721,7 +721,7 @@ managed_by: manual
 ```markdown
 # 메모
 
-aws_access_key_id = AKIA1234567890ABCDEF
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
 ```
 
 `tests/fixtures/harness-bad/access/keys.md` — 만료 임박 키(--today 2026-07-19 기준 13일 뒤):
