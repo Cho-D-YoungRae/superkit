@@ -61,6 +61,18 @@ class TestChangeReminder(unittest.TestCase):
     def test_broken_stdin_exit0(self):
         self.assert_silent(run_hook(OK, "", raw="not-json"))
 
+    def test_helm_delete_with_flags_reminds(self):
+        self.assert_reminded(run_hook(OK, "helm --kube-context prod-k8s delete my-release"))
+
+    def test_argocd_sync_with_server_flag_reminds(self):
+        self.assert_reminded(run_hook(OK, "argocd --server argocd.prod.internal app sync my-app"))
+
+    def test_hyphenated_label_value_silent(self):
+        self.assert_silent(run_hook(OK, "kubectl --context prod-k8s get pods -l tier=auto-scale-group"))
+
+    def test_hyphenated_resource_name_silent(self):
+        self.assert_silent(run_hook(OK, "kubectl --context prod-k8s logs my-edit-service-7f8"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,13 +9,12 @@ import sys
 from pathlib import Path
 
 MUTATING = [
-    r"\bterraform\s+.*\b(apply|destroy|import|taint|untaint)\b",
-    r"\bterraform\s+.*\bstate\s+(mv|rm|push)\b",
-    r"\bkubectl\b.*\b(apply|create|delete|patch|replace|scale|edit|label|annotate|cordon|uncordon|drain|taint)\b",
-    r"\bkubectl\b.*\brollout\s+(restart|undo|pause|resume)\b",
-    r"\bhelm\b.*\b(install|upgrade|uninstall|rollback)\b",
-    r"\bhelm\s+delete\b",
-    r"\bargocd\s+app\s+(sync|delete|set|patch|rollback)\b",
+    r"(?<!\S)terraform(?!\S).*(?<!\S)(apply|destroy|import|taint|untaint)(?!\S)",
+    r"(?<!\S)terraform(?!\S).*(?<!\S)state(?!\S)\s+(mv|rm|push)(?!\S)",
+    r"(?<!\S)kubectl(?!\S).*(?<!\S)(apply|create|delete|patch|replace|scale|edit|label|annotate|cordon|uncordon|drain|taint)(?!\S)",
+    r"(?<!\S)kubectl(?!\S).*(?<!\S)rollout(?!\S)\s+(restart|undo|pause|resume)(?!\S)",
+    r"(?<!\S)helm(?!\S).*(?<!\S)(install|upgrade|uninstall|rollback|delete)(?!\S)",
+    r"(?<!\S)argocd(?!\S).*(?<!\S)app(?!\S)\s+(sync|delete|set|patch|rollback)(?!\S)",
 ]
 REMINDER = ("방금 mutating 인프라 명령이 실행되었습니다. "
             "changes/에 변경 기록을 남기세요 — change 스킬 (/infra:change). 롤백 방법 필수.")
