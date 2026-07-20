@@ -9,7 +9,7 @@ import harness_lib  # noqa: E402
 
 # 태스크 진행에 따라 스킬 이름을 추가한다 (Task 8: register, lookup / Task 9: change, decide
 # / Task 10: connect, ops / Task 11: sync, audit)
-SKILLS = ["init", "register", "lookup", "change", "decide"]
+SKILLS = ["init", "register", "lookup", "change", "decide", "connect", "ops"]
 
 
 class TestSkills(unittest.TestCase):
