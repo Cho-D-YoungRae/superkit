@@ -97,7 +97,7 @@ class TestAuditRobustness(unittest.TestCase):
                 "purpose: x\naccess: y\nmanaged_by: manual\n---\n", encoding="utf-8")
             failures = []
             audit.check_schema_and_refs(root, failures)  # 크래시하면 안 됨
-            self.assertTrue(any("id" in f for f in failures))
+            self.assertTrue(any("누락 — id" in f for f in failures))
 
     def test_invalid_expiry_date_no_crash(self):
         import datetime
