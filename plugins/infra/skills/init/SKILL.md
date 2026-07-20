@@ -91,8 +91,10 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
   와 `Read(./secrets/**)` deny 규칙을 병기해 앵커 문법 차이에 대비).
 - `.gitignore` (`gitignore` 템플릿 — `secrets_mode: encrypted`면 `!secrets/*.age` /
   `!secrets/*.sops.yaml` 재포함 줄의 주석을 해제).
-- `secrets_mode ≠ none`이면 `secrets/` 디렉토리를 생성한다(값은 아직 없음 — register가
-  채운다).
+- `secrets_mode ≠ none`이면 `secrets/` 디렉토리를 빈 채로 생성한다. register도 원칙 1에
+  따라 시크릿 값 자체는 쓰지 않는다 — register가 하는 일은 `access/keys.md`와 엔티티의
+  `access` 필드에 종류·fingerprint·위치 참조 같은 메타데이터만 기록하는 것이며, 실제
+  시크릿 파일은 사용자가 이 디렉토리에 직접 둔다.
 - `decisions/ADR-0001-harness-init.md` (`adr.md` 템플릿 — 이번 인터뷰의 결정과 근거를
   기록: `sharing`/`secrets_mode` 선택 이유, `environments`, IaC 레포 등록 여부,
   `change_reminder` 여부).

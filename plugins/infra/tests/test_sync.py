@@ -105,5 +105,17 @@ class TestDryMode(unittest.TestCase):
         self.assertIn("--kube-context prod-k8s", out)
 
 
+class TestSyncRobustness(unittest.TestCase):
+    def test_missing_id_entity_skipped_not_crash(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "inventory").mkdir()
+            (root / "inventory" / "noid.md").write_text(
+                "---\ntype: server\nenv: prod\n---\n", encoding="utf-8")
+            exp = sync_snapshot.build_expected(root)  # 크래시하면 안 됨
+            self.assertEqual(exp["servers"], {})
+
+
 if __name__ == "__main__":
     unittest.main()

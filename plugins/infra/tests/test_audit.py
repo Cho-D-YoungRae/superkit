@@ -86,5 +86,34 @@ class TestEncryptedSecretPolicy(unittest.TestCase):
         self.assertEqual(failures, [])
 
 
+class TestAuditRobustness(unittest.TestCase):
+    def test_missing_id_reported_not_crash(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "inventory").mkdir()
+            (root / "inventory" / "noid.md").write_text(
+                "---\ntype: server\nenv: prod\nprovider: p\nruntime: ec2\n"
+                "purpose: x\naccess: y\nmanaged_by: manual\n---\n", encoding="utf-8")
+            failures = []
+            audit.check_schema_and_refs(root, failures)  # 크래시하면 안 됨
+            self.assertTrue(any("id" in f for f in failures))
+
+    def test_invalid_expiry_date_no_crash(self):
+        import datetime
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "access").mkdir()
+            (root / "access" / "keys.md").write_text(
+                "# keys\n\n| 이름 | 종류 | fingerprint | 위치 참조 | 소유자 | 생성일 | 만료/로테이션 |\n"
+                "|--|--|--|--|--|--|--|\n"
+                "| badcert | tls-cert | - | secrets/x | o | 2025-01-01 | 2026-13-45 |\n",
+                encoding="utf-8")
+            warnings = []
+            audit.check_expiry(root, datetime.date(2026, 7, 20), warnings)  # 크래시하면 안 됨
+            self.assertTrue(any("badcert" in w for w in warnings))
+
+
 if __name__ == "__main__":
     unittest.main()

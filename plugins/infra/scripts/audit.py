@@ -44,9 +44,9 @@ def key_names(root):
 
 def check_schema_and_refs(root, failures):
     ents = harness_lib.iter_entities(root)
-    ids = {e.get("id") for e in ents if "id" in e}
-    provider_ids = {e["id"] for e in ents if e.get("type") == "provider"}
-    host_ids = {e["id"] for e in ents if e.get("type") in ("server", "k8s-cluster")}
+    ids = {e.get("id") for e in ents if e.get("id")}
+    provider_ids = {e["id"] for e in ents if e.get("type") == "provider" and e.get("id")}
+    host_ids = {e["id"] for e in ents if e.get("type") in ("server", "k8s-cluster") and e.get("id")}
     keys = key_names(root)
     for e in ents:
         rel = e["_path"].relative_to(root)
@@ -127,7 +127,11 @@ def check_expiry(root, today, warnings):
         m = DATE_RE.search(cells[6])
         if not m:
             continue
-        expiry = datetime.date.fromisoformat(m.group())
+        try:
+            expiry = datetime.date.fromisoformat(m.group())
+        except ValueError:
+            warnings.append(f"[만료] {cells[0]}: 만료일 형식이 잘못됨 ({m.group()})")
+            continue
         days = (expiry - today).days
         if days < 0:
             warnings.append(f"[만료] {cells[0]}: 이미 만료됨 ({expiry})")

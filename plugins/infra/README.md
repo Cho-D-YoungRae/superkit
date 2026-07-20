@@ -121,7 +121,7 @@ infra의 모든 스킬은 아래 10개 원칙을 위반할 수 없다(각 SKILL.
 | 6 | 암묵 컨텍스트 금지 — 모든 조작 명령에 `--context`/`--profile`을 명시, 현재 컨텍스트·기본 profile 의존 금지 |
 | 7 | 읽기/변경 분리 — read-only는 즉시 실행, mutating은 대상 확인→실행→검증→기록 파이프라인 |
 | 8 | 정책은 데이터 — 환경별 mutating 정책·공유 모드·hook 동작은 `harness.yaml`에 두고 스킬이 읽어 적용 |
-| 9 | 기록은 작업의 부산물 — `changes/`·`decisions/`가 각각 변경/의사결정 이력의 SSOT |
+| 9 | 기록은 작업의 부산물 — `changes/`가 변경 이력의 SSOT (`decisions/`는 ADR 보관소) |
 | 10 | 스킬은 description으로 자동 선택 가능해야 한다 — 슬래시 직접 호출은 보조 경로 |
 
 ### 하네스 발견 규약 (스펙 D1)
@@ -160,8 +160,9 @@ infra의 모든 스킬은 아래 10개 원칙을 위반할 수 없다(각 SKILL.
 bash tests/run_tests.sh
 ```
 
-`tests/fixtures/harness-ok`(정상 하네스)·`tests/fixtures/harness-bad`(오염 하네스) 두 fixture를
-대상으로 다음을 자동 검증한다.
+`tests/fixtures/harness-ok`(정상 하네스)·`tests/fixtures/harness-bad`(오염 하네스)·
+`tests/fixtures/harness-off`(hook 비활성화 검증용) 세 fixture를 대상으로 다음을 자동
+검증한다.
 
 - `scripts/audit.py`의 기대 결과(스키마/참조/시크릿 패턴/정책 조합/만료 경고 각 항목의
   통과·실패)

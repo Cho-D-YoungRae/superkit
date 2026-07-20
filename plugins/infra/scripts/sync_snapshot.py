@@ -29,6 +29,8 @@ def build_expected(root):
     for e in ents:
         if "_error" in e:
             continue
+        if not e.get("id"):
+            continue
         t = e.get("type")
         if t == "provider":
             exp["providers"][e["id"]] = e
