@@ -26,6 +26,14 @@ class TestParseFrontmatter(unittest.TestCase):
         self.assertEqual(fm["depends_on"], [])
         self.assertEqual(fm["purpose"], "PostgreSQL 단독 DB 서버")
 
+    def test_body_is_ignored(self):
+        # 본문에 콜론 줄·리스트·--- 수평선이 있어도 frontmatter만 파싱된다 (스펙 D10)
+        fm = harness_lib.parse_frontmatter((OK / "inventory" / "prod-db-01.md").read_text(encoding="utf-8"))
+        self.assertEqual(set(fm), {"id", "type", "env", "provider", "runtime",
+                                   "purpose", "access", "managed_by", "depends_on"})
+        self.assertNotIn("사설 IP", fm)
+        self.assertNotIn("arch", fm)
+
     def test_inline_list(self):
         fm = harness_lib.parse_frontmatter((OK / "providers" / "aws-main.md").read_text(encoding="utf-8"))
         self.assertEqual(fm["regions"], ["ap-northeast-2"])
