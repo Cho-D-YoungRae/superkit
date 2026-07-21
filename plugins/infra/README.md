@@ -70,6 +70,10 @@ prometheus·victoria-metrics 같은 설치 컴포넌트를 다룬다.
 | component | `inventory/components/<id>.md` | `category`, `runs_on`, `namespace`, `endpoint`, `installed_by` |
 | key/인증서 | `access/keys.md`의 표 행 | 이름, 종류(ssh/cloud/api-token/tls-cert), fingerprint, **위치 참조**, 만료일 |
 
+server의 사양·사설/공인 IP·아키텍처·서버별 특이 정보는 frontmatter 필드가 아니라 **엔티티 본문**에
+자유 서술한다(스펙 D10 — `## 네트워크`/`## 사양`/`## 특이사항` 관례 섹션 권장, 강제 아님). 스킬이
+파싱해 명령을 만드는 운영 메타데이터만 frontmatter에 둔다.
+
 k8s는 **클러스터·컴포넌트 수준까지만** 인벤토리화한다. 내부 리소스(deployment/service)는
 manifest·GitOps 레포 참조로 넘긴다(원칙 4 — 하네스는 상태를 복제하지 않는다).
 
