@@ -51,7 +51,18 @@ description: 인프라 하네스 인벤토리에 서버·k8s 클러스터·컴�
    `providers/<id>.md`, `server`/`k8s-cluster` → `inventory/<id>.md`, `component` →
    `inventory/components/<id>.md`. 템플릿의 `{{변수}}`를 인터뷰 값으로 채우고, 해당 없는
    선택 필드는 템플릿 주석 지시대로 그 줄을 삭제한다.
-4. `key`는 새 엔티티 파일을 만들지 않는다 — `access/keys.md` 표에 (이름 / 종류 /
+4. `type`이 `server`이면 3에서 만든 파일의 frontmatter뿐 아니라 **본문**도 인터뷰·스캔으로
+   확인된 값으로 채운다. 본문의 관례 섹션(`## 네트워크`/`## 사양`/`## 특이사항`)에서 값이
+   없는 항목이나 섹션은 비워두지 말고 그 줄(또는 섹션 전체)을 지운다(스펙 D10 — 관례
+   섹션은 권장일 뿐 강제 스키마가 아니다). 사설/공인 IP·아키텍처·사양·서버별 특이사항은
+   frontmatter 필드가 아니라 본문에 자유 서술한다 — 사용자가 frontmatter 필드에 없는
+   정보를 주면 해당하는 본문 섹션(없으면 새 섹션)에 적는다. 클라우드 provider로 등록하는
+   서버라면 `aws ec2 describe-instances --profile <p> --region <r>` / `gcloud compute
+   instances describe --configuration <c>` 같은 **read-only** 명령으로 IP·아키텍처 후보를
+   조회해 제안할 수 있다(원칙 6 — profile/region을 항상 명시). 조회 결과 중 사용자가
+   채택한 값만 본문에 기록한다. ssh 접근이 있는 서버의 `## 사양`(arch·vCPU·메모리·디스크)
+   수집 절차는 §4를 따른다.
+5. `key`는 새 엔티티 파일을 만들지 않는다 — `access/keys.md` 표에 (이름 / 종류 /
    fingerprint / 위치 참조 / 소유자 / 생성일 / 만료·로테이션) 행을 추가한다. **`access/keys.md`가
    아직 없으면**(init은 `access/` 디렉토리만 만들고 `keys.md`는 만들지 않는다) 먼저
    `${CLAUDE_PLUGIN_ROOT}/templates/keys.md`를 그 경로로 복사해 파일을 만든 뒤(헤더 +
@@ -70,7 +81,21 @@ description: 인프라 하네스 인벤토리에 서버·k8s 클러스터·컴�
   받은 뒤** `ssh -i <키경로> <호스트> 'systemctl list-units --type=service --state=running;
   docker ps --format {{.Names}}'`로 실행 중인 서비스·컨테이너를 스캔해 컴포넌트 후보로
   제안한다. `<키경로>`는 값이 아니라 `access/keys.md`의 위치 참조 컬럼 값을 그대로 조립해
-  넣는다 — 이 스캔 과정에서도 키 값 자체는 어디에도 노출하지 않는다(원칙 1).
+  넣는다 — 이 스캔 과정에서도 키 값 자체는 어디에도 노출하지 않는다(원칙 1). 같은 동의
+  아래 `## 사양` 본문 후보도 수집할 수 있다 — 대상 호스트를 명시해(원칙 6) 아래
+  **read-only allowlist** 명령만 사용한다: `ssh -i <키경로> -o BatchMode=yes -o
+  ConnectTimeout=5 <사용자>@<호스트> 'uname -m; nproc; free -h 2>/dev/null | head -2; df -h
+  --total 2>/dev/null | tail -1; lsblk -d -o NAME,SIZE 2>/dev/null'`. 이때도 `<키경로>`는
+  `access/keys.md` 위치 참조 컬럼 값을 조립한 것일 뿐, 키 값 자체는 여기서도 노출하지
+  않는다(원칙 1). **금지**: `sudo`, 환경변수 덤프(`env`/`printenv`), 클라우드 메타데이터
+  엔드포인트(`169.254.169.254`), 프로세스 커맨드라인, 설정·자격증명 파일 열람.
+  `StrictHostKeyChecking=no`는 붙이지 않는다(정상 host-key 검증 유지). 수집 결과 중
+  `arch`만 확정 사양으로 `## 사양`에 남기고, vCPU·메모리·디스크는 `<!-- YYYY-MM-DD(등록
+  시점 오늘 날짜) 수집 참고값, 런타임 관측치라 이후 달라질 수 있음 -->`처럼 수집 시각
+  기준 참고값임을 주석으로 남긴다 — 하네스는 상태를 복제하는 엔진이 아니라 지도이기
+  때문이다(원칙 4). 온프렘·baremetal 서버는 하드웨어가 사실상 불변이므로 참고값 주석
+  없이 그대로 기록해도 무방하다. 일괄(batch) ssh 수집은 **대상 호스트 전체 목록을
+  확인받은 뒤에만** 실행한다 — 열린 서브넷이나 인벤토리 전체 스윕은 금지한다.
 
 ## 5. 일괄 모드
 
