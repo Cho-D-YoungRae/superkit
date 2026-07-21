@@ -130,6 +130,11 @@ def check_secret_policy(root, cfg, failures):
     sdir = Path(root) / "secrets"
     if mode == "encrypted" and sdir.is_dir():
         for dirpath, dirnames, filenames in os.walk(sdir, followlinks=False):
+            # 심링크 디렉터리: 파일 심링크와 동일하게 정책 위반으로 보고한 뒤 재귀에서 제외(prune)
+            for d in list(dirnames):
+                dp = Path(dirpath) / d
+                if os.path.islink(dp):
+                    failures.append(f"[정책] secrets/{dp.relative_to(sdir)}: 심볼릭 링크는 허용하지 않는다(내용 미확인)")
             dirnames[:] = sorted(d for d in dirnames if not os.path.islink(os.path.join(dirpath, d)))
             for fn in sorted(filenames):
                 p = Path(dirpath) / fn

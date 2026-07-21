@@ -223,7 +223,10 @@ class TestAuditHardening(unittest.TestCase):
         failures = []
         import audit
         audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
-        self.assertNotIn("AKIA", "\n".join(failures))
+        joined = "\n".join(failures)
+        self.assertNotIn("AKIA", joined)          # 추종 안 함(리크 없음)
+        self.assertIn("dlink", joined)            # 심링크 디렉터리도 정책 위반으로 보고
+        self.assertIn("심볼릭 링크", joined)
 
 
 if __name__ == "__main__":
