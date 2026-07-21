@@ -31,7 +31,7 @@
 | D9 | 매니페스트·개발 루프 | 저장소 루트 = 플러그인 루트. `plugin.json`은 `name: "infra"`, `version: "0.1.0"`, `description`, `author`. 개발 테스트는 `claude --plugin-dir .` + `/reload-plugins`. |
 | D10 | 서버 정보: 파싱 대상만 frontmatter, 이질적 정보는 본문 | 스킬이 **결정론적으로 소비하는 값**(① 명령 생성 — `--context`/`--profile`(원칙 6) ② 참조 무결성(audit) ③ 실제 상태 대조(sync))만 frontmatter에 둔다. 서버 사양·사설/공인 IP·아키텍처·서버별 특이 정보처럼 이질적이고 프로그램이 diff하지 않는 정보는 markdown 본문에 자유 서술하되, register가 채우고 사람이 읽기 좋게 `## 네트워크`·`## 사양`·`## 특이사항` 같은 가벼운 관례 섹션을 쓴다(강제 스키마 아님). 이로써 파서·`REQUIRED_FIELDS`·`schema_version` 변경 없이 후방호환을 유지하고, 사양을 sync가 대조하는 상태 복제(원칙 4 위반)를 피한다. IP drift 자동 감지처럼 스킬이 특정 값을 결정론적으로 소비해야 할 때에만 그 값을 frontmatter로 **승격**한다(그 시점에 `provider_resource_id` 등과 함께 별도 결정으로 다룬다). |
 | D11 | 팀 시크릿 라이프사이클 (encrypted 운영 프로토콜) | 공유(`git`/`shared-drive`)+`encrypted`는 **SOPS+age**를 표준으로 한다(raw age보다 수신자 관리·재키잉이 우수). `harness.yaml`의 `secrets_recipients`(`name: age공개키` 중첩 맵)에 팀원 공개키 + **조직 복구 수신자(필수)**를 두고 이를 근거로 `.sops.yaml`을 생성한다. 온보딩=수신자 추가 후 `sops updatekeys` 재키잉. **오프보딩=수신자 제거 + 재키잉 + 하위 자격증명 로테이션**(구버전 암호문은 이전 키로 복호 가능하므로 재키잉만으론 불충분). 신규 `secrets` 스킬이 이 라이프사이클을 담당한다. 공유 드라이브는 동시 편집에 취약하므로 암호문을 단일 작성자/읽기 위주 아티팩트로 취급한다. audit은 복호하지 않고(헤더만) 수신자 drift·MAC은 `secrets` 스킬이 SOPS 도구로 처리하되 평문을 출력하지 않는다. |
-| D12 | 자격증명 스키마 (keys.md 개정) | keys.md를 ssh 키 외 계정·비밀번호도 담게 개정. 컬럼: `이름 / kind / principal / fingerprint / 위치 참조 / usage / 소유자 / 생성·로테이션`. `kind` 어휘 = `ssh-key \| tls-cert \| api-token \| cloud \| account \| password`. `principal`=주체(계정·비밀번호에 필요), `fingerprint`=종류별 선택(비밀번호엔 무의미), `usage`=안전한 주입 방법. 비밀번호는 **argv 절대 금지**(ps/history 유출), `sops exec-env`·`op run`·stdin/FD·백엔드 네이티브 주입만. SSH 비밀번호 로그인은 키 인증을 권장하고 `sshpass`를 도입하지 않으며 불가피하면 명시적 지원 경로를 usage에 적는다. audit이 kind 어휘·위치 참조 존재를 검증한다. |
+| D12 | 자격증명 스키마 (keys.md 개정) | keys.md를 ssh 키 외 계정·비밀번호도 담게 개정. 컬럼: `이름 / kind / principal / fingerprint / 위치 참조 / usage / 소유자 / 생성일 / 만료·로테이션`(생성일과 만료를 분리해 audit의 만료 검사가 생성일을 오인하지 않게 한다). `kind` 어휘 = `ssh-key \| tls-cert \| api-token \| cloud \| account \| password`. `principal`=주체(계정·비밀번호에 필요), `fingerprint`=종류별 선택(비밀번호엔 무의미), `usage`=안전한 주입 방법. 비밀번호는 **argv 절대 금지**(ps/history 유출), `sops exec-env`·`op run`·stdin/FD·백엔드 네이티브 주입만. SSH 비밀번호 로그인은 키 인증을 권장하고 `sshpass`를 도입하지 않으며 불가피하면 명시적 지원 경로를 usage에 적는다. audit이 kind 어휘·위치 참조 존재를 검증한다. |
 | D13 | audit 하드닝 + secrets_mode 강제 | audit이 ① 심볼릭 링크를 **읽기 전에 거부**(하네스 밖 링크 추종 방지) ② `secrets/`를 **재귀** 스캔(직속 자식만 아님) ③ `secrets_mode: none`이면 `secrets/`에 시크릿 페이로드 파일이 없어야 함을 강제 ④ encrypted 헤더를 **엄격 prefix**로 검사(느슨한 부분문자열 제거, 암호학적 유효성은 주장하지 않음) ⑤ 중복 id·conflict-copy 파일명(예: `*conflicted copy*`, `* (1).md`) 탐지. `audit.py --staged`로 git staged 스냅샷을 검사(pre-commit용, git 없으면 무시). 어떤 경우에도 복호하지 않고 매치 값을 출력하지 않는다. `.claude/settings.json` deny는 Read 도구만 막는 **가드레일이며 보안 경계가 아님**(Bash/Python은 여전히 읽음)을 문서에 명시한다. |
 | D14 | 외부 시크릿 백엔드 참조 규약 | keys.md 위치 참조 스킴을 명시: `secrets/…`(로컬) · `op://`(1Password) · `vault://`(HashiCorp Vault) · `aws-secretsmanager://`. 참조는 **불투명** — lookup·audit은 이를 resolve(복호·조회)하지 않고 위치와 사용 명령만 다룬다. 각 백엔드의 참조 실행 관례(`op run`, `vault kv get`, `aws secretsmanager get-secret-value` + 명시적 profile/region/namespace)는 references로 둔다. 전역 `secrets_backend`는 만들지 않는다(혼합 백엔드가 정상 — 참조별 식별). 외부 매니저 사용은 `secrets_mode: none`(하네스는 참조만)에 해당한다. |
 
@@ -177,14 +177,14 @@ k8s는 **클러스터·컴포넌트 수준까지만** 인벤토리화한다. 내
 
 ### 4.2 access/keys.md
 
-키·인증서·자격증명(계정·비밀번호 포함)을 표로 관리(D12). 컬럼: **이름 / kind / principal / fingerprint / 위치 참조 / usage / 소유자 / 생성·로테이션**.
+키·인증서·자격증명(계정·비밀번호 포함)을 표로 관리(D12). 컬럼: **이름 / kind / principal / fingerprint / 위치 참조 / usage / 소유자 / 생성일 / 만료·로테이션**.
 
 - `kind`: `ssh-key | tls-cert | api-token | cloud | account | password`.
 - `principal`: 주체(계정명·사용자명). 계정·비밀번호에 필요, 키·토큰엔 생략 가능.
 - `fingerprint`: 종류별 선택 — ssh 키·tls 인증서엔 유용, 비밀번호엔 무의미(빈칸).
 - `위치 참조`: 값이 있는 곳. 외부(`~/.ssh/deploy-key`, `op://vault/item`, `vault://…`, `aws-secretsmanager://…`) 또는 하네스 내부(`secrets/vm-token.age`). 내부 보관 가능 여부는 원칙 2. 참조 스킴은 D14. **값은 이 파일에 절대 적지 않는다.**
 - `usage`: 안전한 사용(참조 실행) 방법. 비밀번호는 argv 금지, `sops exec-env`·`op run`·stdin만(D12).
-- `생성·로테이션`: 생성일·만료/로테이션 예정일. TLS 인증서 만료도 여기서 추적.
+- `생성일` / `만료·로테이션`: 두 컬럼으로 분리. 만료·로테이션 컬럼은 만료/로테이션 예정일만 담고(없으면 `-`) audit이 이 마지막 컬럼만 만료 검사에 쓴다. TLS 인증서 만료도 여기서 추적.
 
 ### 4.3 컴포넌트 접근용 MCP 구성
 
