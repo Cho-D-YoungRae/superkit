@@ -115,5 +115,68 @@ class TestAuditRobustness(unittest.TestCase):
             self.assertTrue(any("badcert" in w for w in warnings))
 
 
+class TestAuditHardening(unittest.TestCase):
+    def _root(self, files, harness="sharing: local\nsecrets_mode: encrypted\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n"):
+        import tempfile
+        d = tempfile.mkdtemp()
+        root = Path(d)
+        (root / "harness.yaml").write_text(harness, encoding="utf-8")
+        (root / "secrets").mkdir()
+        for rel, content in files.items():
+            p = root / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(content, bytes):
+                p.write_bytes(content)
+            else:
+                p.write_text(content, encoding="utf-8")
+        return root
+
+    def test_symlink_in_secrets_rejected_not_followed(self):
+        root = self._root({})
+        target = root.parent / "outside-secret.txt"
+        target.write_text("AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+        (root / "secrets" / "link.age").symlink_to(target)
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        joined = "\n".join(failures)
+        self.assertIn("link.age", joined)           # 심링크가 보고되고
+        self.assertIn("심볼릭 링크", joined)          # 링크로 분류
+        self.assertNotIn("AKIA", joined)             # 대상 내용은 절대 안 읽음
+
+    def test_nested_encrypted_file_checked(self):
+        # secrets/ 하위 디렉터리의 비암호문도 잡는다(재귀)
+        root = self._root({"secrets/team/plain.txt": b"not encrypted at all\n"})
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        self.assertTrue(any("plain.txt" in f and "암호문 형식이 아님" in f for f in failures))
+
+    def test_strict_header_rejects_loose_substring(self):
+        # 'sops'가 파일 중간에 있을 뿐 유효 암호문 아님 → 엄격 검사로 실패
+        root = self._root({"secrets/fake.age": b"hello sops world not encrypted\n"})
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        self.assertTrue(any("fake.age" in f for f in failures))
+
+    def test_valid_age_and_sops_pass(self):
+        root = self._root({
+            "secrets/ok.age": b"age-encryption.org/v1\n-> X25519 abc\n--- def\n",
+            "secrets/ok.sops.yaml": b"data: ENC[AES256_GCM,data:xx]\nsops:\n    mac: ENC[AES256_GCM,data:yy]\n",
+        })
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        self.assertEqual([f for f in failures if "ok.age" in f or "ok.sops.yaml" in f], [])
+
+    def test_secrets_mode_none_forbids_payload(self):
+        root = self._root({"secrets/leftover.age": b"age-encryption.org/v1\n"})
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "none"}, failures)
+        self.assertTrue(any("leftover.age" in f and "secrets_mode: none" in f for f in failures))
+
+
 if __name__ == "__main__":
     unittest.main()

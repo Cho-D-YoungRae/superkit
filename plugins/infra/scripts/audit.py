@@ -20,7 +20,7 @@ SECRET_PATTERNS = [
     (r"AIza[0-9A-Za-z_-]{35}", "Google API Key"),
     (r"AGE-SECRET-KEY-1[A-Z0-9]{20,}", "age 복호키"),
 ]
-ENC_MAGICS = (b"age-encryption.org/v1", b"-----BEGIN AGE ENCRYPTED FILE-----", b"sops", b"ENC[")
+AGE_PREFIXES = (b"age-encryption.org/v1", b"-----BEGIN AGE ENCRYPTED FILE-----")
 VALID_SHARING = {"local", "git", "shared-drive"}
 VALID_SECRETS_MODE = {"none", "plaintext", "encrypted"}
 EXPIRY_WINDOW_DAYS = 30
@@ -77,6 +77,8 @@ def check_schema_and_refs(root, failures):
 
 def check_secret_scan(root, failures):
     for path in sorted(Path(root).rglob("*")):
+        if path.is_symlink():
+            continue  # 심볼릭 링크는 읽기 전에 거부 — 대상을 절대 읽지 않는다
         if not path.is_file():
             continue
         if any(part in SCAN_SKIP_DIRS for part in path.relative_to(root).parts):
@@ -90,20 +92,45 @@ def check_secret_scan(root, failures):
                 failures.append(f"[시크릿] {path.relative_to(root)}: {label} 패턴 검출 (secrets/ 밖 보관 금지)")
 
 
+def _classify_encrypted(path):
+    """age/SOPS 암호문 형식 여부만 판별한다 — 복호·전체 파싱 없음, bool만 반환(원칙 1).
+
+    첫 4096바이트만 읽어 헤더 prefix 또는 SOPS 구조 마커를 확인한다. 암호학적
+    유효성을 주장하지 않으며, 매치된 내용을 어디에도 출력하지 않는다.
+    """
+    with path.open("rb") as fh:
+        head = fh.read(4096)
+    if any(head.startswith(pfx) for pfx in AGE_PREFIXES):
+        return True
+    # SOPS: 구조 마커 동시 존재로만 판별(느슨한 단일 substring 금지 — 엄격 검사)
+    if b"sops" in head and (b"ENC[" in head or b'"mac"' in head or b"mac:" in head):
+        return True
+    return False
+
+
 def check_secret_policy(root, cfg, failures):
     sharing = cfg.get("sharing")
     mode = cfg.get("secrets_mode")
     if mode == "plaintext" and sharing != "local":
         failures.append(f"[정책] secrets_mode: plaintext는 sharing: local에서만 허용 (현재 sharing: {sharing})")
+    sdir = Path(root) / "secrets"
     if mode == "encrypted":
-        sdir = Path(root) / "secrets"
-        for p in sorted(sdir.glob("*")) if sdir.is_dir() else []:
+        for p in sorted(sdir.rglob("*")) if sdir.is_dir() else []:
+            rel = p.relative_to(sdir)
+            if p.is_symlink():
+                # 읽기 전에 거부 — 하네스 밖 링크 대상을 절대 추종하지 않는다
+                failures.append(f"[정책] secrets/{rel}: 심볼릭 링크는 허용하지 않는다(내용 미확인)")
+                continue
             if p.name == ".gitkeep" or not p.is_file():
                 continue
-            with p.open("rb") as fh:
-                head = fh.read(512)  # 헤더 판별용 — 내용은 출력하지 않는다
-            if not any(m in head for m in ENC_MAGICS):
-                failures.append(f"[정책] secrets/{p.name}: age/SOPS 암호문 형식이 아님")
+            if not _classify_encrypted(p):
+                failures.append(f"[정책] secrets/{rel}: age/SOPS 암호문 형식이 아님")
+    if mode == "none":
+        for p in sorted(sdir.rglob("*")) if sdir.is_dir() else []:
+            if p.is_symlink() or p.name == ".gitkeep" or not p.is_file():
+                continue
+            rel = p.relative_to(sdir)
+            failures.append(f"[정책] secrets/{rel}: secrets_mode: none인데 시크릿 페이로드 파일이 있다")
 
 
 def check_harness_yaml(cfg, failures):
