@@ -29,6 +29,7 @@
 | D7 | description은 인프라 도메인 어휘 우선 | 기존 설치된 `harness:harness` 메타 스킬과 "하네스" 용어가 겹치므로, description은 "인프라 하네스(서버·k8s·컴포넌트 인벤토리)"처럼 인프라 도메인 어휘를 앞세워 오선택을 방지한다. |
 | D8 | tests/fixtures 자동 검증 | 정상 하네스 1개 + 오염 하네스 1개 fixture로 audit·sync 파서·hook 스크립트를 자동 검증한다. |
 | D9 | 매니페스트·개발 루프 | 저장소 루트 = 플러그인 루트. `plugin.json`은 `name: "infra"`, `version: "0.1.0"`, `description`, `author`. 개발 테스트는 `claude --plugin-dir .` + `/reload-plugins`. |
+| D10 | 서버 정보: 파싱 대상만 frontmatter, 이질적 정보는 본문 | 스킬이 **결정론적으로 소비하는 값**(① 명령 생성 — `--context`/`--profile`(원칙 6) ② 참조 무결성(audit) ③ 실제 상태 대조(sync))만 frontmatter에 둔다. 서버 사양·사설/공인 IP·아키텍처·서버별 특이 정보처럼 이질적이고 프로그램이 diff하지 않는 정보는 markdown 본문에 자유 서술하되, register가 채우고 사람이 읽기 좋게 `## 네트워크`·`## 사양`·`## 특이사항` 같은 가벼운 관례 섹션을 쓴다(강제 스키마 아님). 이로써 파서·`REQUIRED_FIELDS`·`schema_version` 변경 없이 후방호환을 유지하고, 사양을 sync가 대조하는 상태 복제(원칙 4 위반)를 피한다. IP drift 자동 감지처럼 스킬이 특정 값을 결정론적으로 소비해야 할 때에만 그 값을 frontmatter로 **승격**한다(그 시점에 `provider_resource_id` 등과 함께 별도 결정으로 다룬다). |
 
 ## 3. 불변 원칙 (전 스킬 공통, 위반 불가)
 
@@ -83,7 +84,7 @@ infra-workspace/                    # 하네스 저장소 (이름 자유, 외부
 └── configs/                        # managed_by: manual 엔티티가 생길 때만 생성
 ```
 
-공통 규칙: 엔티티는 **YAML frontmatter + markdown 본문**(본문은 히스토리·주의사항 자유 서술). `id`는 파일명(stem)과 일치. 엔티티 간 참조는 id로.
+공통 규칙: 엔티티는 **YAML frontmatter + markdown 본문**. `id`는 파일명(stem)과 일치. 엔티티 간 참조는 id로. frontmatter는 스킬이 파싱하는 운영 메타데이터만 담고, 이질적·비파싱 정보(사양·IP·특이사항 등)는 본문에 자유 서술한다(D10). 본문 관례 섹션은 아래 server 예시를 참고.
 
 ### 4.1 엔티티 frontmatter
 
@@ -114,6 +115,25 @@ access: "ssh, 키: keys.md#deploy-key"
 managed_by: terraform://org/infra-tf//modules/db    # 또는 manual
 depends_on: []
 ---
+```
+
+server frontmatter는 위 필드(스킬이 파싱하는 운영 메타데이터)만 담는다. IP·사양·아키텍처·서버별
+특이 정보는 **본문**에 자유 서술한다(D10 — 파서·REQUIRED_FIELDS 변경 없음, audit은 본문 미검사).
+register가 이 본문을 채우며, 사람이 읽기 좋게 아래 관례 섹션을 권장한다(강제 아님):
+
+```markdown
+# prod-db-01
+
+## 네트워크
+- 사설 IP: 10.0.12.34
+- 공인 IP: 3.35.x.x (EIP 고정)
+
+## 사양  <!-- register가 ssh로 수집, 2026-07-21 -->
+- arch: x86_64 / vCPU 8 / 32GiB
+- 디스크: gp3 500GB + 데이터 2TB NVMe RAID1
+
+## 특이사항
+- 매일 02:00 pg_dump 배치 — 이 시간대 IO 지연 주의
 ```
 
 **k8s-cluster** (`inventory/prod-k8s.md`):
