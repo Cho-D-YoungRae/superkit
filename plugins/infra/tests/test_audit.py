@@ -177,6 +177,54 @@ class TestAuditHardening(unittest.TestCase):
         audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "none"}, failures)
         self.assertTrue(any("leftover.age" in f and "secrets_mode: none" in f for f in failures))
 
+    def test_large_sops_file_with_tail_metadata_passes(self):
+        # 실제 SOPS는 sops:/mac 메타데이터가 파일 끝에 온다. 4096B 초과도 통과해야 함
+        filler = b"data: ENC[AES256_GCM,data:" + b"x" * 6000 + b"]\n"
+        tail = b"sops:\n    mac: ENC[AES256_GCM,data:yy]\n    version: 3.7.3\n"
+        root = self._root({"secrets/big.sops.yaml": filler + tail})
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        self.assertEqual([f for f in failures if "big.sops.yaml" in f], [])
+
+    def test_strict_header_message(self):
+        root = self._root({"secrets/fake.age": b"hello sops world not encrypted\n"})
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        self.assertTrue(any("fake.age" in f and "암호문 형식이 아님" in f for f in failures))
+
+    def test_secret_scan_symlink_not_followed(self):
+        root = self._root({}, harness="sharing: local\nsecrets_mode: none\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n")
+        target = root.parent / "outside2.txt"
+        target.write_text("AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+        (root / "notes-link.md").symlink_to(target)
+        failures = []
+        import audit
+        audit.check_secret_scan(root, failures)
+        self.assertNotIn("AKIA", "\n".join(failures))
+
+    def test_none_mode_symlink_not_followed(self):
+        root = self._root({})
+        target = root.parent / "outside3.txt"
+        target.write_text("AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+        (root / "secrets" / "l.age").symlink_to(target)
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "none"}, failures)
+        self.assertNotIn("AKIA", "\n".join(failures))
+
+    def test_directory_symlink_in_secrets_not_recursed(self):
+        root = self._root({})
+        outside_dir = root.parent / "outside-dir"
+        outside_dir.mkdir(exist_ok=True)  # 공유 임시 디렉터리 — 재실행 시에도 충돌 없이 멱등
+        (outside_dir / "leak.txt").write_text("AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+        (root / "secrets" / "dlink").symlink_to(outside_dir, target_is_directory=True)
+        failures = []
+        import audit
+        audit.check_secret_policy(root, {"sharing": "local", "secrets_mode": "encrypted"}, failures)
+        self.assertNotIn("AKIA", "\n".join(failures))
+
 
 if __name__ == "__main__":
     unittest.main()
