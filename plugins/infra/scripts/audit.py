@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""하네스 정합성 검증 — 스키마·참조·시크릿 스캔·정책 조합·키 만료·harness.yaml (stdlib 전용)."""
+"""하네스 정합성 검증 — 스키마·참조·시크릿 스캔·정책 조합·자격증명·키 만료·harness.yaml (stdlib 전용)."""
 import argparse
 import datetime
 import os
@@ -28,21 +28,37 @@ VALID_SECRETS_MODE = {"none", "plaintext", "encrypted"}
 EXPIRY_WINDOW_DAYS = 30
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 KEYS_ANCHOR_RE = re.compile(r"keys\.md#([A-Za-z0-9_.-]+)")
+VALID_KEY_KINDS = {"ssh-key", "tls-cert", "api-token", "cloud", "account", "password"}
 SCAN_SKIP_DIRS = {".git", "secrets", ".claude"}
 CONFLICT_COPY_RE = re.compile(r"\(\d+\)\.md$|conflicted copy|conflict\b", re.I)
 
 
-def key_names(root):
-    """access/keys.md 표의 '이름' 컬럼 값 집합."""
+def _iter_credential_rows(root):
+    """access/keys.md의 데이터 행(헤더·구분선 제외)을 셀 리스트로 순회한다(D12, 9컬럼).
+
+    컬럼 수를 하드코딩하지 않는다 — 표 행인지(파이프로 시작), 헤더인지(첫 셀 '이름'),
+    구분선인지(첫 셀이 '-'/':' 문자로만 구성)로만 데이터 행을 가린다. 9컬럼 스키마(이름/
+    kind/principal/fingerprint/위치 참조/usage/소유자/생성일/만료·로테이션)의 나머지 컬럼
+    인덱스는 이 함수가 아니라 호출자(key_names/check_credentials/check_expiry)가 고른다.
+    """
     path = Path(root) / "access" / "keys.md"
-    names = set()
     if not path.is_file():
-        return names
+        return
     for line in path.read_text(encoding="utf-8").splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) >= 7 and cells[0] not in ("이름", "") and not set(cells[0]) <= {"-"}:
-            names.add(cells[0])
-    return names
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue  # 표 행이 아님 — 제목·안내 문구 등 본문 텍스트
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if not cells or not cells[0] or cells[0] == "이름":
+            continue  # 빈 행 또는 헤더
+        if set(cells[0]) <= {"-", ":"}:
+            continue  # 구분선
+        yield cells
+
+
+def key_names(root):
+    """access/keys.md 표의 '이름' 컬럼 값 집합(참조 무결성 검사용)."""
+    return {cells[0] for cells in _iter_credential_rows(root)}
 
 
 def check_schema_and_refs(root, failures):
@@ -199,27 +215,46 @@ def check_harness_yaml(cfg, failures):
         failures.append(f"[harness.yaml] 알 수 없는 secrets_mode 값: {cfg.get('secrets_mode')!r}")
 
 
+def check_credentials(root, failures):
+    """access/keys.md 각 자격증명 행의 kind 어휘·위치 참조 존재를 검증한다(D12).
+
+    값은 다루지 않는다 — kind 문자열과 위치 참조 칸이 비어 있는지/'-'인지만 본다.
+    """
+    for cells in _iter_credential_rows(root):
+        name = cells[0]
+        kind = cells[1] if len(cells) > 1 else ""
+        location = cells[4] if len(cells) > 4 else ""
+        if kind not in VALID_KEY_KINDS:
+            failures.append(f"[키] {name}: 알 수 없는 kind '{kind}'")
+        if not location or location == "-":
+            failures.append(f"[키] {name}: 위치 참조 누락")
+
+
 def check_expiry(root, today, warnings):
-    path = Path(root) / "access" / "keys.md"
-    if not path.is_file():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 7 or cells[0] in ("이름", "") or set(cells[0]) <= {"-"}:
+    """만료·로테이션 경고 — 항상 **마지막 컬럼**만 만료일로 취급한다(D12).
+
+    9컬럼 스키마는 생성일과 만료·로테이션을 분리된 컬럼에 둔다. 여기서 마지막 컬럼만 보므로
+    생성일을 만료일로 오인하지 않는다(구 스키마에서도 마지막 컬럼이 곧 만료 컬럼이라 동일하게
+    동작한다 — 컬럼 개수에 의존하지 않는다).
+    """
+    for cells in _iter_credential_rows(root):
+        name = cells[0]
+        expiry_cell = cells[-1] if cells else ""
+        if not expiry_cell or expiry_cell == "-":
             continue
-        m = DATE_RE.search(cells[6])
+        m = DATE_RE.search(expiry_cell)
         if not m:
             continue
         try:
             expiry = datetime.date.fromisoformat(m.group())
         except ValueError:
-            warnings.append(f"[만료] {cells[0]}: 만료일 형식이 잘못됨 ({m.group()})")
+            warnings.append(f"[만료] {name}: 만료일 형식이 잘못됨 ({m.group()})")
             continue
         days = (expiry - today).days
         if days < 0:
-            warnings.append(f"[만료] {cells[0]}: 이미 만료됨 ({expiry})")
+            warnings.append(f"[만료] {name}: 이미 만료됨 ({expiry})")
         elif days <= EXPIRY_WINDOW_DAYS:
-            warnings.append(f"[만료] {cells[0]}: {days}일 후 만료 ({expiry})")
+            warnings.append(f"[만료] {name}: {days}일 후 만료 ({expiry})")
 
 
 def run_audit(root, today):
@@ -234,6 +269,7 @@ def run_audit(root, today):
     check_structure(root, failures)
     check_secret_scan(root, failures)
     check_secret_policy(root, cfg, failures)
+    check_credentials(root, failures)
     check_expiry(root, today, warnings)
     return failures, warnings
 

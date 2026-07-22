@@ -325,5 +325,22 @@ class TestAuditStagedFlag(unittest.TestCase):
         self.assertNotIn("AKIAIOSFODNN7EXAMPLE", joined)         # 매치 값은 미출력
 
 
+class TestCredentialSchema(unittest.TestCase):
+    def test_ok_keys_pass(self):
+        import datetime
+        failures, _ = audit.run_audit(OK, datetime.date(2026, 7, 22))
+        self.assertEqual([f for f in failures if "[키]" in f], [])
+
+    def test_bad_kind_flagged(self):
+        import datetime
+        failures, _ = audit.run_audit(BAD, datetime.date(2026, 7, 22))
+        self.assertTrue(any("superkey" in f for f in failures))
+
+    def test_expiry_still_detected_new_schema(self):
+        import datetime
+        _, warnings = audit.run_audit(BAD, datetime.date(2026, 7, 22))
+        self.assertTrue(any("old-cert" in w for w in warnings))
+
+
 if __name__ == "__main__":
     unittest.main()
