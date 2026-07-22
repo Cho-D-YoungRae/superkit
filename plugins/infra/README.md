@@ -225,10 +225,11 @@ SSH 비밀번호 로그인은 키 인증 전환을 권장하고 `sshpass` 도입
 `harness.yaml`을 `secrets_mode: none`(하네스는 참조만)으로 두고, `register`가
 `access/keys.md`의 위치 참조 컬럼에 `vault://mount/path`나 `op://vault/item/field`를 그대로
 적는다(참조는 불투명 — 등록 시점에 값을 조회·검증하지 않는다, D14). "vm 토큰 어디 있어?" →
-`lookup`이 `op run -- <명령>`(1Password) 또는 `vault kv get -mount=<mount> <path>`
-(HashiCorp Vault, `VAULT_ADDR`/`VAULT_NAMESPACE` 명시) 같은 그 백엔드의 참조 실행 명령을
-안내한다 — 실행은 사용자 몫이고 값을 대신 조회·출력하지 않는다. 백엔드별 상세 관례는
-`secrets` 스킬의 `references/backends.md`를 참고한다.
+`lookup`이 `op run -- <명령>`(1Password) 또는 `export TOKEN=$(vault kv get -field=<key>
+-mount=<mount> <path>)`(HashiCorp Vault, `VAULT_ADDR`/`VAULT_NAMESPACE` 명시) 같은 그
+백엔드의 참조 실행 명령을 안내한다 — 실행은 사용자 몫이고, `-field` 없이 실행하면 시크릿
+전체가 stdout에 그대로 출력되므로 항상 특정 필드만 env로 뽑아 쓰며 값을 대신 조회·출력하지
+않는다. 백엔드별 상세 관례는 `secrets` 스킬의 `references/backends.md`를 참고한다.
 
 ### 새 팀원 온보딩 — secrets
 

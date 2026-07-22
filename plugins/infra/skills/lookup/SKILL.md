@@ -58,8 +58,10 @@ description: 인프라 하네스(서버·k8s 클러스터·컴포넌트·키 인
    1234`, `mysql -p1234`, `curl -u user:1234` 등)를 제시하지 않는다 — `sops exec-env
    <파일> '<명령>'` · `op run -- <명령>` · stdin/FD로 넘기는 형태만 안내한다. 위치
    참조가 `op://`·`vault://`·`aws-secretsmanager://` 같은 외부 매니저 스킴이면(D14) 그
-   백엔드의 참조 실행 명령을 안내한다 — `op run -- <명령>`(1Password), `vault kv get
-   -mount=<mount> <path>`(HashiCorp Vault, `VAULT_ADDR`/`VAULT_NAMESPACE`를 명시),
+   백엔드의 참조 실행 명령을 안내한다 — `op run -- <명령>`(1Password),
+   `export VAR=$(vault kv get -field=<key> -mount=<mount> <path>)`(HashiCorp Vault,
+   `VAULT_ADDR`/`VAULT_NAMESPACE`를 명시 — `-field` 없이 실행하면 시크릿 전체가
+   stdout에 출력되므로 항상 특정 필드만 env로 뽑는다),
    `aws secretsmanager get-secret-value --secret-id <id> --profile <p> --region <r>`
    (AWS Secrets Manager)처럼 profile/region/namespace를 항상 명시적으로 붙인다(원칙 6).
    lookup은 이때도 명령을 대신 실행하거나 값을 조회·출력하지 않는다 — 안내만 하고 실행은
