@@ -33,10 +33,12 @@
 
 - 위치 참조 형식: `vault://<mount>/<path>`(또는 `keys.md`에 mount/path를 나눠 적어도
   무방).
-- 사용 명령: `vault kv get -mount=<mount> <path>` — 반드시 `VAULT_ADDR`/`VAULT_NAMESPACE`를
-  환경변수 또는 `-address=`/`-namespace=` 플래그로 명시한다(원칙 6 — 현재 셸의 기본값에
-  암묵적으로 의존하지 않는다). 특정 필드만 필요하면 `-field=<key>`를 더해 환경변수
-  대입까지만 쓰고 화면에 그대로 출력해 보여주지 않는다.
+- 사용 명령: **항상 `-field=<key>`로 특정 필드만** 뽑아 환경변수 대입이나 파일
+  리다이렉트로만 쓴다 — 예: `export TOKEN=$(vault kv get -field=<key> -mount=<mount> <path>)`.
+  `VAULT_ADDR`/`VAULT_NAMESPACE`는 환경변수 또는 `-address=`/`-namespace=` 플래그로 반드시
+  명시한다(원칙 6 — 현재 셸 기본값에 암묵 의존 금지). `-field` 없이 `vault kv get`을
+  실행하면 시크릿 **전체가 stdout에 테이블로 출력**되므로, `-field` 사용 여부와 무관하게
+  원문(시크릿 값)을 화면에 그대로 출력하는 형태로는 실행하지 않는다(원칙 1).
 - 인증(`vault login`)은 사용자가 사전에 구성해 둔 것을 전제한다 — 이 스킬이 토큰을 대신
   발급·저장하지 않는다.
 
