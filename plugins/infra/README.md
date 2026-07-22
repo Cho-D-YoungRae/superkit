@@ -1,8 +1,16 @@
 # infra
 
 인프라의 **지식(인벤토리) · 기록(변경/의사결정) · 조작(직접 제어)**을 담당하는 "인프라 하네스"를
-구성·운영하는 Claude Code 플러그인. 스킬 9종(init/register/lookup/connect/ops/change/decide/
-sync/audit), 엔티티 템플릿, 검증 스크립트, hook으로 구성된다.
+구성·운영하는 Claude Code 플러그인. 스킬 10종(init/register/lookup/connect/ops/change/decide/
+sync/audit/secrets), 엔티티 템플릿, 검증 스크립트, hook으로 구성된다.
+
+## 빠른 시작
+
+```bash
+mkdir ~/infra-workspace && cd ~/infra-workspace
+claude --plugin-dir /path/to/infra
+# 대화창: "인프라 하네스 만들어줘" → 이후 자연어로 등록·조회·조작
+```
 
 ## 목차
 
@@ -16,8 +24,9 @@ sync/audit), 엔티티 템플릿, 검증 스크립트, hook으로 구성된다.
 8. [테스트](#8-테스트)
 9. [수동 검증 체크리스트](#9-수동-검증-체크리스트)
 10. [안전성 FAQ](#10-안전성-faq)
-11. [기여·설계 문서](#11-기여설계-문서)
-12. [라이선스](#12-라이선스)
+11. [트러블슈팅](#11-트러블슈팅)
+12. [기여·설계 문서](#12-기여설계-문서)
+13. [라이선스](#13-라이선스)
 
 ## 1. 개요
 
@@ -44,7 +53,7 @@ prometheus·victoria-metrics 같은 설치 컴포넌트를 다룬다.
 
 ```
 <하네스 저장소>/                # 이름 자유, 외부 비공개 필수
-├── harness.yaml               # 정책 데이터 — sharing/secrets_mode/environments/policies/hooks
+├── harness.yaml               # 정책 데이터 — sharing/secrets_mode/environments/policies/hooks(+secrets_recipients, D11)
 ├── CLAUDE.md                  # 하네스 소개·규약(플러그인의 CLAUDE.md와 다름)
 ├── .claude/settings.json      # secrets/ 읽기 차단(permissions.deny)
 ├── .gitignore                 # secrets/ 제외(git 전환 대비 선등록)
@@ -68,7 +77,7 @@ prometheus·victoria-metrics 같은 설치 컴포넌트를 다룬다.
 | server | `inventory/<id>.md` | `env`, `provider`, `runtime`, `access`, `managed_by`(terraform/manual) |
 | k8s-cluster | `inventory/<id>.md` | `env`, `provider`, `context`, `access_recipe`, `managed_by` |
 | component | `inventory/components/<id>.md` | `category`, `runs_on`, `namespace`, `endpoint`, `installed_by` |
-| key/인증서 | `access/keys.md`의 표 행 | 이름, 종류(ssh/cloud/api-token/tls-cert), fingerprint, **위치 참조**, 만료일 |
+| key/인증서 | `access/keys.md`의 표 행 | 이름, `kind`(ssh-key/tls-cert/api-token/cloud/account/password), `principal`, fingerprint, **위치 참조**, `usage`(참조 실행 레시피), 소유자, 생성일, 만료·로테이션 |
 
 server의 사양·사설/공인 IP·아키텍처·서버별 특이 정보는 frontmatter 필드가 아니라 **엔티티 본문**에
 자유 서술한다(스펙 D10 — `## 네트워크`/`## 사양`/`## 특이사항` 관례 섹션 권장, 강제 아님). 스킬이
@@ -151,6 +160,7 @@ claude --plugin-dir /path/to/infra
    | "이 결정 ADR로 남겨줘" | decide |
    | "문서랑 실제 상태 맞는지 확인해줘" | sync |
    | "하네스 점검해줘" | audit |
+   | "새 팀원 온보딩해줘" | secrets |
 
    각 스킬은 `/infra:<이름>`(예: `/infra:init`)으로 직접 호출할 수도 있지만, 이는 보조
    경로다 — 기본 사용 형태는 자연어 대화다.
@@ -195,7 +205,45 @@ claude --plugin-dir /path/to/infra
 ### 하네스를 팀과 공유할 때 — 모드 전환
 
 로컬로 쓰던 하네스를 git으로 공유하려면 `sharing: git` + `secrets_mode: encrypted`로 바꾸고
-`secrets/`를 age/SOPS 암호문으로 전환한다. `audit`가 "공유 + 평문" 위반을 잡아 준다.
+`secrets/`를 SOPS+age 암호문으로 전환한다 — 초기 `secrets_recipients`(팀원 공개키 +
+recovery) 구성과 `.sops.yaml` 생성·재암호화는 `secrets` 스킬이 담당한다(D11). `audit`가
+"공유 + 평문" 위반을 잡아 준다.
+
+### 비밀번호·서버 계정 관리 — register → lookup
+
+"이 DB 계정 비밀번호 등록해줘" → `register`가 `access/keys.md`에 `kind: password`(또는
+`account`) 행을 추가한다. `principal`(계정명)만 인터뷰로 받고 **값은 표에 절대 적지 않는다**
+— 값은 `secrets/pg-app.age`(하네스 내부, `secrets_mode: encrypted`) 같은 위치 참조로 두고,
+`usage` 컬럼에는 `sops exec-env secrets/pg-app.age 'psql ...'`처럼 참조 실행 레시피만 적는다
+(argv에 비밀번호를 직접 넣는 형태는 어디서도 제시하지 않는다). 이후 "pg-app 계정으로
+접속해줘" → `lookup`이 값이 아니라 이 위치 참조와 `usage`의 실행 레시피를 그대로 안내한다.
+SSH 비밀번호 로그인은 키 인증 전환을 권장하고 `sshpass` 도입은 하지 않는다(D12).
+
+### 외부 시크릿 매니저(Vault·1Password) 사용 — register/lookup
+
+이미 HashiCorp Vault나 1Password로 비밀번호를 관리하고 있다면 하네스로 값을 옮기지 않는다.
+`harness.yaml`을 `secrets_mode: none`(하네스는 참조만)으로 두고, `register`가
+`access/keys.md`의 위치 참조 컬럼에 `vault://mount/path`나 `op://vault/item/field`를 그대로
+적는다(참조는 불투명 — 등록 시점에 값을 조회·검증하지 않는다, D14). "vm 토큰 어디 있어?" →
+`lookup`이 `op run -- <명령>`(1Password) 또는 `vault kv get -mount=<mount> <path>`
+(HashiCorp Vault, `VAULT_ADDR`/`VAULT_NAMESPACE` 명시) 같은 그 백엔드의 참조 실행 명령을
+안내한다 — 실행은 사용자 몫이고 값을 대신 조회·출력하지 않는다. 백엔드별 상세 관례는
+`secrets` 스킬의 `references/backends.md`를 참고한다.
+
+### 새 팀원 온보딩 — secrets
+
+"새로 합류한 팀원 온보딩해줘, age 공개키는 이거야" → `secrets`가 `harness.yaml`의
+`secrets_recipients`에 그 공개키를 추가하고 `.sops.yaml`을 재생성한 뒤 `sops updatekeys`로
+기존 암호문 전체를 재키잉한다. age **공개**키는 비밀이 아니므로 harness.yaml에 그대로 남아도
+안전하다(D11).
+
+### 팀원 오프보딩 — secrets
+
+"OO님 나갔어, 시크릿 접근 회수해줘" → `secrets`가 3단계로 처리한다: ① `secrets_recipients`
+에서 제거하고 `.sops.yaml`을 갱신해 `sops updatekeys`로 전체 재키잉 ② 재키잉만으로는 그
+사람이 이미 가진 구버전 암호문을 여전히 복호할 수 있으므로 **하위 자격증명(비밀번호·토큰
+등)을 실제로 로테이션** ③ 로테이션 내역을 `changes/`에 기록. 조직 복구 수신자(`recovery`)는
+항상 유지되므로 개인 이탈이 하네스 접근 단절로 이어지지 않는다(D11).
 
 ## 6. 불변 원칙과 하네스 발견 규약
 
@@ -254,6 +302,7 @@ infra의 모든 스킬은 아래 10개 원칙을 위반할 수 없다(각 SKILL.
 | decide | 기술 의사결정을 ADR 형식으로 `decisions/`에 기록한다 | "이 결정 ADR로 남겨줘" |
 | sync | 인벤토리 문서와 실제 상태(클라우드 인스턴스·k8s 노드·helm 릴리스)를 read-only로 대조해 drift를 보고한다 | "문서랑 실제 상태 맞는지 확인해줘" |
 | audit | 하네스 문서 자체의 정합성(스키마·참조·시크릿·정책·만료)을 검증한다 | "하네스 점검해줘" |
+| secrets | 팀 시크릿(SOPS+age)의 수신자 관리·재키잉 생명주기(온보딩·오프보딩·자격증명 로테이션)를 담당한다 | "새 팀원 온보딩해줘" |
 
 `ops`는 도구별 조작 지식을 `skills/ops/references/{kubectl,argocd,prometheus,helm}.md`로
 분리해 명령을 조립하기 전에 필요한 것만 불러온다.
@@ -272,8 +321,10 @@ bash tests/run_tests.sh
 `tests/fixtures/harness-off`(hook 비활성화 검증용) 세 fixture를 대상으로 다음을 자동
 검증한다.
 
-- `scripts/audit.py`의 기대 결과(스키마/참조/시크릿 패턴/정책 조합/만료 경고 각 항목의
-  통과·실패)
+- `scripts/audit.py`의 기대 결과 — 스키마/참조/시크릿 패턴/정책 조합/만료 경고에 더해 D13
+  하드닝(심링크 거부·`secrets/` 재귀 스캔·`secrets_mode: none` 강제·엄격 헤더 판별·중복
+  id/conflict-copy 파일명 탐지·`--staged` 모드)과 D11 수신자(recovery 필수)·D12
+  자격증명(kind 어휘·위치 참조 누락) 검증까지 각 항목의 통과·실패
 - `hooks/scripts/change_reminder.py`의 케이스(mutating 매치 / read-only 제외 / `--dry-run`
   제외 / `hooks.change_reminder: false` / 하네스 밖에서 실행)
 - `scripts/sync_snapshot.py`의 문서 스냅샷 파서·diff 로직(모의 수집 데이터 주입)
@@ -320,9 +371,27 @@ bash tests/run_tests.sh
 `.claude/settings.json` deny로 차단되어, 실수로도 값을 컨텍스트에 들일 수 없다.
 
 **Q. 하네스를 팀과 git으로 공유해도 되나?**
-된다. 단 `secrets_mode: encrypted`로 두고 age/SOPS 암호문만 커밋한다(복호 키는 각 머신
-로컬). "공유 + 평문" 조합은 `audit`가 실패로 잡는다. 값 회수·감사가 필요하면 하네스에
-참조만 두고 실제 값은 패스워드 매니저 공유 볼트 같은 채널을 쓴다.
+된다. 단 `secrets_mode: encrypted`로 두고 SOPS+age 암호문만 커밋한다(복호 키는 각 머신
+로컬) — 수신자(`secrets_recipients`) 관리·재키잉·오프보딩 시 자격증명 로테이션은 `secrets`
+스킬이 전담한다(D11). "공유 + 평문" 조합은 `audit`가 실패로 잡고, 심링크는 읽지 않고
+거부하며 `secrets/`를 재귀로 검사하고 `--staged`로 커밋 전 스냅샷도 점검할 수 있다(D13).
+값 회수·감사가 더 필요하면 하네스에는 참조만 두고 실제 값은 외부 시크릿 매니저(Vault·
+1Password 등, D14)나 패스워드 매니저 공유 볼트 같은 채널을 쓴다.
+
+**Q. 비밀번호나 서버 계정도 이 하네스에 담을 수 있나?**
+된다(D12). `access/keys.md`에 `kind: account`/`password` 행으로 관리하되, 값은 어떤
+경우에도 표에 적지 않고 위치 참조(`secrets/…` 또는 `op://`·`vault://`·
+`aws-secretsmanager://` 같은 외부 매니저 참조, D14)만 남긴다. 사용은 `usage` 컬럼의
+레시피(`sops exec-env`, `op run -- <명령>` 등)로만 하고, **argv에 비밀번호를 직접 넣는
+형태는 register·lookup 어디서도 제시하지 않는다**(ps·셸 히스토리 유출 방지). SSH
+비밀번호 로그인은 키 인증 전환을 권장하고 `sshpass`는 도입하지 않는다.
+
+**Q. 팀원이 나가면 하네스의 시크릿은 어떻게 되나?**
+`secrets` 스킬이 오프보딩을 3단계로 처리한다: ① `harness.yaml`의 `secrets_recipients`에서
+그 사람을 제거하고 `.sops.yaml`을 갱신해 `sops updatekeys`로 전체 재키잉 ② 재키잉만으로는
+그 사람이 이미 로컬에 가진 구버전 암호문을 여전히 복호할 수 있으므로 **하위
+자격증명(비밀번호·토큰 등)을 실제로 로테이션** ③ 로테이션 내역을 `changes/`에 기록. 조직
+복구 수신자(`recovery`)는 항상 유지되어 개인 이탈이 하네스 접근 단절로 이어지지 않는다(D11).
 
 **Q. 하네스와 무관한 다른 프로젝트에서 세션을 열면 이 플러그인이 방해하나?**
 아니다(스펙 D1). 스킬은 `harness.yaml`을 상향 탐색해 못 찾으면 안내 후 중단하고, hook은
@@ -333,20 +402,46 @@ bash tests/run_tests.sh
 정책에 없는 env는 안전 기본값 `confirm`으로 취급한다. read-only 명령은 게이트 없이 즉시
 실행되고, mutating만 이 파이프라인을 탄다(원칙 7).
 
-## 11. 기여·설계 문서
+## 11. 트러블슈팅
+
+자주 겪는 문제와 해결 방법.
+
+**하네스를 못 찾음** — register/lookup 등 스킬이 "하네스 디렉터리에서 세션을 열거나
+init으로 하네스를 먼저 생성하세요"라며 중단된다. cwd에서 상향 탐색해도 `harness.yaml`을
+찾지 못한 것이다(D1). 하네스 저장소 디렉터리(또는 그 하위)에서 세션을 다시 열거나,
+처음이라면 "인프라 하네스 만들어줘"로 `init`을 실행한다.
+
+**"공유 + 평문" audit 실패** — `audit`가 `[정책]` 실패로 공유(`sharing: git`/
+`shared-drive`) + `secrets_mode: plaintext` 조합을 잡는다(원칙 2 위반). `secrets_mode:
+encrypted`로 전환하고 `secrets` 스킬로 `secrets_recipients`(팀원 공개키 + recovery)를
+구성해 재암호화한다.
+
+**`sops`가 복호 키를 못 찾음("no key could decrypt" 등)** — 내 age 개인키가
+`secrets_recipients`(및 그로부터 생성된 `.sops.yaml`)에 아직 없다는 뜻이다 — 온보딩이
+안 된 상태다. 팀원에게 내 age **공개**키를 전달해 온보딩(`secrets` 스킬 — 수신자 추가 +
+`sops updatekeys` 재키잉)을 요청한다.
+
+**`secrets/`를 Read 도구로 열 수 없음** — 정상 동작이다(버그 아님). `.claude/settings.json`의
+`permissions.deny`가 `secrets/` 읽기를 차단하도록 설계돼 있다(원칙 2의 기계적 강제, D3).
+값이 필요하면 읽지 말고 `keys.md`의 위치 참조 + `usage` 컬럼의 참조 실행
+레시피(`sops exec-env`, `op run`, `ssh -i` 등)로 사용한다.
+
+## 12. 기여·설계 문서
 
 이 저장소를 **수정**하려는 경우:
 
 - [`CLAUDE.md`](CLAUDE.md) — 저장소를 수정하는 세션용 지침(테스트 명령, python3 stdlib
   전용·hook exit 0·SKILL.md description 형식 같은 비자명 제약).
 - [`docs/superpowers/specs/2026-07-19-infra-plugin-design.md`](docs/superpowers/specs/2026-07-19-infra-plugin-design.md)
-  — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D9.
+  — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D14.
 - [`docs/superpowers/plans/2026-07-19-infra-plugin.md`](docs/superpowers/plans/2026-07-19-infra-plugin.md)
-  — 태스크별 구현 계획.
+  — 태스크별 구현 계획(D1~D10, init~audit 스킬).
+- [`docs/superpowers/plans/2026-07-22-team-secrets.md`](docs/superpowers/plans/2026-07-22-team-secrets.md)
+  — 팀 시크릿·자격증명·audit 하드닝 구현 계획(D11~D14, secrets 스킬).
 
 원칙·스키마·D 결정은 확정 사항이다. 이를 바꾸는 변경은 스펙을 먼저 갱신하고 진행한다.
 변경 후에는 `bash tests/run_tests.sh`로 전체 테스트를 확인한다.
 
-## 12. 라이선스
+## 13. 라이선스
 
 [MIT License](LICENSE) — Copyright (c) 2026 Youngrae Cho.
