@@ -287,8 +287,13 @@ def check_staged_secret_scan(root, staged_paths, failures):
 
     check_secret_scan과 동일하게 secrets/ 등 SCAN_SKIP_DIRS는 제외한다(그 안은 별도
     정책 검사(check_secret_policy) 담당). 복호·매치 값 출력 없음 — 패턴 라벨만 보고.
+
+    root는 반드시 .resolve()로 정규화한다 — staged_paths(_staged_files_in_harness가
+    돌려주는 절대경로)는 이미 .resolve()된 값인데, main이 넘기는 root는 미resolve
+    상태일 수 있다(예: --root가 심링크를 경유). 여기서 맞춰주지 않으면 root에 심링크
+    구성요소가 있을 때 fp.relative_to(root)가 ValueError로 크래시한다(D13).
     """
-    root = Path(root)
+    root = Path(root).resolve()
     for fp in staged_paths:
         if fp.is_symlink() or not fp.is_file():
             continue

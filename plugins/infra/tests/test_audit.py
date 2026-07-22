@@ -304,6 +304,23 @@ class TestAuditStagedFlag(unittest.TestCase):
             # 그래서 부분 문자열 "AKIA"가 아니라 실제 매치된 전체 값이 없는지로 검증한다.
             self.assertNotIn("AKIAIOSFODNN7EXAMPLE", "\n".join(failures))
 
+    def test_staged_symlinked_root_no_crash(self):
+        import subprocess, sys, tempfile, os
+        with tempfile.TemporaryDirectory() as d:
+            real = Path(d) / "real-harness"
+            real.mkdir()
+            (real / "harness.yaml").write_text(
+                "sharing: local\nsecrets_mode: none\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n",
+                encoding="utf-8")
+            link = Path(d) / "link-harness"
+            os.symlink(real, link, target_is_directory=True)   # 심링크 root
+            script = str(PLUGIN_ROOT / "scripts" / "audit.py")
+            r = subprocess.run([sys.executable, script, "--root", str(link), "--staged"],
+                               capture_output=True, text=True)
+        self.assertNotIn("Traceback", r.stderr)         # 크래시 없음
+        self.assertNotIn("ValueError", r.stderr)
+        self.assertIn(r.returncode, (0, 1))
+
 
 if __name__ == "__main__":
     unittest.main()
