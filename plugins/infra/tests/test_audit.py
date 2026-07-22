@@ -254,13 +254,55 @@ class TestAuditStructure(unittest.TestCase):
 
 
 class TestAuditStagedFlag(unittest.TestCase):
-    def test_staged_flag_parses(self):
-        import subprocess, sys
-        script = str(PLUGIN_ROOT / "scripts" / "audit.py")
-        # --staged를 git 아닌 디렉터리에서 실행하면 "git 저장소 아님" 안내 후 비크래시(exit 0 또는 1)
-        r = subprocess.run([sys.executable, script, "--root", str(OK), "--staged"], capture_output=True, text=True)
+    def test_staged_non_git_falls_back(self):
+        import subprocess, sys, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / "harness.yaml").write_text(
+                "sharing: local\nsecrets_mode: none\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n",
+                encoding="utf-8")
+            script = str(PLUGIN_ROOT / "scripts" / "audit.py")
+            r = subprocess.run([sys.executable, script, "--root", str(root), "--staged"],
+                               capture_output=True, text=True)
+        self.assertIn("git 저장소가 아니라", r.stdout)   # 폴백 분기 실제 진입
         self.assertIn(r.returncode, (0, 1))
         self.assertNotIn("Traceback", r.stderr)
+
+    def test_staged_parses_zsep_non_ascii(self):
+        # -z NUL 출력의 비-ASCII 파일명이 따옴표/이스케이프 없이 파싱돼 스캔 대상에 포함되는가
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            # resolve()로 고정 — macOS에서 tempdir가 /var -> /private/var 심링크라
+            # 미resolve 경로를 섞어 쓰면 이 테스트 자체의 mock 왕복에서 relative_to가
+            # 어긋난다(운영 코드 경로가 아니라 테스트 결정론화를 위한 조정).
+            root = Path(d).resolve()
+            (root / "runbooks").mkdir()
+            f = root / "runbooks" / "한글-런북.md"
+            f.write_text("AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+
+            class R:
+                def __init__(self, rc, out=b"", outs=""):
+                    self.returncode = rc; self.stdout = out if out else outs
+
+            def fake_run(cmd, **kw):
+                if "rev-parse" in cmd:
+                    return R(0, outs=str(root) + "\n")     # git 저장소로 인식
+                if "diff" in cmd:
+                    return R(0, out=("runbooks/한글-런북.md".encode("utf-8") + b"\0"))  # -z 출력
+                return R(0)
+            import audit
+            with mock.patch.object(audit.subprocess, "run", side_effect=fake_run):
+                staged = audit._staged_files_in_harness(root)
+            self.assertTrue(any(p.name == "한글-런북.md" for p in staged))
+            # 그리고 그 파일을 스캔하면 시크릿을 잡는다(미탐 아님)
+            failures = []
+            audit.check_staged_secret_scan(root, staged, failures)
+            self.assertTrue(any("한글-런북.md" in f for f in failures))
+            # 값(매치된 전체 키)은 미출력 — 패턴 라벨 "AWS Access Key ID(AKIA...)" 자체는
+            # 정적 설명 문자열이라 "AKIA"를 포함하는 게 정상(test_secret_pattern_detected와 동일 전제).
+            # 그래서 부분 문자열 "AKIA"가 아니라 실제 매치된 전체 값이 없는지로 검증한다.
+            self.assertNotIn("AKIAIOSFODNN7EXAMPLE", "\n".join(failures))
 
 
 if __name__ == "__main__":

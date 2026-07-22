@@ -245,6 +245,11 @@ def _staged_files_in_harness(root):
     돌려준다(호출자는 이를 '일반 audit로 폴백' 신호로 쓴다). subprocess만 쓰고 파일
     내용은 어디서도 읽거나 출력하지 않는다 — 이름(경로)만 다룬다. 어떤 예외가 나도
     크래시하지 않는다.
+
+    diff는 `-z`로 NUL 구분 출력을 받아 **바이트로** 캡처한다 — `-z` 없이 텍스트로 받으면
+    core.quotePath(기본 true) 때문에 한글 등 비-ASCII 파일명이 따옴표+8진수 이스케이프로
+    감싸져 나와 실제 경로와 달라지고, 결국 뒤에서 조용히 스킵(미탐)된다. `-z` 출력은
+    이스케이프 없이 원문 그대로 NUL로만 구분되므로 바이트 split 후 디코딩하면 안전하다.
     """
     root = Path(root).resolve()
     try:
@@ -256,19 +261,19 @@ def _staged_files_in_harness(root):
             return None
         toplevel = Path(top.stdout.strip())
         diff = subprocess.run(
-            ["git", "-C", str(toplevel), "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-            capture_output=True, text=True, check=False,
+            ["git", "-C", str(toplevel), "diff", "--cached", "--name-only", "-z", "--diff-filter=ACM"],
+            capture_output=True, check=False,  # text=False — 바이트로 캡처(따옴표·이스케이프 없음)
         )
         if diff.returncode != 0:
             return None
     except (OSError, subprocess.SubprocessError):
         return None
     files = []
-    for line in diff.stdout.splitlines():
-        line = line.strip()
-        if not line:
+    for name in diff.stdout.split(b"\0"):
+        if not name:
             continue
-        abs_path = (toplevel / line).resolve()
+        rel = name.decode("utf-8")
+        abs_path = (toplevel / rel).resolve()
         try:
             abs_path.relative_to(root)
         except ValueError:
