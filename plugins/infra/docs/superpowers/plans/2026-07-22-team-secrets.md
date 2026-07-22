@@ -255,7 +255,7 @@ class TestCredentialSchema(unittest.TestCase):
 - [ ] **Step 2: RED 확인** — `check_expiry`가 새 컬럼 위치를 못 읽어 `test_expiry_still_detected_new_schema` FAIL, kind 검증 없어 `test_bad_kind_flagged` FAIL.
 
 - [ ] **Step 3: 구현**
-  - `templates/keys.md`를 8컬럼 헤더로 교체(위 fixture와 동일 구조 + 안내 문구, D12 참조).
+  - `templates/keys.md`를 9컬럼 헤더로 교체(위 fixture와 동일 구조 + 안내 문구, D12 참조).
   - `audit.py` `key_names(root)`: 컬럼 수 하드코딩(`len(cells) >= 7`)을 완화 — 표 데이터 행(구분선·헤더 제외)의 **컬럼0**을 이름으로 수집. 헤더 판별은 `cells[0] == "이름"`, 구분선은 `set(cells[0]) <= {"-", ":"}`.
   - 신규 `check_credentials(root, failures)`: keys.md 각 데이터 행의 `kind`(컬럼1)가 `{ssh-key,tls-cert,api-token,cloud,account,password}`에 없으면 `failures.append(f"[키] {이름}: 알 수 없는 kind '{kind}'")`. 위치 참조(컬럼4)가 빈칸이면 `failures.append(f"[키] {이름}: 위치 참조 누락")`. `run_audit`에서 호출.
   - `check_expiry`: 만료 날짜를 **마지막 컬럼(만료·로테이션, `cells[-1]`)**에서만 `DATE_RE`로 추출(생성일 컬럼은 보지 않아 오인 방지). `-`·빈칸이면 스킵. 무효 날짜 try/except는 유지(기존 하드닝).
@@ -279,11 +279,11 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `skills/lookup/SKILL.md`
 
 **Interfaces:**
-- Consumes: A1-1의 8컬럼 keys.md 스키마.
+- Consumes: A1-1의 9컬럼 keys.md 스키마.
 - Produces: register가 계정·비밀번호·외부참조 행을 쓰고, lookup이 usage 기반 참조 실행 레시피로 답한다.
 
 - [ ] **Step 1: register §3 key 등록 절차 개정** — `skills/register/SKILL.md`의 §3.4(key는 keys.md 표에 행 추가) 부분을 개정. 반드시 담을 내용:
-  - keys.md는 8컬럼(이름/kind/principal/fingerprint/위치참조/usage/소유자/생성·로테이션, D12). kind는 `ssh-key|tls-cert|api-token|cloud|account|password`.
+  - keys.md는 9컬럼(이름/kind/principal/fingerprint/위치참조/usage/소유자/생성일/만료·로테이션, D12). kind는 `ssh-key|tls-cert|api-token|cloud|account|password`.
   - **비밀번호·계정 등록 시**: principal(계정명)을 받고, 값은 절대 keys.md에 안 적고 위치 참조만. usage 컬럼에 안전한 사용법을 적되 **argv 금지** — `sops exec-env <파일> '<명령>'`·`op run -- <명령>`·stdin. SSH 비밀번호 로그인은 키 인증을 권하고 `sshpass`를 쓰지 않는다(불가피하면 그 제약을 usage에 명시).
   - **외부 매니저 참조(D14)**: 위치 참조 스킴 `op://`·`vault://`·`aws-secretsmanager://`·`secrets/…`를 그대로 위치 참조에 적는다. 참조는 불투명 — register는 값을 조회하지 않는다.
 
