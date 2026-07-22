@@ -50,6 +50,21 @@ description: 인프라 하네스(서버·k8s 클러스터·컴포넌트·키 인
    명령만 답한다. 본문에 해당 섹션이나 항목 자체가 없어 답을 찾을 수 없으면 "하네스에
    기록돼 있지 않다"고 답하고, 실제 값이 필요하면 ops로 실측 조회(예: ssh로 `uname -m`,
    클라우드 `describe-instances`)를 제안한다 — 값을 지어내 답하지 않는다(원칙 4).
+6. 키·토큰·비밀번호를 묻는 질의는 `access/keys.md`에서 찾은 행의 **위치 참조 + `usage`
+   컬럼에 적힌 참조 실행 레시피**를 그대로 답한다(원칙 1, D12) — 값 자체는 절대 조회·
+   출력하지 않는다. `usage` 컬럼이 비어 있지 않으면 그 명령을 그대로 안내하고, 비어
+   있으면 `kind`에 맞는 기본 레시피를 제안한다(예: `sops exec-env <위치 참조> '<명령>'`).
+   비밀번호 계열(`kind: account`/`password`)은 어떤 경우에도 argv 형태(`--password
+   1234`, `mysql -p1234`, `curl -u user:1234` 등)를 제시하지 않는다 — `sops exec-env
+   <파일> '<명령>'` · `op run -- <명령>` · stdin/FD로 넘기는 형태만 안내한다. 위치
+   참조가 `op://`·`vault://`·`aws-secretsmanager://` 같은 외부 매니저 스킴이면(D14) 그
+   백엔드의 참조 실행 명령을 안내한다 — `op run -- <명령>`(1Password), `vault kv get
+   -mount=<mount> <path>`(HashiCorp Vault, `VAULT_ADDR`/`VAULT_NAMESPACE`를 명시),
+   `aws secretsmanager get-secret-value --secret-id <id> --profile <p> --region <r>`
+   (AWS Secrets Manager)처럼 profile/region/namespace를 항상 명시적으로 붙인다(원칙 6).
+   lookup은 이때도 명령을 대신 실행하거나 값을 조회·출력하지 않는다 — 안내만 하고 실행은
+   사용자의 몫이다. 백엔드별 상세 관례(플래그, 인증 전제조건 등)는 `secrets` 스킬의
+   `references/backends.md`를 참조하도록 안내한다.
 
 ## 3. 에러 처리
 

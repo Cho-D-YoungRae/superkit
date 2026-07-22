@@ -62,11 +62,27 @@ description: 인프라 하네스 인벤토리에 서버·k8s 클러스터·컴�
    조회해 제안할 수 있다(원칙 6 — profile/region을 항상 명시). 조회 결과 중 사용자가
    채택한 값만 본문에 기록한다. ssh 접근이 있는 서버의 `## 사양`(arch·vCPU·메모리·디스크)
    수집 절차는 §4를 따른다.
-5. `key`는 새 엔티티 파일을 만들지 않는다 — `access/keys.md` 표에 (이름 / 종류 /
-   fingerprint / 위치 참조 / 소유자 / 생성일 / 만료·로테이션) 행을 추가한다. **`access/keys.md`가
-   아직 없으면**(init은 `access/` 디렉토리만 만들고 `keys.md`는 만들지 않는다) 먼저
-   `${CLAUDE_PLUGIN_ROOT}/templates/keys.md`를 그 경로로 복사해 파일을 만든 뒤(헤더 +
-   빈 표) 첫 행을 추가한다(폴백).
+5. `key`는 새 엔티티 파일을 만들지 않는다 — `access/keys.md` 표에 9컬럼(이름 / kind /
+   principal / fingerprint / 위치 참조 / usage / 소유자 / 생성일 / 만료·로테이션, D12) 행을
+   추가한다. **`access/keys.md`가 아직 없으면**(init은 `access/` 디렉토리만 만들고
+   `keys.md`는 만들지 않는다) 먼저 `${CLAUDE_PLUGIN_ROOT}/templates/keys.md`를 그 경로로
+   복사해 파일을 만든 뒤(헤더 + 빈 표) 첫 행을 추가한다(폴백). `kind`는 `ssh-key |
+   tls-cert | api-token | cloud | account | password` 중 하나를 인터뷰로 확정한다(audit가
+   이 어휘를 검증한다).
+   - **계정·비밀번호 등록**(`kind: account`/`password`): `principal`(계정명·사용자명)을
+     인터뷰로 묻는다. 값(비밀번호 문자열 등)은 어떤 경우에도 keys.md에 적지 않고, 값이
+     저장된 위치만 `위치 참조`에 적는다(원칙 1). `usage` 컬럼에는 안전한 참조 실행
+     방법을 적되 **argv 형태는 절대 제시하지 않는다**(ps·셸 히스토리로 유출된다) —
+     `sops exec-env <파일> '<명령>'` · `op run -- <명령>` · stdin/FD로 넘기는 형태만
+     쓴다. SSH 비밀번호 로그인이 필요하면 키 인증 전환을 권하고 `sshpass` 같은 도구는
+     도입하지 않는다 — 불가피하게 비밀번호 로그인을 유지해야 한다면 그 제약을 `usage`에
+     그대로 적어(예: "sshpass 없이는 자동화 불가 — 수동 로그인만 가능") 사용자가 위험을
+     인지하게 한다.
+   - **외부 매니저 참조**(D14): 값이 1Password·HashiCorp Vault·AWS Secrets Manager 등
+     외부에 있으면 `위치 참조`에 해당 스킴을 그대로 적는다 — `op://vault/item/field` ·
+     `vault://mount/path` · `aws-secretsmanager://secret-id` · 하네스 내부는
+     `secrets/파일명.age`. 이 참조는 **불투명하게** 다룬다 — register는 등록 시점에 그
+     값을 조회·검증하지 않고, 사용자가 부른 참조 문자열을 그대로 옮겨 적을 뿐이다.
 
 ## 4. 스캔 우선
 
