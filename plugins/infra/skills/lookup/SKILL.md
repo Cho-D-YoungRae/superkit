@@ -62,8 +62,10 @@ description: 인프라 하네스(서버·k8s 클러스터·컴포넌트·키 인
    `export VAR=$(vault kv get -field=<key> -mount=<mount> <path>)`(HashiCorp Vault,
    `VAULT_ADDR`/`VAULT_NAMESPACE`를 명시 — `-field` 없이 실행하면 시크릿 전체가
    stdout에 출력되므로 항상 특정 필드만 env로 뽑는다),
-   `aws secretsmanager get-secret-value --secret-id <id> --profile <p> --region <r>`
-   (AWS Secrets Manager)처럼 profile/region/namespace를 항상 명시적으로 붙인다(원칙 6).
+   `export VAR=$(aws secretsmanager get-secret-value --secret-id <id> --profile <p>
+   --region <r> --query SecretString --output text)`(AWS Secrets Manager, `--query
+   SecretString --output text`로 값만 뽑아 env 변수 대입까지만 하고 원문을 화면에
+   그대로 출력하지 않는다)처럼 profile/region/namespace를 항상 명시적으로 붙인다(원칙 6).
    lookup은 이때도 명령을 대신 실행하거나 값을 조회·출력하지 않는다 — 안내만 하고 실행은
    사용자의 몫이다. 백엔드별 상세 관례(플래그, 인증 전제조건 등)는 `secrets` 스킬의
    `references/backends.md`를 참조하도록 안내한다.

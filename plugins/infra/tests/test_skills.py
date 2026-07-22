@@ -43,5 +43,12 @@ class TestOpsReferences(unittest.TestCase):
             self.assertTrue(p.is_file(), f"references/{ref}.md 없음")
 
 
+class TestAuditSkillCategories(unittest.TestCase):
+    def test_audit_skill_documents_new_categories(self):
+        body = (PLUGIN_ROOT / "skills" / "audit" / "SKILL.md").read_text(encoding="utf-8")
+        for token in ("[구조]", "[키]", "recovery"):
+            self.assertIn(token, body, f"audit SKILL.md에 {token} 카테고리 설명 없음")
+
+
 if __name__ == "__main__":
     unittest.main()
