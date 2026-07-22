@@ -342,5 +342,25 @@ class TestCredentialSchema(unittest.TestCase):
         self.assertTrue(any("old-cert" in w for w in warnings))
 
 
+class TestRecipients(unittest.TestCase):
+    def _root(self, harness):
+        import tempfile
+        d = tempfile.mkdtemp(); root = Path(d)
+        (root / "harness.yaml").write_text(harness, encoding="utf-8")
+        return root
+
+    def test_encrypted_requires_recovery_recipient(self):
+        import datetime
+        h = "sharing: git\nsecrets_mode: encrypted\nsecrets_format: sops-age\nsecrets_recipients:\n  alice: age1aaa\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n"
+        failures, _ = audit.run_audit(self._root(h), datetime.date(2026,7,22))
+        self.assertTrue(any("recovery" in f for f in failures))
+
+    def test_encrypted_with_recovery_passes_recipient_check(self):
+        import datetime
+        h = "sharing: git\nsecrets_mode: encrypted\nsecrets_format: sops-age\nsecrets_recipients:\n  alice: age1aaa\n  recovery: age1rec\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n"
+        failures, _ = audit.run_audit(self._root(h), datetime.date(2026,7,22))
+        self.assertEqual([f for f in failures if "recovery" in f or "recipient" in f], [])
+
+
 if __name__ == "__main__":
     unittest.main()

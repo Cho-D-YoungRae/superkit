@@ -69,7 +69,10 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
 2. 자동 발견되지 않은 provider(온프렘 등)를 수동으로 추가할지
 3. `sharing`(local / git / shared-drive) + `secrets_mode` — **원칙 2의 유효 조합만
    선택지로 제시**한다: `sharing: local`이면 none/plaintext/encrypted 모두 제시하고,
-   `git`·`shared-drive`면 `plaintext`를 선택지에서 빼고 none/encrypted만 제시한다
+   `git`·`shared-drive`면 `plaintext`를 선택지에서 빼고 none/encrypted만 제시한다.
+   `secrets_mode: encrypted`를 선택하면 이어서 팀원의 age **공개키**와 **recovery
+   수신자**(조직 복구용, 필수 — D11)를 물어 `secrets_recipients`를 채운다. age 공개키는
+   비밀이 아니므로 그대로 물어도 안전하다(개인키와 혼동하지 않는다)
 4. `environments` 목록 확정(기본 제안: `prod`, `stage`, `dev` — 필요에 맞게 가감)
 5. IaC 레포 등록 여부(terraform 레포 URL 등, 없으면 생략 가능)
 6. `hooks.change_reminder` 활성화 여부(기본값 `true` 권장)
@@ -86,6 +89,9 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
 - `harness.yaml` (`harness.yaml` 템플릿 — `sharing`/`secrets_mode`/`environments`/
   `iac.repos`/`policies.mutating`/`hooks.change_reminder` 채움. `policies.mutating`에
   없는 env는 자동으로 `confirm` 취급되므로 전 환경을 다 채울 필요는 없다).
+  `secrets_mode: encrypted`면 주석 처리된 `secrets_format`/`secrets_recipients` 블록의
+  주석을 해제하고 §4에서 확인한 팀원 age 공개키 + recovery 수신자로 채운다(D11) —
+  값(개인키·시크릿)은 여기서 만들지 않고 공개키만 기록한다.
 - `CLAUDE.md` (`harness-CLAUDE.md` 템플릿).
 - `.claude/settings.json` (`settings.json` 템플릿을 **그대로** 복사 — `Read(/secrets/**)`
   와 `Read(./secrets/**)` deny 규칙을 병기해 앵커 문법 차이에 대비).
@@ -108,6 +114,11 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
 실행해 결과를 그대로 보고한다(정상 스캐폴딩이면 등록된 엔티티가 없으므로 보통 실패 0건).
 이어서 "서버·컴포넌트는 register로 등록하세요"라고 안내한다. **지금 전부 등록하라고
 강요하지 않는다** — 골격만 마련하는 것이 이 스킬의 설계 의도다.
+
+`secrets_mode: encrypted`로 스캐폴딩했다면 `secrets_recipients`를 채운 것만으로는 아직
+암호화가 동작하지 않는다 — `secrets` 스킬로 넘어가 `.sops.yaml` 생성과 초기 암호화를
+진행하라고 안내한다(이 스킬은 골격(harness.yaml의 수신자 매니페스트)만 준비하며, 실제
+`.sops.yaml`·암호화 파일 생성이나 시크릿 값 생성은 하지 않는다).
 
 ## 7. 에러 처리
 

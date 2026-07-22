@@ -205,6 +205,23 @@ def check_secret_policy(root, cfg, failures):
                 failures.append(f"[정책] secrets/{rel}: secrets_mode: none인데 시크릿 페이로드 파일이 있다")
 
 
+def check_recipients(cfg, failures):
+    """secrets_recipients 수신자 매니페스트 검증 — encrypted면 recovery 수신자 필수(D11).
+
+    `secrets_recipients`는 `name: age공개키` 중첩 맵(harness_lib.parse_yaml_subset이
+    지원하는 중첩 맵 형태 — 리스트-of-맵은 지원하지 않으므로 이 형태여야 한다). 값은
+    공개키뿐이라 다루지 않고, `recovery` 키가 있는지만 확인한다(개인 이탈에도 접근 보존).
+    `secrets_recipients` 자체가 없거나 dict가 아니어도 동일하게 실패 처리한다.
+    """
+    if cfg.get("secrets_mode") != "encrypted":
+        return
+    recipients = cfg.get("secrets_recipients")
+    if not isinstance(recipients, dict) or "recovery" not in recipients:
+        failures.append(
+            "[정책] secrets_mode: encrypted인데 secrets_recipients에 recovery 수신자가 없다(D11)"
+        )
+
+
 def check_harness_yaml(cfg, failures):
     for k in ("sharing", "secrets_mode", "environments", "policies", "hooks"):
         if k not in cfg:
@@ -269,6 +286,7 @@ def run_audit(root, today):
     check_structure(root, failures)
     check_secret_scan(root, failures)
     check_secret_policy(root, cfg, failures)
+    check_recipients(cfg, failures)
     check_credentials(root, failures)
     check_expiry(root, today, warnings)
     return failures, warnings
