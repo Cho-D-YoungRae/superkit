@@ -305,21 +305,24 @@ class TestAuditStagedFlag(unittest.TestCase):
             self.assertNotIn("AKIAIOSFODNN7EXAMPLE", "\n".join(failures))
 
     def test_staged_symlinked_root_no_crash(self):
-        import subprocess, sys, tempfile, os
+        # check_staged_secret_scan을 심링크 root + resolve된 staged 경로로 직접 호출한다.
+        # root를 resolve하지 않으면 fp.relative_to(root)가 ValueError로 크래시한다(D13 회귀 가드).
+        import tempfile
+        import os
         with tempfile.TemporaryDirectory() as d:
-            real = Path(d) / "real-harness"
-            real.mkdir()
-            (real / "harness.yaml").write_text(
-                "sharing: local\nsecrets_mode: none\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n",
-                encoding="utf-8")
-            link = Path(d) / "link-harness"
+            real = (Path(d) / "real").resolve()
+            (real / "inventory").mkdir(parents=True)
+            leak = real / "inventory" / "leak.md"
+            leak.write_text("AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+            link = Path(d) / "link"
             os.symlink(real, link, target_is_directory=True)   # 심링크 root
-            script = str(PLUGIN_ROOT / "scripts" / "audit.py")
-            r = subprocess.run([sys.executable, script, "--root", str(link), "--staged"],
-                               capture_output=True, text=True)
-        self.assertNotIn("Traceback", r.stderr)         # 크래시 없음
-        self.assertNotIn("ValueError", r.stderr)
-        self.assertIn(r.returncode, (0, 1))
+            failures = []
+            import audit
+            # staged는 _staged_files_in_harness가 돌려주는 형태(=이미 resolve된 절대경로)
+            audit.check_staged_secret_scan(link, [leak.resolve()], failures)
+        joined = "\n".join(failures)
+        self.assertTrue(any("leak.md" in f for f in failures))   # 크래시 없이 스캔·검출
+        self.assertNotIn("AKIAIOSFODNN7EXAMPLE", joined)         # 매치 값은 미출력
 
 
 if __name__ == "__main__":
