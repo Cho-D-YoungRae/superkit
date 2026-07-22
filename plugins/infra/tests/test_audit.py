@@ -229,5 +229,39 @@ class TestAuditHardening(unittest.TestCase):
         self.assertIn("심볼릭 링크", joined)
 
 
+class TestAuditStructure(unittest.TestCase):
+    def test_conflict_copy_filename_flagged(self):
+        import tempfile, datetime
+        d = tempfile.mkdtemp(); root = Path(d)
+        (root / "harness.yaml").write_text("sharing: shared-drive\nsecrets_mode: none\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n", encoding="utf-8")
+        (root / "inventory").mkdir()
+        (root / "inventory" / "prod-db-01 (1).md").write_text("---\nid: prod-db-01\ntype: server\nenv: prod\nprovider: p\nruntime: ec2\npurpose: x\naccess: y\nmanaged_by: manual\n---\n", encoding="utf-8")
+        import audit
+        failures, _ = audit.run_audit(root, datetime.date(2026,7,22))
+        self.assertTrue(any("conflict" in f.lower() or "충돌 사본" in f for f in failures))
+
+    def test_duplicate_id_flagged(self):
+        import tempfile, datetime
+        d = tempfile.mkdtemp(); root = Path(d)
+        (root / "harness.yaml").write_text("sharing: local\nsecrets_mode: none\nenvironments: [prod]\npolicies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n", encoding="utf-8")
+        (root / "inventory").mkdir(); (root / "providers").mkdir()
+        body = "---\nid: dup\ntype: server\nenv: prod\nprovider: p\nruntime: ec2\npurpose: x\naccess: y\nmanaged_by: manual\n---\n"
+        (root / "inventory" / "dup.md").write_text(body, encoding="utf-8")
+        (root / "providers" / "dup.md").write_text("---\nid: dup\ntype: provider\nkind: aws\n---\n", encoding="utf-8")
+        import audit
+        failures, _ = audit.run_audit(root, datetime.date(2026,7,22))
+        self.assertTrue(any("중복" in f and "dup" in f for f in failures))
+
+
+class TestAuditStagedFlag(unittest.TestCase):
+    def test_staged_flag_parses(self):
+        import subprocess, sys
+        script = str(PLUGIN_ROOT / "scripts" / "audit.py")
+        # --staged를 git 아닌 디렉터리에서 실행하면 "git 저장소 아님" 안내 후 비크래시(exit 0 또는 1)
+        r = subprocess.run([sys.executable, script, "--root", str(OK), "--staged"], capture_output=True, text=True)
+        self.assertIn(r.returncode, (0, 1))
+        self.assertNotIn("Traceback", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,6 +4,7 @@ import argparse
 import datetime
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -28,6 +29,7 @@ EXPIRY_WINDOW_DAYS = 30
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 KEYS_ANCHOR_RE = re.compile(r"keys\.md#([A-Za-z0-9_.-]+)")
 SCAN_SKIP_DIRS = {".git", "secrets", ".claude"}
+CONFLICT_COPY_RE = re.compile(r"\(\d+\)\.md$|conflicted copy|conflict\b", re.I)
 
 
 def key_names(root):
@@ -74,6 +76,35 @@ def check_schema_and_refs(root, failures):
         for anchor in KEYS_ANCHOR_RE.findall(str(e.get("access", ""))):
             if anchor not in keys:
                 failures.append(f"[참조] {rel}: keys.md#{anchor} 앵커 없음")
+
+
+def check_structure(root, failures):
+    """엔티티 구조 하드닝(D13) — 중복 id·conflict-copy 파일명 탐지.
+
+    중복 id 검사는 `_error`(frontmatter 파싱 실패) 엔티티를 제외한 유효 id만 대상으로 한다 —
+    파싱 실패 엔티티는 id를 신뢰할 수 없고 check_schema_and_refs가 이미 별도로 보고한다.
+    conflict-copy 파일명 검사는 파싱 성공 여부와 무관하게 모든 엔티티 파일에 적용한다.
+    """
+    root = Path(root)
+    ents = harness_lib.iter_entities(root)
+    by_id = {}
+    for e in ents:
+        if "_error" in e:
+            continue
+        eid = e.get("id")
+        if not eid:
+            continue
+        by_id.setdefault(eid, []).append(e["_path"])
+    for eid in sorted(by_id):
+        paths = by_id[eid]
+        if len(paths) > 1:
+            rels = ", ".join(str(p.relative_to(root)) for p in sorted(paths))
+            failures.append(f"[구조] id '{eid}' 중복 — {rels}")
+    for e in ents:
+        name = e["_path"].name
+        if CONFLICT_COPY_RE.search(name):
+            rel = e["_path"].relative_to(root)
+            failures.append(f"[구조] 충돌 사본 의심 파일: {rel}")
 
 
 def check_secret_scan(root, failures):
@@ -200,21 +231,105 @@ def run_audit(root, today):
         return [f"[harness.yaml] 읽기/파싱 실패 — {e}"], warnings
     check_harness_yaml(cfg, failures)
     check_schema_and_refs(root, failures)
+    check_structure(root, failures)
     check_secret_scan(root, failures)
     check_secret_policy(root, cfg, failures)
     check_expiry(root, today, warnings)
     return failures, warnings
 
 
+def _staged_files_in_harness(root):
+    """git staged(ACM) 파일 중 하네스(root) 안에 있는 절대경로만 반환.
+
+    git 실행파일이 없거나, root가 git 저장소가 아니거나, git 호출이 실패하면 None을
+    돌려준다(호출자는 이를 '일반 audit로 폴백' 신호로 쓴다). subprocess만 쓰고 파일
+    내용은 어디서도 읽거나 출력하지 않는다 — 이름(경로)만 다룬다. 어떤 예외가 나도
+    크래시하지 않는다.
+    """
+    root = Path(root).resolve()
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=False,
+        )
+        if top.returncode != 0:
+            return None
+        toplevel = Path(top.stdout.strip())
+        diff = subprocess.run(
+            ["git", "-C", str(toplevel), "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+            capture_output=True, text=True, check=False,
+        )
+        if diff.returncode != 0:
+            return None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    files = []
+    for line in diff.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        abs_path = (toplevel / line).resolve()
+        try:
+            abs_path.relative_to(root)
+        except ValueError:
+            continue  # 하네스 밖 — staged 스캔 대상 아님
+        files.append(abs_path)
+    return files
+
+
+def check_staged_secret_scan(root, staged_paths, failures):
+    """staged 파일 중 하네스 안 텍스트 파일만 B1의 SECRET_PATTERNS로 스캔한다.
+
+    check_secret_scan과 동일하게 secrets/ 등 SCAN_SKIP_DIRS는 제외한다(그 안은 별도
+    정책 검사(check_secret_policy) 담당). 복호·매치 값 출력 없음 — 패턴 라벨만 보고.
+    """
+    root = Path(root)
+    for fp in staged_paths:
+        if fp.is_symlink() or not fp.is_file():
+            continue
+        rel = fp.relative_to(root)
+        if any(part in SCAN_SKIP_DIRS for part in rel.parts):
+            continue
+        try:
+            data = fp.read_bytes()
+        except OSError:
+            continue
+        if b"\x00" in data[:1024]:
+            continue  # 바이너리 스킵
+        text = data.decode("utf-8", errors="ignore")
+        for pat, label in SECRET_PATTERNS:
+            if re.search(pat, text):
+                failures.append(f"[시크릿] {rel}: {label} 패턴 검출 (secrets/ 밖 보관 금지)")
+
+
 def main():
     ap = argparse.ArgumentParser(description="하네스 정합성 검증")
     ap.add_argument("--root", help="하네스 루트 (생략 시 cwd에서 상향 탐색)")
     ap.add_argument("--today", help="기준일 YYYY-MM-DD (테스트용)")
+    ap.add_argument("--staged", action="store_true",
+                     help="git staged 파일만 대상으로 시크릿 패턴 스캔 (pre-commit용)")
     args = ap.parse_args()
     root = Path(args.root) if args.root else harness_lib.find_harness_root()
     if root is None or not (Path(root) / "harness.yaml").is_file():
         print("하네스를 찾지 못했습니다 — 하네스 디렉터리에서 실행하거나 --root를 지정하세요.")
         return 1
+
+    if args.staged:
+        try:
+            staged = _staged_files_in_harness(root)
+        except Exception:
+            staged = None
+        if staged is None:
+            print("git 저장소가 아니라 --staged를 건너뜁니다 — 일반 audit로 진행합니다.")
+        else:
+            failures = []
+            check_staged_secret_scan(root, staged, failures)
+            print(f"# audit --staged 결과 — {root} (staged {len(staged)}개 파일)")
+            for f in failures:
+                print(f"FAIL {f}")
+            print(f"실패 {len(failures)}건")
+            return 1 if failures else 0
+
     today = datetime.date.fromisoformat(args.today) if args.today else datetime.date.today()
     failures, warnings = run_audit(root, today)
     print(f"# audit 결과 — {root}")
