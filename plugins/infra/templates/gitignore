@@ -1,0 +1,6 @@
+# secrets/ — 시크릿 값 보관 구역 (원칙 2)
+# 기본: 전부 비공유. sharing: git + secrets_mode: encrypted라면 init이
+# 아래 재포함 줄의 주석을 해제해 암호문(.age/.sops.yaml)만 커밋되게 한다.
+secrets/*
+# !secrets/*.age
+# !secrets/*.sops.yaml

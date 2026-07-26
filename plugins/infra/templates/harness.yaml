@@ -1,0 +1,20 @@
+# 인프라 하네스 설정 — infra 플러그인 스킬이 읽는 정책 데이터 (원칙 8)
+sharing: {{sharing}}            # local | git | shared-drive
+secrets_mode: {{secrets_mode}}  # none(참조만) | plaintext(local에서만 유효) | encrypted(age/SOPS)
+# secrets_mode: encrypted일 때만 아래 두 키를 채운다(D11, SOPS+age 표준).
+# secrets_format: sops-age    # 팀 표준 암호화 형식
+# secrets_recipients:         # name: age공개키 — 복호 가능한 팀원 + recovery 필수
+#   alice: age1exampleaaaa
+#   recovery: age1examplerecovery   # 조직 복구 수신자(개인 이탈에도 접근 보존)
+# 공개키는 비밀이 아니므로 harness.yaml에 그대로 둬도 안전하다 — audit이 encrypted면
+# recovery 수신자 존재를 강제한다(D11).
+environments: [{{environments}}]
+iac:
+  repos: []
+  # repos:
+  #   - terraform://github.com/org/infra-tf
+policies:
+  mutating:                     # 환경별 mutating 정책: confirm | allow (미정의 env는 confirm — D4)
+    prod: confirm
+hooks:
+  change_reminder: true

@@ -1,0 +1,17 @@
+{
+  "clusters": {
+    "prod-k8s": {
+      "reachable": true,
+      "helm_releases": [
+        {"name": "victoria-metrics", "namespace": "monitoring", "chart": "victoria-metrics-single-1.2.0"},
+        {"name": "argocd", "namespace": "argocd", "chart": "argo-cd-5.51.6"}
+      ]
+    }
+  },
+  "providers": {
+    "aws-main": {
+      "reachable": true,
+      "instances": ["prod-app-01"]
+    }
+  }
+}
