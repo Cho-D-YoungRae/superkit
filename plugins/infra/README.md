@@ -56,6 +56,7 @@ prometheus·victoria-metrics 같은 설치 컴포넌트를 다룬다.
 ├── harness.yaml               # 정책 데이터 — sharing/secrets_mode/environments/policies/hooks(+secrets_recipients, D11)
 ├── CLAUDE.md                  # 하네스 소개·규약(플러그인의 CLAUDE.md와 다름)
 ├── .claude/settings.json      # secrets/ 읽기 차단(permissions.deny)
+├── .claude/settings.local.json # 같은 차단 — git 루트에서 로드되어 하위 디렉터리 세션도 보호(D15)
 ├── .gitignore                 # secrets/ 제외(git 전환 대비 선등록)
 ├── providers/                 # provider 엔티티 — 예: aws-main.md, onprem-idc.md
 ├── inventory/
@@ -367,9 +368,23 @@ bash tests/run_tests.sh
 ## 10. 안전성 FAQ
 
 **Q. 클로드가 내 시크릿 값(키·토큰·비밀번호)을 보게 되나?**
-아니다(원칙 1). 스킬·스크립트 어디에도 값을 읽거나 출력하는 경로가 없고, 사용은 항상 참조
-실행(`${VAR}`, `ssh -i <경로>`, `sops exec-env`)뿐이다. 하네스의 `secrets/`는 Read 도구가
-`.claude/settings.json` deny로 차단되어, 실수로도 값을 컨텍스트에 들일 수 없다.
+정상 사용 경로에서는 보지 않는다(원칙 1). 스킬·스크립트 어디에도 값을 읽거나 출력하는
+경로가 없고, 사용은 항상 참조 실행(`${VAR}`, `ssh -i <경로>`, `sops exec-env`)뿐이다.
+**1차 방어선은 "스킬이 스스로 값을 읽지 않는 것"이며**, `.claude/settings.json`의 deny
+규칙은 그 위에 얹는 2차 가드레일이다.
+
+**단, deny 규칙은 보안 경계가 아니다**(D13). 공식 문서도 Read 규칙 적용을 "best-effort"로
+서술한다. 아래 세 경우에는 차단이 걸리지 않으므로 알고 쓰는 편이 낫다.
+
+| 경우 | 동작 |
+|---|---|
+| **하네스 하위 디렉터리에서 세션을 연 경우** | `.claude/settings.json`은 cwd의 `.claude/`에서만, **부모 폴백 없이** 로드된다. `init`이 `settings.local.json`에도 같은 규칙을 쓰므로 **git 저장소인 하네스는 하위 디렉터리에서도 보호**되지만, git을 쓰지 않는 하네스는 **하네스 루트에서 세션을 열어야** 보호된다 |
+| **임의 서브프로세스** | deny는 Read 도구와 `cat`·`head`·`tail`·`sed` 같이 인식된 파일 명령에 적용되고, **파이썬·노드 스크립트처럼 스스로 파일을 여는 프로세스에는 적용되지 않는다.** 이 플러그인의 `scripts/*.py`도 여기 해당한다 — `audit`이 `secrets/`를 재귀 스캔할 수 있는 이유이며, 그래서 스크립트는 값을 출력하지 않도록 작성하고 회귀 테스트로 강제한다(`tests/test_secret_containment.py`) |
+| **하네스 밖에서 절대 경로로 지목한 경우** | deny는 cwd 기준이라 다른 디렉터리에서 연 세션이 하네스 `secrets/`를 절대 경로로 읽으면 걸리지 않는다 |
+
+OS 수준에서 모든 프로세스를 막고 싶다면 Claude Code의 **샌드박스**를 켜는 것이 유일한
+방법이다. 반대로 값을 아예 로컬에 두지 않는 선택(`secrets_mode: none` + Vault·1Password
+같은 외부 매니저 참조, D14)도 이 위험을 근본적으로 줄인다.
 
 **Q. 하네스를 팀과 git으로 공유해도 되나?**
 된다. 단 `secrets_mode: encrypted`로 두고 SOPS+age 암호문만 커밋한다(복호 키는 각 머신
