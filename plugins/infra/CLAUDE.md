@@ -6,7 +6,7 @@
 ## 명령
 
 ```bash
-bash tests/run_tests.sh   # 전체 테스트(129개). 스킬·스크립트·hook 수정 후 항상 실행
+bash tests/run_tests.sh   # 전체 테스트(132개). 스킬·스크립트·hook 수정 후 항상 실행
 claude --plugin-dir .     # 개발 모드 로드 → 세션 내 /reload-plugins 로 변경 반영
 ```
 

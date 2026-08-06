@@ -93,7 +93,7 @@ manifest·GitOps 레포 참조로 넘긴다(원칙 4 — 하네스는 상태를 
 
 ## 3. 설치
 
-### 설치
+### 표준 설치
 
 ```bash
 git clone <저장소 URL> ~/infra-plugin
@@ -136,8 +136,9 @@ claude --plugin-dir ~/infra-plugin
    아니라 별도 디렉토리를 쓴다 — 하네스는 중앙 1개다).
 
    ```bash
-   mkdir ~/infra-workspace && cd ~/infra-workspace
-   claude --plugin-dir /path/to/infra
+   git clone <저장소 URL> ~/infra-plugin
+   mkdir -p ~/infra-workspace && cd ~/infra-workspace
+   claude --plugin-dir ~/infra-plugin
    ```
 
 2. 대화창에 "인프라 하네스 만들어줘"라고 요청한다. `init` 스킬이 로컬에 설치된 CLI를
@@ -385,7 +386,7 @@ bash tests/run_tests.sh
 **1차 방어선은 "스킬이 스스로 값을 읽지 않는 것"이며**, `.claude/settings.json`의 deny
 규칙은 그 위에 얹는 2차 가드레일이다.
 
-**단, deny 규칙은 보안 경계가 아니다**(D13). 공식 문서도 Read 규칙 적용을 "best-effort"로
+**단, deny 규칙은 보안 경계가 아니다**(D15). 공식 문서도 Read 규칙 적용을 "best-effort"로
 서술한다. 아래 세 경우에는 차단이 걸리지 않으므로 알고 쓰는 편이 낫다.
 
 | 경우 | 동작 |
@@ -434,9 +435,10 @@ OS 수준에서 모든 프로세스를 막고 싶다면 Claude Code의 **샌드�
 
 ### 기존 하네스에 보호 설정 보강 (D15)
 
-`.claude/settings.local.json`이 없는 기존 git 하네스는 `audit`가 실패로 보고한다. 하네스
-하위 디렉터리에서 연 세션이 `secrets/` 차단을 받지 못하기 때문이다(`settings.json`은 부모
-폴백 없이 cwd에서만 로드된다).
+`.claude/settings.local.json`이 없는 기존 git 하네스는 `audit`가 실패로 보고한다
+(`secrets_mode`가 `plaintext`/`encrypted`인 경우. `none`이면 지킬 로컬 값이 없으므로
+경고로만 보고한다). 하네스 하위 디렉터리에서 연 세션이 `secrets/` 차단을 받지 못하기
+때문이다(`settings.json`은 부모 폴백 없이 cwd에서만 로드된다).
 
 하네스에서 **"하네스 점검해줘"**라고 말하면 `audit`가 누락을 짚고 `init`이 보완을 제안한다.
 직접 처리하려면 `.claude/settings.json`과 같은 내용으로 `.claude/settings.local.json`을
@@ -474,11 +476,15 @@ encrypted`로 전환하고 `secrets` 스킬로 `secrets_recipients`(팀원 공�
 - [`CLAUDE.md`](CLAUDE.md) — 저장소를 수정하는 세션용 지침(테스트 명령, python3 stdlib
   전용·hook exit 0·SKILL.md description 형식 같은 비자명 제약).
 - [`docs/superpowers/specs/2026-07-19-infra-plugin-design.md`](docs/superpowers/specs/2026-07-19-infra-plugin-design.md)
-  — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D14.
+  — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D16.
 - [`docs/superpowers/plans/2026-07-19-infra-plugin.md`](docs/superpowers/plans/2026-07-19-infra-plugin.md)
   — 태스크별 구현 계획(D1~D10, init~audit 스킬).
+- [`docs/superpowers/plans/2026-07-21-server-body-info.md`](docs/superpowers/plans/2026-07-21-server-body-info.md)
+  — 서버 본문 정보 구현 계획(D10).
 - [`docs/superpowers/plans/2026-07-22-team-secrets.md`](docs/superpowers/plans/2026-07-22-team-secrets.md)
   — 팀 시크릿·자격증명·audit 하드닝 구현 계획(D11~D14, secrets 스킬).
+- [`docs/superpowers/plans/2026-08-06-promise-alignment.md`](docs/superpowers/plans/2026-08-06-promise-alignment.md)
+  — 약속과 실제의 일치 구현 계획(D15~D16, 보호 설정·문서 정합성).
 
 원칙·스키마·D 결정은 확정 사항이다. 이를 바꾸는 변경은 스펙을 먼저 갱신하고 진행한다.
 변경 후에는 `bash tests/run_tests.sh`로 전체 테스트를 확인한다.

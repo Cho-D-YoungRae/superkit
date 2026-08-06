@@ -9,15 +9,22 @@
 그 규율을 코드 리뷰 관행에만 맡기지 않고 여기서 기계적으로 고정한다. 카나리를 심은
 하네스에 스크립트를 돌리고, 그 값이 stdout·stderr 어디에도 나타나지 않아야 한다.
 """
+import datetime
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PLUGIN_ROOT / "scripts"))
+
+import audit  # noqa: E402
+
 OK = PLUGIN_ROOT / "tests" / "fixtures" / "harness-ok"
+TODAY = datetime.date(2026, 7, 19)
 
 # 합성 카나리 — 실제 자격증명이 아니다. 스크립트 출력에 이 문자열이 보이면 유출이다.
 CANARY = "CANARY-SECRET-VALUE-DO-NOT-PRINT-9f3a7c2e"
@@ -57,10 +64,47 @@ class SecretContainmentTest(unittest.TestCase):
     def test_audit_does_not_print_secret_values(self):
         self.assertNoCanary(self._run("audit.py", "--today", "2026-07-19"), "audit")
 
-    def test_audit_debug_mode_does_not_print_secret_values(self):
-        """--debug는 트레이스백을 띄우지만 그 경로로도 값이 새면 안 된다."""
-        self.assertNoCanary(
-            self._run("audit.py", "--today", "2026-07-19", "--debug"), "audit --debug")
+    def test_internal_error_drops_message_without_debug_but_debug_reraises_it(self):
+        """`_run_check`의 "메시지는 버리고 타입만" 규율을 두 모드 대조로 증명한다.
+
+        이전 테스트는 예외가 나지 않는 정상 하네스에 `--debug`만 붙여 돌렸다 —
+        재raise 경로에 한 번도 들어가지 않아서, `_run_check`가 debug에서 재raise하지
+        않도록 바꿔도 그대로 통과하는 공허한 테스트였다. 여기서는 검사 하나가 카나리를
+        담은 예외를 던지게 강제한다.
+
+        `--debug`는 유출 규율을 **의도적으로 끄는 사용자용 모드**이므로, 올바른 단언은
+        "어느 모드에서도 카나리가 없어야 한다"가 아니라 **기본 모드에는 없고 `--debug`
+        에는 있다**는 대조다.
+        """
+        with mock.patch.object(audit, "check_secret_scan",
+                               side_effect=RuntimeError(CANARY)):
+            failures, _ = audit.run_audit(self.root, TODAY)
+        joined = "\n".join(failures)
+        self.assertIn("[내부오류]", joined, joined)
+        self.assertIn("RuntimeError", joined, joined)   # 타입만 남는다
+        self.assertNoCanary(joined, "audit(기본 모드 내부오류)")
+
+        with mock.patch.object(audit, "check_secret_scan",
+                               side_effect=RuntimeError(CANARY)):
+            with self.assertRaises(RuntimeError) as ctx:
+                audit.run_audit(self.root, TODAY, debug=True)
+        self.assertIn(CANARY, str(ctx.exception),
+                      "--debug가 원본 예외를 그대로 올리지 않는다 — 대조가 성립하지 않는다")
+
+    def test_audit_does_not_print_broken_frontmatter_source_line(self):
+        """파싱에 실패한 엔티티의 **원문 줄**이 리포트에 실리면 안 된다(원칙 1).
+
+        `[시크릿]` 경로는 패턴 라벨만 찍는데 `[스키마]` 파싱 실패 경로가 문제된 줄
+        전체를 인쇄하던 결함의 회귀 방지다. 이 경로는 `SECRET_PATTERNS`의 제약을 전혀
+        받지 않으므로(패턴에 없는 내부 DB 비밀번호 등도 그대로 샌다) 여기 심는 카나리는
+        일부러 어떤 시크릿 패턴에도 걸리지 않는 형태로 둔다.
+        """
+        (self.root / "inventory" / "broken.md").write_text(
+            f"---\n  token: {CANARY}\n  id: broken\n---\n본문\n", encoding="utf-8")
+        out = self._run("audit.py", "--today", "2026-07-19")
+        self.assertIn("[스키마]", out, f"파싱 실패를 보고하지 않았다:\n{out}")
+        self.assertIn("선행 공백", out, f"원인을 지목하지 않았다:\n{out}")
+        self.assertNoCanary(out, "audit(frontmatter 파싱 실패 경로)")
 
     def test_audit_detects_planted_pattern_without_echoing_it(self):
         """secrets/ 밖 오염은 검출하되 매치된 값 자체는 출력하지 않는다."""

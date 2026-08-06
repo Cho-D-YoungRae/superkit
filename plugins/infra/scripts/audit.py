@@ -143,6 +143,13 @@ def check_structure(root, failures):
 
 
 def check_secret_scan(root, failures):
+    """하네스 전체(secrets/ 등 제외)를 시크릿 패턴으로 스캔한다 — 매치 값은 출력하지 않는다.
+
+    읽기 실패는 **파일 단위로 격리**한다. 퍼미션 없는 파일 하나에서 예외가 올라가면
+    `_run_check`가 이 검사를 통째로 중단시켜 뒤 파일의 실제 오염이 검출되지 않는다 —
+    사용자는 그 사실을 `[내부오류]` 한 줄로만 보게 되고, 최악의 경우 "실패 0건"을
+    안전으로 오해한다. 읽지 못한 파일은 스캔 대상에서 빼는 대신 경로만 보고한다.
+    """
     root = Path(root)
     for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
         dirnames[:] = sorted(
@@ -156,7 +163,12 @@ def check_secret_scan(root, failures):
             rel = fp.relative_to(root)
             if any(part in SCAN_SKIP_DIRS for part in rel.parts):
                 continue
-            data = fp.read_bytes()
+            try:
+                data = fp.read_bytes()
+            except OSError:
+                # 경로만 보고한다 — 예외 메시지·내용은 싣지 않는다(원칙 1)
+                failures.append(f"[시크릿] {rel}: 읽을 수 없어 스캔하지 못했습니다")
+                continue
             if b"\x00" in data[:1024]:
                 continue  # 바이너리 스킵
             text = data.decode("utf-8", errors="ignore")
@@ -379,7 +391,11 @@ def _run_check(name, fn, failures, debug=False):
 
     예외 **메시지는 싣지 않고 타입만** 보고한다(원칙 1). 디코딩·파싱 계열 예외는
     메시지에 파일 내용 조각을 담을 수 있어서, 진단 편의보다 값 비유출을 우선한다.
-    상세가 필요하면 `--debug`로 재실행해 원래 트레이스백을 본다.
+
+    `--debug`는 이 규율을 **의도적으로 끄는 사용자용 모드**다(원래 트레이스백을 그대로
+    띄운다). 클로드가 상세를 보려고 붙이는 옵션이 아니라, 스크립트 버그를 직접 진단하려는
+    사용자가 자신의 터미널에서 붙이는 옵션이다 — `secrets` 스킬이 `sops` 편집을 사용자에게
+    넘기는 것과 같은 취급이다.
     """
     try:
         fn()
@@ -388,7 +404,8 @@ def _run_check(name, fn, failures, debug=False):
             raise
         failures.append(
             f"[내부오류] {name} 검사가 {type(exc).__name__}로 중단됐습니다 "
-            "(나머지 검사는 계속 수행). 상세는 --debug로 재실행하세요."
+            "(나머지 검사는 계속 수행). 상세 트레이스백이 필요하면 사용자가 자신의 "
+            "터미널에서 --debug를 붙여 직접 재실행한다."
         )
 
 
@@ -398,7 +415,12 @@ def run_audit(root, today, debug=False):
     try:
         cfg = harness_lib.load_harness_yaml(root / "harness.yaml")
     except (OSError, harness_lib.HarnessYamlError) as e:
+        # 두 메시지는 안전하다 — OSError는 경로·errno, HarnessYamlError는 줄 번호만 담는다.
         return [f"[harness.yaml] 읽기/파싱 실패 — {e}"], warnings
+    except ValueError as e:
+        # UnicodeDecodeError(ValueError 계열) 등 — 잡지 않으면 run_audit을 관통해 검사가
+        # 하나도 돌지 않는다. 다만 메시지에 파일 바이트 조각이 실릴 수 있어 타입만 쓴다(원칙 1).
+        return [f"[harness.yaml] 읽기/파싱 실패 — {type(e).__name__}"], warnings
     checks = (
         ("harness.yaml", lambda: check_harness_yaml(cfg, failures, warnings)),
         ("스키마·참조", lambda: check_schema_and_refs(root, failures)),
@@ -496,7 +518,8 @@ def main():
     ap.add_argument("--staged", action="store_true",
                      help="git staged 파일만 대상으로 시크릿 패턴 스캔 (pre-commit용)")
     ap.add_argument("--debug", action="store_true",
-                     help="검사 내부 오류를 감추지 않고 트레이스백을 그대로 띄운다")
+                     help="검사 내부 오류를 감추지 않고 트레이스백을 그대로 띄운다 "
+                          "(사용자가 직접 진단할 때 쓰는 모드 — 트레이스백에는 값이 실릴 수 있다)")
     args = ap.parse_args()
     root = Path(args.root) if args.root else harness_lib.find_harness_root()
     if root is None or not (Path(root) / "harness.yaml").is_file():

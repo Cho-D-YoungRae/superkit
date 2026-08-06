@@ -46,7 +46,7 @@ class TestOpsReferences(unittest.TestCase):
 class TestAuditSkillCategories(unittest.TestCase):
     def test_audit_skill_documents_new_categories(self):
         body = (PLUGIN_ROOT / "skills" / "audit" / "SKILL.md").read_text(encoding="utf-8")
-        for token in ("[구조]", "[키]", "recovery"):
+        for token in ("[구조]", "[키]", "recovery", "[보호]", "[내부오류]", "secrets_format"):
             self.assertIn(token, body, f"audit SKILL.md에 {token} 카테고리 설명 없음")
 
 

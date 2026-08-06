@@ -40,22 +40,36 @@ class TestSkillCount(unittest.TestCase):
         self._assert_all_match(README, "README.md")
 
 
+DOCS = ((CLAUDE_MD, "CLAUDE.md"), (README, "README.md"))
+"""D16의 검사 대상 문서 — 스펙이 `CLAUDE.md`·`README.md` 양쪽을 지목한다.
+
+한쪽만 검사하면 규약이 자기모순이 된다: 실제로 README가 'D1~D14'와 plan 4건 중 2건만
+열거한 채로 통과했다. 새 항목을 추가할 때도 반드시 두 문서를 함께 돌린다.
+"""
+
+
 class TestDecisionRange(unittest.TestCase):
-    def test_claude_md_d_range_matches_spec(self):
+    def test_docs_d_range_matches_spec(self):
         nums = [int(x) for x in re.findall(
             r"^\| D(\d+) \|", SPEC.read_text(encoding="utf-8"), re.MULTILINE)]
         self.assertTrue(nums, "스펙에서 D 결정표 행을 찾지 못했다")
-        m = re.search(r"결정\s*D1~D(\d+)", CLAUDE_MD.read_text(encoding="utf-8"))
-        self.assertIsNotNone(m, "CLAUDE.md에 '결정 D1~DN' 표기가 없다")
-        self.assertEqual(int(m.group(1)), max(nums))
+        for path, label in DOCS:
+            with self.subTest(doc=label):
+                m = re.search(r"결정\s*D1~D(\d+)", path.read_text(encoding="utf-8"))
+                self.assertIsNotNone(m, f"{label}에 '결정 D1~DN' 표기가 없다")
+                self.assertEqual(int(m.group(1)), max(nums),
+                                 f"{label}의 D 범위가 스펙의 최대 D{max(nums)}와 다르다")
 
 
 class TestPlanList(unittest.TestCase):
-    def test_claude_md_lists_every_plan(self):
-        listed = set(re.findall(r"docs/superpowers/plans/([\w.-]+\.md)",
-                                CLAUDE_MD.read_text(encoding="utf-8")))
+    def test_docs_list_every_plan(self):
         actual = {p.name for p in PLANS_DIR.glob("*.md")}
-        self.assertEqual(listed, actual)
+        for path, label in DOCS:
+            with self.subTest(doc=label):
+                listed = set(re.findall(r"docs/superpowers/plans/([\w.-]+\.md)",
+                                        path.read_text(encoding="utf-8")))
+                self.assertEqual(listed, actual,
+                                 f"{label}가 열거한 plan {listed}이 실제 {actual}와 다르다")
 
 
 def actual_template_count():

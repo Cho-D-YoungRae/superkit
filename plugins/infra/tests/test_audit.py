@@ -422,6 +422,57 @@ class TestListValuedRefFields(unittest.TestCase):
         self.assertEqual(bogus, [], f"스칼라가 글자 단위로 쪼개졌다: {failures}")
 
 
+class TestSecretScanFileIsolation(unittest.TestCase):
+    """읽을 수 없는 파일 하나가 시크릿 스캔 **전체**를 중단시키면 안 된다.
+
+    `check_secret_scan`은 os.walk를 정렬 순서로 도는데, 앞쪽 파일의 read_bytes()가
+    예외를 올리면 `_run_check`가 이 검사를 통째로 `[내부오류]`로 끝낸다 — 그 뒤 파일의
+    실제 오염은 검출조차 되지 않는다. 여기서 단언하는 것은 "크래시하지 않는다"가 아니라
+    **읽지 못한 파일 뒤의 오염이 여전히 검출된다**는 것이다.
+    """
+
+    def setUp(self):
+        import os
+        import shutil
+        import tempfile
+        self.tmp = tempfile.mkdtemp()
+        self.root = Path(self.tmp) / "h"
+        shutil.copytree(OK, self.root)
+        # 정렬 순서상 오염 파일보다 **앞**에 오도록 이름을 정한다
+        self.unreadable = self.root / "aaa-unreadable.md"
+        self.unreadable.write_text("표시용 더미 내용\n", encoding="utf-8")
+        os.chmod(self.unreadable, 0)
+        if os.access(self.unreadable, os.R_OK):
+            self.skipTest("이 환경에서는 chmod 0으로 읽기를 막을 수 없다(root 등)")
+        (self.root / "zzz-leak.md").write_text(
+            "aws_access_key_id = AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+
+    def tearDown(self):
+        import os
+        import shutil
+        try:
+            os.chmod(self.unreadable, 0o644)
+        except OSError:
+            pass
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_unreadable_file_does_not_hide_later_contamination(self):
+        failures, _ = audit.run_audit(self.root, TODAY)
+        joined = "\n".join(failures)
+        self.assertTrue(
+            any("zzz-leak.md" in f and "[시크릿]" in f for f in failures),
+            f"읽을 수 없는 파일 때문에 뒤 파일의 오염을 놓쳤다: {failures}")
+        self.assertNotIn("[내부오류]", joined,
+                         f"검사 전체가 중단됐다(파일 단위 격리 실패): {failures}")
+
+    def test_unreadable_file_is_reported_as_not_scanned(self):
+        """읽지 못한 파일은 조용히 넘기지 않고 **경로만** 보고한다(내용 없음)."""
+        failures, _ = audit.run_audit(self.root, TODAY)
+        self.assertTrue(
+            any("aaa-unreadable.md" in f and "읽을 수 없어" in f for f in failures),
+            f"읽지 못한 파일이 보고되지 않았다: {failures}")
+
+
 class TestDenyRuleProtection(unittest.TestCase):
     """secrets/ 차단 설정의 드리프트와 하위 디렉터리 구멍을 잡는다(검토 P0-3).
 
