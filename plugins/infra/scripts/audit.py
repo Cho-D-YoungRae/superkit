@@ -26,6 +26,7 @@ SECRET_PATTERNS = [
 AGE_PREFIXES = (b"age-encryption.org/v1", b"-----BEGIN AGE ENCRYPTED FILE-----")
 VALID_SHARING = {"local", "git", "shared-drive"}
 VALID_SECRETS_MODE = {"none", "plaintext", "encrypted"}
+VALID_SECRETS_FORMAT = {"sops-age"}
 EXPIRY_WINDOW_DAYS = 30
 # init이 심는 secrets/ 읽기 차단 규칙. 앵커 문법 차이에 대비해 두 형태를 병기한다(D3).
 REQUIRED_DENY_RULES = ("Read(/secrets/**)", "Read(./secrets/**)")
@@ -252,7 +253,7 @@ def check_recipients(cfg, failures):
         )
 
 
-def check_harness_yaml(cfg, failures):
+def check_harness_yaml(cfg, failures, warnings):
     for k in ("sharing", "secrets_mode", "environments", "policies", "hooks"):
         if k not in cfg:
             failures.append(f"[harness.yaml] 필수 키 누락 — {k}")
@@ -260,6 +261,20 @@ def check_harness_yaml(cfg, failures):
         failures.append(f"[harness.yaml] 알 수 없는 sharing 값: {cfg.get('sharing')!r}")
     if cfg.get("secrets_mode") not in VALID_SECRETS_MODE:
         failures.append(f"[harness.yaml] 알 수 없는 secrets_mode 값: {cfg.get('secrets_mode')!r}")
+
+    # secrets_format — 스펙 §4.4가 정의했으나 아무도 읽지 않던 키(D16 이전 死키)
+    fmt = cfg.get("secrets_format")
+    encrypted = cfg.get("secrets_mode") == "encrypted"
+    if fmt is not None and fmt not in VALID_SECRETS_FORMAT:
+        failures.append(
+            f"[harness.yaml] 알 수 없는 secrets_format 값: {fmt!r} "
+            f"(허용: {', '.join(sorted(VALID_SECRETS_FORMAT))})")
+    elif encrypted and fmt is None:
+        warnings.append("[harness.yaml] secrets_mode: encrypted인데 secrets_format이 없습니다 "
+                        "— 팀 표준 암호화 형식을 명시하세요(sops-age)")
+    elif not encrypted and fmt is not None:
+        warnings.append(f"[harness.yaml] secrets_mode가 encrypted가 아닌데 secrets_format이 "
+                        f"있습니다 — 무시되는 키입니다({fmt!r})")
 
 
 def check_credentials(root, failures):
@@ -397,7 +412,7 @@ def run_audit(root, today, debug=False):
     except (OSError, harness_lib.HarnessYamlError) as e:
         return [f"[harness.yaml] 읽기/파싱 실패 — {e}"], warnings
     checks = (
-        ("harness.yaml", lambda: check_harness_yaml(cfg, failures)),
+        ("harness.yaml", lambda: check_harness_yaml(cfg, failures, warnings)),
         ("스키마·참조", lambda: check_schema_and_refs(root, failures)),
         ("구조", lambda: check_structure(root, failures)),
         ("시크릿 스캔", lambda: check_secret_scan(root, failures)),

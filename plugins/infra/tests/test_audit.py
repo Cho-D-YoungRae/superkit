@@ -528,5 +528,39 @@ class TestCheckIsolation(unittest.TestCase):
             audit._run_check("테스트", boom, [], debug=True)
 
 
+class TestSecretsFormat(unittest.TestCase):
+    """스펙이 정의한 secrets_format이 실제로 검증되어야 한다 (검토 P2-3)."""
+
+    BASE = ("sharing: git\nsecrets_mode: {mode}\n{fmt}"
+            "secrets_recipients:\n  alice: age1aaa\n  recovery: age1rec\n"
+            "environments: [prod]\npolicies:\n  mutating:\n    prod: confirm\n"
+            "hooks:\n  change_reminder: true\n")
+
+    def _run(self, mode, fmt_line):
+        import tempfile
+        root = Path(tempfile.mkdtemp())
+        (root / "harness.yaml").write_text(
+            self.BASE.format(mode=mode, fmt=fmt_line), encoding="utf-8")
+        return audit.run_audit(root, TODAY)
+
+    def test_unknown_format_fails(self):
+        failures, _ = self._run("encrypted", "secrets_format: pgp\n")
+        self.assertTrue(any("secrets_format" in f for f in failures), failures)
+
+    def test_valid_format_passes(self):
+        failures, _ = self._run("encrypted", "secrets_format: sops-age\n")
+        self.assertEqual([f for f in failures if "secrets_format" in f], [])
+
+    def test_missing_format_on_encrypted_warns(self):
+        failures, warnings = self._run("encrypted", "")
+        self.assertEqual([f for f in failures if "secrets_format" in f], [])
+        self.assertTrue(any("secrets_format" in w for w in warnings), warnings)
+
+    def test_format_on_non_encrypted_warns(self):
+        failures, warnings = self._run("none", "secrets_format: sops-age\n")
+        self.assertEqual([f for f in failures if "secrets_format" in f], [])
+        self.assertTrue(any("secrets_format" in w for w in warnings), warnings)
+
+
 if __name__ == "__main__":
     unittest.main()
