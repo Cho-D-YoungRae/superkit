@@ -15,7 +15,7 @@ claude --plugin-dir .     # 개발 모드 로드 → 세션 내 /reload-plugins 
 ## 구조
 
 - `.claude-plugin/plugin.json` — 매니페스트. **이 디렉토리엔 이 파일만** 둔다(다른 파일은 로드 안 됨).
-- `skills/<name>/SKILL.md` — 스킬 9종. `ops/references/*.md`는 필요 시 온디맨드 로드.
+- `skills/<name>/SKILL.md` — 스킬 10종. `ops/references/*.md`는 필요 시 온디맨드 로드.
 - `templates/` — init이 하네스로 복사·치환하는 골격 11종.
 - `scripts/harness_lib.py` — 하네스 상향 탐색 + frontmatter/YAML 파서(audit·sync 공용).
 - `hooks/scripts/change_reminder.py` — PostToolUse(Bash) hook.
@@ -48,7 +48,10 @@ claude --plugin-dir .     # 개발 모드 로드 → 세션 내 /reload-plugins 
 ## 확정 설계 (변경 전 반드시 확인)
 
 - `docs/superpowers/specs/2026-07-19-infra-plugin-design.md` — 불변 원칙 10개, 데이터 스키마,
-  결정 D1~D15.
+  결정 D1~D16.
 - `docs/superpowers/plans/2026-07-19-infra-plugin.md` — 태스크별 구현 계획.
+- `docs/superpowers/plans/2026-07-21-server-body-info.md` — D10 서버 본문 정보.
+- `docs/superpowers/plans/2026-07-22-team-secrets.md` — D11~D14 팀 시크릿.
+- `docs/superpowers/plans/2026-08-06-promise-alignment.md` — 약속과 실제의 일치(이 계획).
 
 원칙·스키마·D 결정은 **확정 사항**이다. 이를 바꾸는 변경은 스펙을 먼저 갱신하고 진행한다.

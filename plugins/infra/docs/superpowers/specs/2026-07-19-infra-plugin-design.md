@@ -27,7 +27,7 @@
 | D5 | component의 env·context는 runs_on 체인 해석 | component frontmatter에는 env가 없다. ops는 `runs_on`이 가리키는 server/k8s-cluster 엔티티에서 env와 context/profile을 해석한다. |
 | D6 | hook 오탐 방지 | `kubectl rollout status|history`는 read-only이므로 매치하지 않고 `rollout restart|undo|pause|resume`만 매치. `--dry-run` 포함 명령은 제외. PostToolUse는 사후 실행이므로 어떤 경우에도 차단하지 않는다. |
 | D7 | description은 인프라 도메인 어휘 우선 | 기존 설치된 `harness:harness` 메타 스킬과 "하네스" 용어가 겹치므로, description은 "인프라 하네스(서버·k8s·컴포넌트 인벤토리)"처럼 인프라 도메인 어휘를 앞세워 오선택을 방지한다. |
-| D8 | tests/fixtures 자동 검증 | 정상 하네스 1개 + 오염 하네스 1개 fixture로 audit·sync 파서·hook 스크립트를 자동 검증한다. |
+| D8 | tests/fixtures 자동 검증 | fixture 하네스로 audit·sync 파서·hook 스크립트를 자동 검증한다. 최소 구성은 정상 하네스 1개 + 오염 하네스 1개이며, 이후 검증 대상이 늘면서 hook 비활성화·온프렘 전용 fixture가 추가됐다(현재 목록은 §12). |
 | D9 | 매니페스트·개발 루프 | 저장소 루트 = 플러그인 루트. `plugin.json`은 `name: "infra"`, `version: "0.1.0"`, `description`, `author`. 개발 테스트는 `claude --plugin-dir .` + `/reload-plugins`. |
 | D10 | 서버 정보: 파싱 대상만 frontmatter, 이질적 정보는 본문 | 스킬이 **결정론적으로 소비하는 값**(① 명령 생성 — `--context`/`--profile`(원칙 6) ② 참조 무결성(audit) ③ 실제 상태 대조(sync))만 frontmatter에 둔다. 서버 사양·사설/공인 IP·아키텍처·서버별 특이 정보처럼 이질적이고 프로그램이 diff하지 않는 정보는 markdown 본문에 자유 서술하되, register가 채우고 사람이 읽기 좋게 `## 네트워크`·`## 사양`·`## 특이사항` 같은 가벼운 관례 섹션을 쓴다(강제 스키마 아님). 이로써 파서·`REQUIRED_FIELDS`·`schema_version` 변경 없이 후방호환을 유지하고, 사양을 sync가 대조하는 상태 복제(원칙 4 위반)를 피한다. IP drift 자동 감지처럼 스킬이 특정 값을 결정론적으로 소비해야 할 때에만 그 값을 frontmatter로 **승격**한다(그 시점에 `provider_resource_id` 등과 함께 별도 결정으로 다룬다). |
 | D11 | 팀 시크릿 라이프사이클 (encrypted 운영 프로토콜) | 공유(`git`/`shared-drive`)+`encrypted`는 **SOPS+age**를 표준으로 한다(raw age보다 수신자 관리·재키잉이 우수). `harness.yaml`의 `secrets_recipients`(`name: age공개키` 중첩 맵)에 팀원 공개키 + **조직 복구 수신자(필수)**를 두고 이를 근거로 `.sops.yaml`을 생성한다. 온보딩=수신자 추가 후 `sops updatekeys` 재키잉. **오프보딩=수신자 제거 + 재키잉 + 하위 자격증명 로테이션**(구버전 암호문은 이전 키로 복호 가능하므로 재키잉만으론 불충분). 신규 `secrets` 스킬이 이 라이프사이클을 담당한다. 공유 드라이브는 동시 편집에 취약하므로 암호문을 단일 작성자/읽기 위주 아티팩트로 취급한다. audit은 복호하지 않고(헤더만) 수신자 drift·MAC은 `secrets` 스킬이 SOPS 도구로 처리하되 평문을 출력하지 않는다. |
@@ -35,6 +35,7 @@
 | D13 | audit 하드닝 + secrets_mode 강제 | audit이 ① 심볼릭 링크를 **읽기 전에 거부**(하네스 밖 링크 추종 방지) ② `secrets/`를 **재귀** 스캔(직속 자식만 아님) ③ `secrets_mode: none`이면 `secrets/`에 시크릿 페이로드 파일이 없어야 함을 강제 ④ encrypted 헤더를 **엄격 prefix**로 검사(느슨한 부분문자열 제거, 암호학적 유효성은 주장하지 않음) ⑤ 중복 id·conflict-copy 파일명(예: `*conflicted copy*`, `* (1).md`) 탐지. `audit.py --staged`로 git staged 스냅샷을 검사(pre-commit용, git 없으면 무시). 어떤 경우에도 복호하지 않고 매치 값을 출력하지 않는다. `.claude/settings.json` deny는 Read 도구만 막는 **가드레일이며 보안 경계가 아님**(Bash/Python은 여전히 읽음)을 문서에 명시한다. |
 | D14 | 외부 시크릿 백엔드 참조 규약 | keys.md 위치 참조 스킴을 명시: `secrets/…`(로컬) · `op://`(1Password) · `vault://`(HashiCorp Vault) · `aws-secretsmanager://`. 참조는 **불투명** — lookup·audit은 이를 resolve(복호·조회)하지 않고 위치와 사용 명령만 다룬다. 각 백엔드의 참조 실행 관례(`op run`, `vault kv get`, `aws secretsmanager get-secret-value` + 명시적 profile/region/namespace)는 references로 둔다. 전역 `secrets_backend`는 만들지 않는다(혼합 백엔드가 정상 — 참조별 식별). 외부 매니저 사용은 `secrets_mode: none`(하네스는 참조만)에 해당한다. |
 | D15 | deny 방어선의 실효 범위 명문화 + 하위 디렉터리 구멍 차단 | `.claude/settings.json`은 **cwd의 `.claude/`에서만 부모 폴백 없이** 로드되는데 하네스 발견은 상향 탐색이므로(D1), 하네스 하위 디렉터리에서 연 세션은 스킬만 동작하고 `secrets/` 차단은 사라진다. init이 `.claude/settings.local.json`(= git 저장소 루트에서 로드됨)에 같은 deny 규칙을 한 벌 더 심어 이 구멍을 메우고, `sharing: git`이면 이 파일을 커밋 대상에 포함한다(이름은 local이지만 팀 전체 보호가 목적 — `.gitignore`에 넣지 않는다). git 저장소가 아닌 하네스는 메울 수단이 없으므로 "세션을 하네스 루트에서 열라"고 안내한다. audit이 두 파일의 존재·규칙 드리프트를 검사한다(`secrets_mode: none`이면 지킬 로컬 값이 없으므로 경고). 또한 deny는 Read 도구와 인식된 파일 명령(`cat`·`head`·`tail`·`sed`)에만 걸리고 **임의 서브프로세스(파이썬·노드 스크립트)에는 걸리지 않으므로**, 이 플러그인 자신의 `scripts/*.py`도 차단 밖이다 — 이 사실을 README FAQ와 CLAUDE.md에 명시하고, 스크립트가 시크릿 값을 출력하지 않음을 카나리 회귀 테스트로 강제한다. OS 수준 경계는 샌드박스뿐임도 함께 안내한다. |
+| D16 | 문서 수치의 정합성은 테스트로 강제 | 문서(`CLAUDE.md`·`README.md`)가 스킬 수·결정 범위·계획 문서 목록처럼 코드 구조를 수치나 목록으로 언급하면, 그 정합성을 `tests/test_docs_consistency.py`가 검사한다. 손으로 고치는 규율만으로는 재발하기 때문이다(P0 작업 중 실제로 재발). 구조를 바꾸는 변경은 문서와 테스트를 같은 커밋에서 함께 갱신한다. |
 
 ## 3. 불변 원칙 (전 스킬 공통, 위반 불가)
 
@@ -388,7 +389,7 @@ python3 표준 라이브러리 전용(D2). 공용 로직은 `harness_lib.py`(하
 | 6 | 자격증명(kind 어휘·위치 참조, D12) | keys.md 행의 `kind`가 허용 어휘(`ssh-key\|tls-cert\|api-token\|cloud\|account\|password`) 밖, 위치 참조 칸이 비어 있거나 `-` |
 | 7 | 보호 설정(settings.json·settings.local.json 드리프트, D15) | `.claude/settings.json` 또는(git 하네스면) `.claude/settings.local.json`이 없거나 secrets/ 차단 deny 규칙이 누락. `secrets_mode: none`이면 경고로만 처리 |
 | 8 | 만료 경고 | keys.md에서 만료·로테이션 예정일이 30일 이내(경고, 실패 아님) |
-| 9 | harness.yaml(secrets_format 포함, C4) | 필수 키 누락, 알 수 없는 sharing/secrets_mode/secrets_format 값. `encrypted`인데 secrets_format 누락 또는 비-encrypted인데 secrets_format이 있으면 경고 |
+| 9 | harness.yaml(secrets_format 값 검증 포함) | 필수 키 누락, 알 수 없는 sharing/secrets_mode/secrets_format 값. `encrypted`인데 secrets_format 누락 또는 비-encrypted인데 secrets_format이 있으면 경고 |
 | 10 | `--staged` 모드(D13) | git staged(ACM) 파일만 대상으로 시크릿 패턴 스캔(pre-commit용). git 저장소가 아니면 일반 audit로 폴백 |
 
 출력: 사람이 읽는 리포트(검사별 통과/실패/경고). 실패가 있으면 종료 코드 ≠ 0.

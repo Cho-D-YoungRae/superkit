@@ -250,7 +250,7 @@ def check_harness_yaml(cfg, failures, warnings):
     if cfg.get("secrets_mode") not in VALID_SECRETS_MODE:
         failures.append(f"[harness.yaml] 알 수 없는 secrets_mode 값: {cfg.get('secrets_mode')!r}")
 
-    # secrets_format — 스펙 §4.4가 정의했으나 아무도 읽지 않던 키(D16 이전 死키)
+    # secrets_format — 스펙 §4.4가 정의했으나 오래 아무도 읽지 않아 오설정이 통과하던 키
     fmt = cfg.get("secrets_format")
     encrypted = cfg.get("secrets_mode") == "encrypted"
     if fmt is not None and fmt not in VALID_SECRETS_FORMAT:
