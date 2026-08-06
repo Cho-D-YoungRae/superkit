@@ -58,5 +58,71 @@ class TestPlanList(unittest.TestCase):
         self.assertEqual(listed, actual)
 
 
+def actual_template_count():
+    return len([p for p in (PLUGIN_ROOT / "templates").iterdir() if p.is_file()])
+
+
+class TestTemplateCount(unittest.TestCase):
+    """'골격 N종' 표기가 templates/ 실제 파일 수와 같아야 한다."""
+
+    def test_claude_md_matches_reality(self):
+        found = [int(x) for x in re.findall(r"골격\s*(\d+)종",
+                                            CLAUDE_MD.read_text(encoding="utf-8"))]
+        self.assertTrue(found, "CLAUDE.md에 '골격 N종' 표기가 없다")
+        actual = actual_template_count()
+        self.assertEqual(set(found), {actual},
+                         f"CLAUDE.md의 표기 {found}가 실제 {actual}종과 다르다")
+
+
+def actual_fixture_names():
+    return {p.name for p in (PLUGIN_ROOT / "tests" / "fixtures").iterdir() if p.is_dir()}
+
+
+class TestFixtureList(unittest.TestCase):
+    """CLAUDE.md·README.md가 언급하는 harness-* fixture 이름이 **모두** 실제와
+    일치해야 한다. 일부만 열거해도 실패한다 — fixture를 언급하는 이상 전부
+    열거해야 새 fixture 추가나 이름 변경 같은 드리프트를 놓치지 않는다.
+    """
+
+    def test_docs_list_every_fixture(self):
+        actual = actual_fixture_names()
+        for path, label in ((CLAUDE_MD, "CLAUDE.md"), (README, "README.md")):
+            with self.subTest(doc=label):
+                found = set(re.findall(r"(harness-\w+)`?\(",
+                                       path.read_text(encoding="utf-8")))
+                self.assertTrue(found, f"{label}에 'harness-*(...)' fixture 언급이 없다")
+                self.assertEqual(found, actual,
+                                 f"{label}가 언급하는 fixture {found}가 실제 {actual}와 다르다")
+
+
+def actual_test_method_count():
+    # 정규식을 "공백 네 칸 그대로 + def test_" 리터럴로 적으면 이 줄 자신이 grep
+    # 측정 명령의 검색 대상 부분 문자열과 겹쳐서 스스로를 메서드로 오탐한다
+    # (실측으로 발견: 리터럴로 쓰면 130, 실제 unittest discover 결과는 129).
+    # `{4}` 수량자로 공백 반복을 표현해 그 부분 문자열이 소스에 나타나지 않게
+    # 한다 — 매치 의미는 동일하다.
+    total = 0
+    for path in (PLUGIN_ROOT / "tests").glob("test_*.py"):
+        total += len(re.findall(r"^ {4}def test_", path.read_text(encoding="utf-8"),
+                                re.MULTILINE))
+    return total
+
+
+class TestTotalTestCount(unittest.TestCase):
+    """CLAUDE.md의 '전체 테스트(N개)' 표기가 실제 테스트 메서드 수와 같아야
+    한다. 스위트를 실행해 세면 이 테스트 자신의 존재가 카운트에 영향을 주는
+    재귀 문제가 생긴다 — 대신 tests/test_*.py의 'def test_' 메서드를 정적으로
+    센다(unittest가 discover하는 개수와 일치).
+    """
+
+    def test_claude_md_matches_reality(self):
+        found = [int(x) for x in re.findall(r"전체\s*테스트\((\d+)개\)",
+                                            CLAUDE_MD.read_text(encoding="utf-8"))]
+        self.assertTrue(found, "CLAUDE.md에 '전체 테스트(N개)' 표기가 없다")
+        actual = actual_test_method_count()
+        self.assertEqual(set(found), {actual},
+                         f"CLAUDE.md의 표기 {found}가 실제 {actual}개와 다르다")
+
+
 if __name__ == "__main__":
     unittest.main()

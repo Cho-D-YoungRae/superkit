@@ -6,7 +6,7 @@
 ## 명령
 
 ```bash
-bash tests/run_tests.sh   # 전체 테스트(97개). 스킬·스크립트·hook 수정 후 항상 실행
+bash tests/run_tests.sh   # 전체 테스트(129개). 스킬·스크립트·hook 수정 후 항상 실행
 claude --plugin-dir .     # 개발 모드 로드 → 세션 내 /reload-plugins 로 변경 반영
 ```
 
@@ -16,17 +16,17 @@ claude --plugin-dir .     # 개발 모드 로드 → 세션 내 /reload-plugins 
 
 - `.claude-plugin/plugin.json` — 매니페스트. **이 디렉토리엔 이 파일만** 둔다(다른 파일은 로드 안 됨).
 - `skills/<name>/SKILL.md` — 스킬 10종. `ops/references/*.md`는 필요 시 온디맨드 로드.
-- `templates/` — init이 하네스로 복사·치환하는 골격 11종.
+- `templates/` — init이 하네스로 복사·치환하는 골격 12종.
 - `scripts/harness_lib.py` — 하네스 상향 탐색 + frontmatter/YAML 파서(audit·sync 공용).
 - `hooks/scripts/change_reminder.py` — PostToolUse(Bash) hook.
-- `tests/fixtures/` — harness-ok(정상)·harness-bad(오염)·harness-off(hook off).
+- `tests/fixtures/` — harness-ok(정상)·harness-bad(오염)·harness-off(hook off)·harness-onprem(온프렘 전용).
 
 ## 수정 시 반드시 지킬 것
 
 - **원칙 1·2 (이 플러그인의 존재 이유)**: 스킬 본문·스크립트·references 어디에도 시크릿 **값**을
   읽거나 출력·cat·echo 하는 지시를 넣지 않는다. 참조 실행(`${VAR}`, `ssh -i <경로>`,
   `sops exec-env`, `op run`)만. 명령 예시엔 항상 `--context`/`--profile` 명시(원칙 6).
-  10개 원칙 전체는 README §4, 확정 근거는 docs/superpowers/specs/.
+  10개 원칙 전체는 README §6, 확정 근거는 docs/superpowers/specs/.
 - **`scripts/`는 deny 방어선 "밖"에서 동작한다** (D15). `.claude/settings.json`의 deny는 Read
   도구와 클로드가 인식하는 파일 명령(`cat`·`head`·`tail`·`sed`)에만 걸리고 **파이썬 스크립트처럼
   스스로 파일을 여는 프로세스에는 걸리지 않는다**. `audit`이 `secrets/`를 재귀 스캔할 수 있는

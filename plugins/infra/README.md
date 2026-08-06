@@ -320,8 +320,8 @@ bash tests/run_tests.sh
 ```
 
 `tests/fixtures/harness-ok`(정상 하네스)·`tests/fixtures/harness-bad`(오염 하네스)·
-`tests/fixtures/harness-off`(hook 비활성화 검증용) 세 fixture를 대상으로 다음을 자동
-검증한다.
+`tests/fixtures/harness-off`(hook 비활성화 검증용)·`tests/fixtures/harness-onprem`(온프렘 전용)
+네 fixture를 대상으로 다음을 자동 검증한다.
 
 - `scripts/audit.py`의 기대 결과 — 스키마/참조/시크릿 패턴/정책 조합/만료 경고에 더해 D13
   하드닝(심링크 거부·`secrets/` 재귀 스캔·`secrets_mode: none` 강제·엄격 헤더 판별·중복

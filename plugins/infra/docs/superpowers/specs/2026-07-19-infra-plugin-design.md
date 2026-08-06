@@ -497,7 +497,7 @@ init이 복사·치환하는 템플릿. 치환 변수는 `{{id}}`, `{{date}}`, `
 | 12 | 스크립트 출력에 시크릿 값이 새지 않는다(시크릿 봉쇄 카나리 회귀) | **자동** (`tests/test_secret_containment.py`) |
 | 13 | 문서(스펙·README·CLAUDE.md)가 실제 구현과 어긋나지 않는다(문서 정합성) | **자동** (`tests/test_docs_consistency.py`, Task 7에서 생성) |
 
-`tests/run_tests.sh`: fixture 하네스 4개(`harness-ok`·`harness-bad`·`harness-off`·`harness-onprem`)와 6개 테스트 파일(`test_audit.py`·`test_change_reminder.py`·`test_harness_lib.py`·`test_secret_containment.py`·`test_skills.py`·`test_sync.py`, 총 122개 테스트)로 ① audit.py 기대 결과(통과/각 실패 항목) ② change_reminder.py 케이스(mutating / read-only / --dry-run / reminder off / 하네스 밖) ③ harness_lib의 하네스 상향 탐색·frontmatter 파서 ④ 스크립트 출력의 시크릿 봉쇄 카나리(원칙 1 회귀 방지) ⑤ SKILL.md frontmatter·본문 규약 ⑥ sync의 문서 스냅샷 파서·diff 로직(모의 수집 데이터 주입)을 assert한다. 수동 시나리오는 README에 체크리스트로 수록한다.
+`tests/run_tests.sh`: fixture 하네스 4개(`harness-ok`·`harness-bad`·`harness-off`·`harness-onprem`)와 7개 테스트 파일(`test_audit.py`·`test_change_reminder.py`·`test_docs_consistency.py`·`test_harness_lib.py`·`test_secret_containment.py`·`test_skills.py`·`test_sync.py`, 총 129개 테스트)로 ① audit.py 기대 결과(통과/각 실패 항목) ② change_reminder.py 케이스(mutating / read-only / --dry-run / reminder off / 하네스 밖) ③ harness_lib의 하네스 상향 탐색·frontmatter 파서 ④ 스크립트 출력의 시크릿 봉쇄 카나리(원칙 1 회귀 방지) ⑤ SKILL.md frontmatter·본문 규약 ⑥ sync의 문서 스냅샷 파서·diff 로직(모의 수집 데이터 주입)을 assert한다. 수동 시나리오는 README에 체크리스트로 수록한다.
 
 구현 각 단계 완료 시 `tests/run_tests.sh`를 실행한다.
 
