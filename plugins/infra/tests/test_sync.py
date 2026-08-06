@@ -210,5 +210,79 @@ class TestPartialCollectIsUnverifiable(unittest.TestCase):
                         report["unverifiable"])
 
 
+class TestCollectAccumulatesRegions(unittest.TestCase):
+    """collect()가 리전별 명령 결과를 한 provider 엔트리로 누적하는지 검증한다 (검토 Important-1).
+
+    이 가드가 없으면(예: instances 분기를 덮어쓰기 한 줄로 되돌리면) 다중 리전에서 마지막
+    명령이 앞 결과를 덮어써, 앞 리전 실패+뒤 리전 성공 시 reachable: True + 부분 instances로
+    오보된다 — 이 태스크가 없애려던 거짓 안심이 되살아난다.
+    """
+
+    def _multi_region_root(self):
+        import shutil
+        import tempfile
+        root = Path(tempfile.mkdtemp()) / "h"
+        shutil.copytree(OK, root)
+        (root / "providers" / "aws-main.md").write_text(
+            "---\nid: aws-main\ntype: provider\nkind: aws\ncli_profile: main\n"
+            "regions: [ap-northeast-2, us-east-1]\n"
+            'console: "https://console.aws.amazon.com"\n---\n\n# aws-main\n',
+            encoding="utf-8")
+        return root
+
+    def test_both_regions_succeed_merge_into_one_entry(self):
+        from unittest import mock
+
+        class R:
+            def __init__(self, rc, out=""):
+                self.returncode = rc
+                self.stdout = out
+
+        def fake_run(cmd, **kw):
+            if "nodes" in cmd:            # kubectl get nodes → 성공
+                return R(0, "node/ip-1\n")
+            if "list" in cmd:            # helm list → 성공(빈 결과)
+                return R(0, "[]")
+            if "ap-northeast-2" in cmd:  # 첫 리전 → 성공
+                return R(0, "prod-db-01\n")
+            if "us-east-1" in cmd:       # 둘째 리전 → 성공
+                return R(0, "prod-app-01\n")
+            return R(0, "")
+
+        root = self._multi_region_root()
+        with mock.patch.object(sync_snapshot.subprocess, "run", side_effect=fake_run):
+            actual = sync_snapshot.collect(root)
+        entry = actual["providers"]["aws-main"]
+        self.assertTrue(entry["reachable"])
+        self.assertEqual(set(entry["instances"]), {"prod-db-01", "prod-app-01"},
+                         "두 리전의 instances가 한 엔트리로 누적되어야 한다(덮어쓰기 금지)")
+
+    def test_first_region_failure_keeps_provider_unreachable(self):
+        from unittest import mock
+
+        class R:
+            def __init__(self, rc, out=""):
+                self.returncode = rc
+                self.stdout = out
+
+        def fake_run(cmd, **kw):
+            if "nodes" in cmd:
+                return R(0, "node/ip-1\n")
+            if "list" in cmd:
+                return R(0, "[]")
+            if "ap-northeast-2" in cmd:  # 첫 리전 → 실패
+                return R(1, "")
+            if "us-east-1" in cmd:       # 둘째 리전 → 성공
+                return R(0, "prod-app-01\n")
+            return R(0, "")
+
+        root = self._multi_region_root()
+        with mock.patch.object(sync_snapshot.subprocess, "run", side_effect=fake_run):
+            actual = sync_snapshot.collect(root)
+        entry = actual["providers"]["aws-main"]
+        self.assertFalse(entry["reachable"],
+                         "한 리전이라도 실패하면 뒤 리전이 성공해도 확인 불가로 남아야 한다")
+
+
 if __name__ == "__main__":
     unittest.main()
