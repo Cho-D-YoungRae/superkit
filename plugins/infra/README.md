@@ -7,10 +7,13 @@ sync/audit/secrets), 엔티티 템플릿, 검증 스크립트, hook으로 구성
 ## 빠른 시작
 
 ```bash
-mkdir ~/infra-workspace && cd ~/infra-workspace
-claude --plugin-dir /path/to/infra
+git clone <저장소 URL> ~/infra-plugin
+mkdir -p ~/infra-workspace && cd ~/infra-workspace
+claude --plugin-dir ~/infra-plugin
 # 대화창: "인프라 하네스 만들어줘" → 이후 자연어로 등록·조회·조작
 ```
+
+설치 상세와 요구 사항은 [3. 설치](#3-설치)를 참고한다.
 
 ## 목차
 
@@ -94,22 +97,23 @@ manifest·GitOps 레포 참조로 넘긴다(원칙 4 — 하네스는 상태를 
 
 ```bash
 git clone <저장소 URL> ~/infra-plugin
-cd ~/infra-workspace          # 하네스로 쓸 디렉터리(없으면 mkdir로 만든다)
+mkdir -p ~/infra-workspace && cd ~/infra-workspace   # 하네스로 쓸 디렉터리
 claude --plugin-dir ~/infra-plugin
 ```
 
 `--plugin-dir`에는 `.claude-plugin/plugin.json`이 있는 저장소 루트의 절대 경로를 준다.
 같은 이름의 설치된 플러그인이 있어도 `--plugin-dir`로 띄운 쪽이 우선한다.
 
-marketplace 배포는 아직 제공하지 않는다 — 위 경로가 현재의 정식 설치 방법이다.
+위 경로가 현재의 정식 설치 방법이다.
 
 > **언어**: 스킬 본문과 산출 문서는 한국어다. 영어권 사용자 대응(i18n)은 별도 작업으로
 > 예정돼 있으며, 그 전까지는 한국어를 읽을 수 있는 환경을 전제한다.
 
-### marketplace로 배포하는 경우
+### 사내·개인 marketplace에 등록해 배포하려면
 
-이 플러그인을 사내/개인 marketplace에 등록해 배포한다면, 사용자는 저장소를 직접 내려받지
-않고 세션 안에서 `/plugin` 명령으로 marketplace 추가와 `infra` 플러그인 설치를 진행한다.
+이 저장소는 marketplace를 운영하지 않지만, 사용자가 **자신의** 사내·개인 marketplace에
+이 플러그인을 등록해 팀에 배포할 수는 있다. 그 경우 팀원은 저장소를 직접 내려받지 않고
+세션 안에서 `/plugin` 명령으로 marketplace 추가와 `infra` 플러그인 설치를 진행한다.
 (marketplace 자체를 구성하는 작업은 이 저장소의 범위 밖이다.)
 
 ### 개발 루프
