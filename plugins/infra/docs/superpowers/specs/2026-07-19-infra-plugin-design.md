@@ -8,7 +8,7 @@
 
 인프라의 **지식(인벤토리) · 기록(변경/의사결정) · 조작(직접 제어)**을 담당하는 "인프라 하네스"를 구성·운영하는 Claude Code 플러그인 `infra`를 구현한다.
 
-- **플러그인** = 재사용 도구: 스킬 9종, 템플릿, 스키마 정의, hooks, 검증 스크립트. 이 저장소(`Projects/infra`)의 루트가 곧 플러그인 루트다.
+- **플러그인** = 재사용 도구: 스킬 10종(init·register·lookup·connect·ops·change·decide·sync·audit·secrets), 템플릿, 스키마 정의, hooks, 검증 스크립트. 이 저장소(`Projects/infra`)의 루트가 곧 플러그인 루트다.
 - **하네스 인스턴스** = 전용 중앙 저장소 1개: 데이터 + `harness.yaml` + `CLAUDE.md`. 저장·공유 방식은 자유(로컬 전용 / git / 공유 드라이브)이나 **외부 비공개는 필수**다 — 하네스는 IP·토폴로지·접근 정보가 담긴 민감 문서다. 저장소 이름은 자유(예: `infra-workspace`)이며 플러그인 이름과 무관하다.
 - 인프라는 프로젝트 크로스커팅이므로 하네스는 프로젝트별이 아니라 **중앙 1개**다. init이 이 저장소를 스캐폴딩한다.
 - 대상 환경: 온프렘 · AWS · GCP 혼합. 앱/DB/모니터링 서버, k8s 클러스터, argocd·prometheus·victoria-metrics 같은 설치 컴포넌트.
@@ -240,7 +240,10 @@ infra/                       # 이 저장소 루트 = 플러그인 루트
 │   ├── change/SKILL.md
 │   ├── decide/SKILL.md
 │   ├── sync/SKILL.md
-│   └── audit/SKILL.md
+│   ├── audit/SKILL.md
+│   └── secrets/
+│       ├── SKILL.md
+│       └── references/backends.md
 ├── hooks/
 │   ├── hooks.json
 │   └── scripts/
@@ -249,11 +252,15 @@ infra/                       # 이 저장소 루트 = 플러그인 루트
 │   ├── harness_lib.py       # 공용: 하네스 탐색, frontmatter 파서, harness.yaml 로더
 │   ├── audit.py
 │   └── sync_snapshot.py     # 인벤토리 스냅샷 추출 + 실측 수집 명령 생성/실행 + diff
-├── templates/               # 엔티티·change·ADR·settings.json·.gitignore 등 (init이 복사)
+├── templates/               # 엔티티·change·ADR·settings.json·settings.local.json·.gitignore 등 (init이 복사)
 ├── tests/
 │   ├── fixtures/
-│   │   ├── harness-ok/      # 정상 하네스
-│   │   └── harness-bad/     # 오염 하네스 (완료 기준 9 재현)
+│   │   ├── harness-ok/       # 정상 하네스
+│   │   ├── harness-bad/      # 오염 하네스 (완료 기준 9 재현)
+│   │   ├── harness-off/      # hook 비활성화(hooks.change_reminder: false)
+│   │   └── harness-onprem/   # onprem provider·서버 (수집기 없음 → sync "확인 불가" 경로)
+│   ├── test_secret_containment.py   # 스크립트 출력에 시크릿 값이 새지 않는지 검증하는 카나리
+│   ├── test_docs_consistency.py     # 스펙-구현 정합성 카나리 (Task 7에서 생성)
 │   └── run_tests.sh
 └── README.md
 ```
@@ -281,7 +288,7 @@ description: >-
   로컬 접근 재구성은 connect, 새 엔티티 등록은 register.
 ```
 
-## 7. 스킬 명세 (9종)
+## 7. 스킬 명세 (10종)
 
 ### 7.1 init — 하네스 스캐폴딩
 
@@ -346,6 +353,25 @@ init은 **골격까지만** 책임진다. 서버 전수 등록을 강요하지 �
 
 적용 원칙: 1, 2, 8. `scripts/audit.py`를 실행하고 결과를 보고한다. 검사 항목은 §8.1. 실패 항목이 있으면 수정 방법을 제안한다.
 
+### 7.10 secrets — 팀 시크릿 라이프사이클
+
+적용 원칙: 1, 2, 8. `sharing`이 공유이고 `secrets_mode: encrypted`인 하네스에서만 동작한다
+(`none`이면 외부 백엔드 참조로 위임하고, `plaintext`는 공유 조합 자체가 금지다).
+
+- **신규 생성·최초 암호화**: `.sops.yaml` creation_rules를 경로별로 나눠 작성하고(단일 키
+  침해 범위 축소), 최초 암호화는 사용자가 자기 터미널에서 `sops <파일>`로 수행한다.
+  클로드는 값을 생성하지도 출력하지도 않는다(원칙 1).
+- **온보딩**: `secrets_recipients`에 팀원 age 공개키를 추가하고 `sops updatekeys`로 재키잉.
+- **오프보딩**: 수신자 제거 → 재키잉 → **하위 자격증명 로테이션**의 3단계가 모두 필수다.
+  암호문에서 지워도 이미 본 값은 회수되지 않기 때문이다.
+- **복구 수신자**: 조직 복구 수신자를 모든 creation_rule에 포함한다. 없으면 audit 실패(D11).
+- **편집·재암호화**: 기존 암호문 수정도 사용자 터미널에서 `sops <파일>`로 한다.
+- **외부 백엔드**: `op://`·`vault://`·`aws-secretsmanager://` 참조는 resolve하지 않고
+  형식과 사용 명령만 다룬다(D14). 상세는 `references/backends.md`.
+
+인접 경계: 키 **메타데이터** 등록은 register, 위치·사용법 조회는 lookup, 값 사용은 ops의
+참조 실행이다. 이 스킬은 암호문 파일과 수신자 집합의 라이프사이클만 담당한다.
+
 ## 8. scripts/ 설계
 
 python3 표준 라이브러리 전용(D2). 공용 로직은 `harness_lib.py`(하네스 상향 탐색, frontmatter 미니 파서, harness.yaml 로더)로 모은다. 모든 스크립트는 하네스 루트를 인자로 받거나 cwd에서 상향 탐색해 **하네스 저장소 어디서든 실행 가능**하다.
@@ -354,12 +380,16 @@ python3 표준 라이브러리 전용(D2). 공용 로직은 `harness_lib.py`(하
 
 | # | 검사 | 실패 조건 |
 |---|------|-----------|
-| 1 | 스키마 | type별 필수 frontmatter 필드 누락, id-파일명(stem) 불일치 |
-| 2 | 참조 무결성 | provider / runs_on / depends_on이 존재하지 않는 id를 가리킴, access의 `keys.md#앵커`가 keys.md에 없음 |
+| 1 | 스키마·참조 무결성 | type별 필수 frontmatter 필드 누락, id-파일명(stem) 불일치, provider / runs_on / depends_on이 존재하지 않는 id를 가리킴, access의 `keys.md#앵커`가 keys.md에 없음 |
+| 2 | 구조(중복 id·conflict-copy, D13) | 동일 id를 가진 엔티티 파일이 둘 이상 존재, 파일명이 conflict-copy 패턴(`*conflicted copy*`, `* (1).md` 등)에 매치 |
 | 3 | 시크릿 스캔 | `secrets/` 바깥에서 시크릿 패턴 검출: `AKIA[0-9A-Z]{16}`, `ASIA[0-9A-Z]{16}`, `-----BEGIN .* PRIVATE KEY-----`, `aws_secret_access_key\s*[:=]`, `ghp_[A-Za-z0-9]{36}`, `github_pat_`, `xox[baprs]-`, `AIza[0-9A-Za-z_-]{35}`, `AGE-SECRET-KEY-1` |
 | 4 | 시크릿 정책 | `sharing ≠ local` + `secrets_mode: plaintext` 조합. `secrets_mode: encrypted`인데 secrets/ 파일이 age/SOPS 암호문 헤더가 아님 — **헤더 매직 판별 결과만 출력하고 파일 내용은 절대 출력하지 않는다** |
-| 5 | 만료 경고 | keys.md에서 만료·로테이션 예정일이 30일 이내(경고, 실패 아님) |
-| 6 | harness.yaml | 필수 키 누락, 알 수 없는 sharing/secrets_mode 값 |
+| 5 | 수신자(recovery 필수, D11) | `secrets_mode: encrypted`인데 `secrets_recipients`에 `recovery` 수신자가 없음(형식이 dict가 아니어도 실패) |
+| 6 | 자격증명(kind 어휘·위치 참조, D12) | keys.md 행의 `kind`가 허용 어휘(`ssh-key\|tls-cert\|api-token\|cloud\|account\|password`) 밖, 위치 참조 칸이 비어 있거나 `-` |
+| 7 | 보호 설정(settings.json·settings.local.json 드리프트, D15) | `.claude/settings.json` 또는(git 하네스면) `.claude/settings.local.json`이 없거나 secrets/ 차단 deny 규칙이 누락. `secrets_mode: none`이면 경고로만 처리 |
+| 8 | 만료 경고 | keys.md에서 만료·로테이션 예정일이 30일 이내(경고, 실패 아님) |
+| 9 | harness.yaml(secrets_format 포함, C4) | 필수 키 누락, 알 수 없는 sharing/secrets_mode/secrets_format 값. `encrypted`인데 secrets_format 누락 또는 비-encrypted인데 secrets_format이 있으면 경고 |
+| 10 | `--staged` 모드(D13) | git staged(ACM) 파일만 대상으로 시크릿 패턴 스캔(pre-commit용). git 저장소가 아니면 일반 audit로 폴백 |
 
 출력: 사람이 읽는 리포트(검사별 통과/실패/경고). 실패가 있으면 종료 코드 ≠ 0.
 
@@ -448,7 +478,7 @@ init이 복사·치환하는 템플릿. 치환 변수는 `{{id}}`, `{{date}}`, `
 
 ## 12. 검증 계획과 완료 기준
 
-완료 기준 11개 시나리오와 검증 방법:
+완료 기준 13개 시나리오와 검증 방법:
 
 | # | 시나리오 | 방법 |
 |---|----------|------|
@@ -463,8 +493,10 @@ init이 복사·치환하는 템플릿. 치환 변수는 `{{id}}`, `{{date}}`, `
 | 9 | audit: AKIA 검출, 무효 정책 조합, 만료 임박, 깨진 참조 | **자동** (`tests/` fixture) |
 | 10 | hook 리마인드 on/off | **자동** (stdin JSON 주입 단위 테스트) + 수동 스모크 |
 | 11 | 자연어만으로 올바른 스킬 자동 선택 | 수동 (발화 3종: lookup/ops/change) |
+| 12 | 스크립트 출력에 시크릿 값이 새지 않는다(시크릿 봉쇄 카나리 회귀) | **자동** (`tests/test_secret_containment.py`) |
+| 13 | 문서(스펙·README·CLAUDE.md)가 실제 구현과 어긋나지 않는다(문서 정합성) | **자동** (`tests/test_docs_consistency.py`, Task 7에서 생성) |
 
-`tests/run_tests.sh`: fixture 하네스 2개(`harness-ok`, `harness-bad`)에 대해 ① audit.py 기대 결과(통과/각 실패 항목) ② change_reminder.py 케이스(mutating / read-only / --dry-run / reminder off / 하네스 밖) ③ sync의 문서 스냅샷 파서·diff 로직(모의 수집 데이터 주입)을 assert한다. 수동 시나리오는 README에 체크리스트로 수록한다.
+`tests/run_tests.sh`: fixture 하네스 4개(`harness-ok`·`harness-bad`·`harness-off`·`harness-onprem`)와 6개 테스트 파일(`test_audit.py`·`test_change_reminder.py`·`test_harness_lib.py`·`test_secret_containment.py`·`test_skills.py`·`test_sync.py`, 총 122개 테스트)로 ① audit.py 기대 결과(통과/각 실패 항목) ② change_reminder.py 케이스(mutating / read-only / --dry-run / reminder off / 하네스 밖) ③ harness_lib의 하네스 상향 탐색·frontmatter 파서 ④ 스크립트 출력의 시크릿 봉쇄 카나리(원칙 1 회귀 방지) ⑤ SKILL.md frontmatter·본문 규약 ⑥ sync의 문서 스냅샷 파서·diff 로직(모의 수집 데이터 주입)을 assert한다. 수동 시나리오는 README에 체크리스트로 수록한다.
 
 구현 각 단계 완료 시 `tests/run_tests.sh`를 실행한다.
 
