@@ -71,12 +71,14 @@ def parse_frontmatter(text):
         if not line.strip():
             continue
         if line != line.lstrip(" "):
-            raise FrontmatterError(f"중첩 구조 미지원: {raw!r}")
+            raise FrontmatterError(
+                f"frontmatter는 들여쓰기 없이 'key: value' 형태여야 합니다 — 선행 공백 발견: {raw!r}")
         if ":" not in line:
             raise FrontmatterError(f"지원하지 않는 구문: {raw!r}")
         key, _, val = line.partition(":")
         if val.strip() == "":
-            raise FrontmatterError(f"빈 값/중첩 미지원: {raw!r}")
+            raise FrontmatterError(
+                f"중첩 맵은 지원하지 않습니다(엔티티 frontmatter는 플랫 구조): {raw!r}")
         fm[key.strip()] = _scalar(val)
     raise FrontmatterError("frontmatter 종료(---)가 없음")
 
