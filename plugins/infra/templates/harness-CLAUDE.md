@@ -1,8 +1,15 @@
 # 인프라 하네스
 
 이 저장소는 인프라의 지식(인벤토리)·기록(변경/의사결정)·조작(진입점)을 담는 **중앙 하네스**다.
-infra 플러그인 스킬(init/register/lookup/connect/ops/change/decide/sync/audit)이 이 저장소를 읽고 쓴다.
+infra 플러그인 스킬(init/register/lookup/connect/ops/change/decide/sync/audit/secrets)이 이 저장소를 읽고 쓴다.
 이 저장소는 IP·토폴로지·접근 정보가 담긴 민감 문서다 — **외부 비공개 필수**.
+
+> **세션은 이 디렉터리(하네스 루트)에서 여세요.** `secrets/` 읽기 차단은
+> `.claude/settings.json`에 있는데, 이 파일은 세션을 연 디렉터리의 `.claude/`에서만
+> **부모 폴백 없이** 로드된다. 하위 디렉터리(`inventory/` 등)에서 세션을 열면 스킬은
+> 상향 탐색으로 하네스를 찾아 정상 동작하지만 차단은 걸리지 않는다.
+> 이 하네스가 git 저장소라면 `.claude/settings.local.json`이 저장소 루트에서 로드되어
+> 그 경우를 덮는다 — **이 파일을 지우거나 `.gitignore`에 넣지 마세요.**
 
 ## 핵심 규약
 

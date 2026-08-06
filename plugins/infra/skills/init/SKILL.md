@@ -95,6 +95,16 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
 - `CLAUDE.md` (`harness-CLAUDE.md` 템플릿).
 - `.claude/settings.json` (`settings.json` 템플릿을 **그대로** 복사 — `Read(/secrets/**)`
   와 `Read(./secrets/**)` deny 규칙을 병기해 앵커 문법 차이에 대비).
+- `.claude/settings.local.json` (`settings.local.json` 템플릿을 **그대로** 복사 — 같은 deny
+  규칙을 한 벌 더 둔다). 사본이 아니라 **다른 구멍을 메우는 것**이다: `settings.json`은
+  cwd의 `.claude/`에서만 **부모 폴백 없이** 로드되는데, 하네스 발견은 상향 탐색이므로(D1)
+  하네스 하위 디렉터리(`inventory/` 등)에서 세션을 열면 스킬은 동작하는데 차단은 사라진다.
+  `settings.local.json`은 **git 저장소 루트에서** 로드되므로 그 경우를 덮는다.
+  - `sharing: git`이면 이 파일을 **커밋 대상에 포함**한다고 사용자에게 알린다 — 이름은
+    `local`이지만 여기서는 팀 전체가 같은 보호를 받게 하려는 의도적 선택이다.
+    `.gitignore`에 `.claude/settings.local.json`을 넣지 않는다.
+  - 하네스가 git 저장소가 **아니면** 이 파일은 로드되지 않는다. 이때는 "세션을 하네스
+    루트에서 열어야 `secrets/` 차단이 걸린다"고 마무리 안내(§7)에서 명시한다.
 - `.gitignore` (`gitignore` 템플릿 — `secrets_mode: encrypted`면 `!secrets/*.age` /
   `!secrets/*.sops.yaml` 재포함 줄의 주석을 해제).
 - `secrets_mode ≠ none`이면 `secrets/` 디렉토리를 빈 채로 생성한다. register도 원칙 1에
