@@ -40,6 +40,11 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
      decisions/ runbooks/`, `.claude/settings.json`, `.gitignore`, `CLAUDE.md`)와 실제
      디렉토리를 비교해 누락된 디렉토리·템플릿이 있으면 "감사/확장 모드"로 보완 생성을
      제안한다. **기존 파일·데이터는 절대 덮어쓰지 않는다.**
+  4. 감사 결과에 `[보호]` 실패·경고가 있으면 **보완을 제안한다**. 특히
+     `.claude/settings.local.json` 누락은 D15가 도입한 항목이라 그 이전에 만든 하네스에는
+     없다. `settings.local.json` 템플릿을 복사해 만들 것을 제안하고, `sharing: git`이면
+     커밋 대상에 포함해야 함을 함께 안내한다(`.gitignore`에 넣지 않는다). 사용자 확인 없이
+     파일을 만들지 않는다.
 - **미발견** → §3~§6의 "신규 생성" 절차로 진행한다.
 
 ## 3. 자동 발견 (메타데이터만)
@@ -104,7 +109,7 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
     `local`이지만 여기서는 팀 전체가 같은 보호를 받게 하려는 의도적 선택이다.
     `.gitignore`에 `.claude/settings.local.json`을 넣지 않는다.
   - 하네스가 git 저장소가 **아니면** 이 파일은 로드되지 않는다. 이때는 "세션을 하네스
-    루트에서 열어야 `secrets/` 차단이 걸린다"고 마무리 안내(§7)에서 명시한다.
+    루트에서 열어야 `secrets/` 차단이 걸린다"고 마무리 안내(§6)에서 명시한다.
 - `.gitignore` (`gitignore` 템플릿 — `secrets_mode: encrypted`면 `!secrets/*.age` /
   `!secrets/*.sops.yaml` 재포함 줄의 주석을 해제).
 - `secrets_mode ≠ none`이면 `secrets/` 디렉토리를 빈 채로 생성한다. register도 원칙 1에

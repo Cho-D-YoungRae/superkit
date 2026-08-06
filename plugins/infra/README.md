@@ -24,9 +24,10 @@ claude --plugin-dir /path/to/infra
 8. [테스트](#8-테스트)
 9. [수동 검증 체크리스트](#9-수동-검증-체크리스트)
 10. [안전성 FAQ](#10-안전성-faq)
-11. [트러블슈팅](#11-트러블슈팅)
-12. [기여·설계 문서](#12-기여설계-문서)
-13. [라이선스](#13-라이선스)
+11. [마이그레이션](#11-마이그레이션)
+12. [트러블슈팅](#12-트러블슈팅)
+13. [기여·설계 문서](#13-기여설계-문서)
+14. [라이선스](#14-라이선스)
 
 ## 1. 개요
 
@@ -89,14 +90,21 @@ manifest·GitOps 레포 참조로 넘긴다(원칙 4 — 하네스는 상태를 
 
 ## 3. 설치
 
-### 개발 모드
+### 설치
 
 ```bash
-claude --plugin-dir /path/to/infra
+git clone <저장소 URL> ~/infra-plugin
+cd ~/infra-workspace          # 하네스로 쓸 디렉터리(없으면 mkdir로 만든다)
+claude --plugin-dir ~/infra-plugin
 ```
 
-`/path/to/infra`는 `.claude-plugin/plugin.json`이 있는 이 저장소의 절대 경로다. 같은 이름의
-설치된 플러그인이 있어도 `--plugin-dir`로 띄운 로컬 버전이 우선한다.
+`--plugin-dir`에는 `.claude-plugin/plugin.json`이 있는 저장소 루트의 절대 경로를 준다.
+같은 이름의 설치된 플러그인이 있어도 `--plugin-dir`로 띄운 쪽이 우선한다.
+
+marketplace 배포는 아직 제공하지 않는다 — 위 경로가 현재의 정식 설치 방법이다.
+
+> **언어**: 스킬 본문과 산출 문서는 한국어다. 영어권 사용자 대응(i18n)은 별도 작업으로
+> 예정돼 있으며, 그 전까지는 한국어를 읽을 수 있는 환경을 전제한다.
 
 ### marketplace로 배포하는 경우
 
@@ -418,7 +426,20 @@ OS 수준에서 모든 프로세스를 막고 싶다면 Claude Code의 **샌드�
 정책에 없는 env는 안전 기본값 `confirm`으로 취급한다. read-only 명령은 게이트 없이 즉시
 실행되고, mutating만 이 파이프라인을 탄다(원칙 7).
 
-## 11. 트러블슈팅
+## 11. 마이그레이션
+
+### 기존 하네스에 보호 설정 보강 (D15)
+
+`.claude/settings.local.json`이 없는 기존 git 하네스는 `audit`가 실패로 보고한다. 하네스
+하위 디렉터리에서 연 세션이 `secrets/` 차단을 받지 못하기 때문이다(`settings.json`은 부모
+폴백 없이 cwd에서만 로드된다).
+
+하네스에서 **"하네스 점검해줘"**라고 말하면 `audit`가 누락을 짚고 `init`이 보완을 제안한다.
+직접 처리하려면 `.claude/settings.json`과 같은 내용으로 `.claude/settings.local.json`을
+만들면 된다. `sharing: git` 하네스라면 이 파일을 **커밋한다** — 이름은 `local`이지만 팀
+전체가 같은 보호를 받게 하려는 의도적 선택이며, `.gitignore`에 넣지 않는다.
+
+## 12. 트러블슈팅
 
 자주 겪는 문제와 해결 방법.
 
@@ -442,7 +463,7 @@ encrypted`로 전환하고 `secrets` 스킬로 `secrets_recipients`(팀원 공�
 값이 필요하면 읽지 말고 `keys.md`의 위치 참조 + `usage` 컬럼의 참조 실행
 레시피(`sops exec-env`, `op run`, `ssh -i` 등)로 사용한다.
 
-## 12. 기여·설계 문서
+## 13. 기여·설계 문서
 
 이 저장소를 **수정**하려는 경우:
 
@@ -458,6 +479,17 @@ encrypted`로 전환하고 `secrets` 스킬로 `secrets_recipients`(팀원 공�
 원칙·스키마·D 결정은 확정 사항이다. 이를 바꾸는 변경은 스펙을 먼저 갱신하고 진행한다.
 변경 후에는 `bash tests/run_tests.sh`로 전체 테스트를 확인한다.
 
-## 13. 라이선스
+### 기여자 주의 — `skills/secrets/` 열람
+
+`Read(secrets/**)` 계열 deny 규칙을 쓰는 환경에서 **플러그인 저장소가 세션 cwd 아래에
+있으면** `skills/secrets/` 이하 문서가 차단된다. deny 규칙이 앵커 아래 임의 깊이의
+`secrets` 디렉터리를 매치하기 때문이다(문서화된 동작).
+
+이때는 git 경유로 읽는다: `git show HEAD:skills/secrets/SKILL.md`
+
+실사용자에게는 발생하지 않는다 — 사용자의 cwd는 하네스이고 플러그인은
+`~/.claude/plugins/…`나 clone 경로에 있어 앵커 밖이기 때문이다.
+
+## 14. 라이선스
 
 [MIT License](LICENSE) — Copyright (c) 2026 Youngrae Cho.
