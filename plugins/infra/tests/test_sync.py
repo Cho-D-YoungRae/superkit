@@ -10,6 +10,7 @@ import sync_snapshot  # noqa: E402
 
 OK = PLUGIN_ROOT / "tests" / "fixtures" / "harness-ok"
 MOCK = PLUGIN_ROOT / "tests" / "fixtures" / "mock-actual.json"
+ONPREM = PLUGIN_ROOT / "tests" / "fixtures" / "harness-onprem"
 
 
 class TestParseInstalledBy(unittest.TestCase):
@@ -115,6 +116,98 @@ class TestSyncRobustness(unittest.TestCase):
                 "---\ntype: server\nenv: prod\n---\n", encoding="utf-8")
             exp = sync_snapshot.build_expected(root)  # 크래시하면 안 됨
             self.assertEqual(exp["servers"], {})
+
+
+class TestProviderSkipReason(unittest.TestCase):
+    """자동 수집 불가 사유가 명시되어야 한다 (검토 P1-4)."""
+
+    def test_onprem_has_no_collector(self):
+        reason = sync_snapshot.provider_skip_reason({"kind": "onprem"})
+        self.assertIsNotNone(reason)
+        self.assertIn("자동 수집기가 없습니다", reason)
+
+    def test_aws_without_regions(self):
+        reason = sync_snapshot.provider_skip_reason({"kind": "aws", "cli_profile": "main"})
+        self.assertIsNotNone(reason)
+        self.assertIn("regions", reason)
+
+    def test_aws_without_profile(self):
+        reason = sync_snapshot.provider_skip_reason(
+            {"kind": "aws", "regions": ["ap-northeast-2"]})
+        self.assertIsNotNone(reason)
+        self.assertIn("cli_profile", reason)
+
+    def test_complete_aws_is_collectable(self):
+        self.assertIsNone(sync_snapshot.provider_skip_reason(
+            {"kind": "aws", "cli_profile": "main", "regions": ["ap-northeast-2"]}))
+
+    def test_complete_gcp_is_collectable(self):
+        self.assertIsNone(sync_snapshot.provider_skip_reason(
+            {"kind": "gcp", "cli_profile": "gcp-prod"}))
+
+
+class TestOnpremNotSilent(unittest.TestCase):
+    """온프렘 하네스가 '전부 0건'으로 보고되면 안 된다 (검토 P1-4)."""
+
+    def setUp(self):
+        self.expected = sync_snapshot.build_expected(ONPREM)
+        self.report = sync_snapshot.diff_state(
+            self.expected, {"clusters": {}, "providers": {}})
+
+    def test_onprem_reported_as_unverifiable(self):
+        joined = "\n".join(self.report["unverifiable"])
+        self.assertIn("onprem-idc", joined)
+        self.assertIn("자동 수집기가 없습니다", joined)
+
+    def test_report_is_not_all_zero(self):
+        total = sum(len(v) for v in self.report.values())
+        self.assertGreater(total, 0,
+                           "온프렘 하네스가 4구획 전부 0건이면 조용한 거짓 안심이다")
+
+    def test_onprem_server_is_not_reported_as_ghost(self):
+        joined = "\n".join(self.report["ghost_in_docs"])
+        self.assertNotIn("prod-web-01", joined,
+                         "대조하지 않은 서버를 유령으로 단정하면 안 된다")
+
+
+class TestRegionExplicit(unittest.TestCase):
+    """aws 수집 명령이 --region까지 명시해야 한다 (원칙 6, 검토 P2-2)."""
+
+    def test_aws_command_includes_region(self):
+        cmds = sync_snapshot.build_collect_commands(OK)
+        aws = [" ".join(c["cmd"]) for c in cmds if c["cmd"][0] == "aws"]
+        self.assertTrue(aws, "aws 수집 명령이 생성되지 않았다")
+        for c in aws:
+            self.assertIn("--profile main", c)
+            self.assertIn("--region ap-northeast-2", c)
+
+    def test_multi_region_emits_one_command_per_region(self):
+        import shutil
+        import tempfile
+        root = Path(tempfile.mkdtemp()) / "h"
+        shutil.copytree(OK, root)
+        (root / "providers" / "aws-main.md").write_text(
+            "---\nid: aws-main\ntype: provider\nkind: aws\ncli_profile: main\n"
+            "regions: [ap-northeast-2, us-east-1]\n"
+            'console: "https://console.aws.amazon.com"\n---\n\n# aws-main\n',
+            encoding="utf-8")
+        cmds = sync_snapshot.build_collect_commands(root)
+        aws = [" ".join(c["cmd"]) for c in cmds if c["cmd"][0] == "aws"]
+        self.assertEqual(len(aws), 2, aws)
+        self.assertTrue(any("--region ap-northeast-2" in c for c in aws))
+        self.assertTrue(any("--region us-east-1" in c for c in aws))
+
+
+class TestPartialCollectIsUnverifiable(unittest.TestCase):
+    """일부 리전만 본 것을 전부 본 것처럼 보고하면 안 된다 (검토 P1-4)."""
+
+    def test_one_region_failure_marks_provider_unverifiable(self):
+        expected = sync_snapshot.build_expected(OK)
+        actual = {"clusters": {},
+                  "providers": {"aws-main": {"reachable": False, "instances": ["prod-db-01"]}}}
+        report = sync_snapshot.diff_state(expected, actual)
+        self.assertTrue(any("aws-main" in u for u in report["unverifiable"]),
+                        report["unverifiable"])
 
 
 if __name__ == "__main__":

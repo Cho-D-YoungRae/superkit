@@ -59,6 +59,18 @@ def _scalar(s):
     return s
 
 
+def as_list(value):
+    """frontmatter 값을 리스트로 정규화한다.
+
+    파서는 `k: [a, b]`를 리스트로, `k: a`를 문자열로 돌려준다. 문자열을 그대로
+    순회하면 글자 단위로 쪼개져 엉뚱한 결과가 나오므로 단일 값은 1원소 리스트로
+    감싼다.
+    """
+    if value is None or value == "":
+        return []
+    return value if isinstance(value, list) else [value]
+
+
 def parse_frontmatter(text):
     lines = text.splitlines()
     if not lines or lines[0].strip() != FM_DELIM:

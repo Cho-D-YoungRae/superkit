@@ -65,18 +65,6 @@ def key_names(root):
     return {cells[0] for cells in _iter_credential_rows(root)}
 
 
-def _as_list(value):
-    """frontmatter 값을 리스트로 정규화한다.
-
-    파서는 `k: [a, b]`를 리스트로, `k: a`를 문자열로 돌려준다. 문자열을 그대로
-    순회하면 글자 단위로 쪼개져 `depends_on 'p' 없음` 같은 엉뚱한 실패가 쏟아지므로
-    단일 값은 1원소 리스트로 감싼다.
-    """
-    if value is None or value == "":
-        return []
-    return value if isinstance(value, list) else [value]
-
-
 def _check_scalar_ref(entity, field, valid_ids, rel, failures):
     """단일 id를 가리켜야 하는 참조 필드를 검사한다.
 
@@ -117,7 +105,7 @@ def check_schema_and_refs(root, failures):
             _check_scalar_ref(e, "provider", provider_ids, rel, failures)
         if etype == "component":
             _check_scalar_ref(e, "runs_on", host_ids, rel, failures)
-        for dep in _as_list(e.get("depends_on")):
+        for dep in harness_lib.as_list(e.get("depends_on")):
             if dep not in ids:
                 failures.append(f"[참조] {rel}: depends_on {dep!r} 없음")
         for anchor in KEYS_ANCHOR_RE.findall(str(e.get("access", ""))):
