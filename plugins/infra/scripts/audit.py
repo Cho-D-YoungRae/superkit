@@ -2,6 +2,7 @@
 """하네스 정합성 검증 — 스키마·참조·시크릿 스캔·정책 조합·자격증명·키 만료·harness.yaml (stdlib 전용)."""
 import argparse
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -26,6 +27,8 @@ AGE_PREFIXES = (b"age-encryption.org/v1", b"-----BEGIN AGE ENCRYPTED FILE-----")
 VALID_SHARING = {"local", "git", "shared-drive"}
 VALID_SECRETS_MODE = {"none", "plaintext", "encrypted"}
 EXPIRY_WINDOW_DAYS = 30
+# init이 심는 secrets/ 읽기 차단 규칙. 앵커 문법 차이에 대비해 두 형태를 병기한다(D3).
+REQUIRED_DENY_RULES = ("Read(/secrets/**)", "Read(./secrets/**)")
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 KEYS_ANCHOR_RE = re.compile(r"keys\.md#([A-Za-z0-9_.-]+)")
 VALID_KEY_KINDS = {"ssh-key", "tls-cert", "api-token", "cloud", "account", "password"}
@@ -61,6 +64,33 @@ def key_names(root):
     return {cells[0] for cells in _iter_credential_rows(root)}
 
 
+def _as_list(value):
+    """frontmatter 값을 리스트로 정규화한다.
+
+    파서는 `k: [a, b]`를 리스트로, `k: a`를 문자열로 돌려준다. 문자열을 그대로
+    순회하면 글자 단위로 쪼개져 `depends_on 'p' 없음` 같은 엉뚱한 실패가 쏟아지므로
+    단일 값은 1원소 리스트로 감싼다.
+    """
+    if value is None or value == "":
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def _check_scalar_ref(entity, field, valid_ids, rel, failures):
+    """단일 id를 가리켜야 하는 참조 필드를 검사한다.
+
+    리스트가 오면 크래시 대신 스키마 오류로 보고한다 — 이 방어가 없던 시절
+    `runs_on: [a, b]` 하나가 unhashable TypeError를 내며 audit 전체를 죽여서
+    시크릿 스캔까지 통째로 건너뛰었다.
+    """
+    value = entity.get(field)
+    if isinstance(value, list):
+        failures.append(f"[스키마] {rel}: {field}는 단일 id여야 합니다 — 리스트가 주어짐")
+        return
+    if value not in valid_ids:
+        failures.append(f"[참조] {rel}: {field} {value!r} 없음")
+
+
 def check_schema_and_refs(root, failures):
     ents = harness_lib.iter_entities(root)
     ids = {e.get("id") for e in ents if e.get("id")}
@@ -82,11 +112,11 @@ def check_schema_and_refs(root, failures):
                 failures.append(f"[스키마] {rel}: 필수 필드 누락 — {f}")
         if e.get("id") != e["_stem"]:
             failures.append(f"[스키마] {rel}: id({e.get('id')})와 파일명({e['_stem']}) 불일치")
-        if etype in ("server", "k8s-cluster") and e.get("provider") not in provider_ids:
-            failures.append(f"[참조] {rel}: provider {e.get('provider')!r} 없음")
-        if etype == "component" and e.get("runs_on") not in host_ids:
-            failures.append(f"[참조] {rel}: runs_on {e.get('runs_on')!r} 없음")
-        for dep in e.get("depends_on", []) or []:
+        if etype in ("server", "k8s-cluster"):
+            _check_scalar_ref(e, "provider", provider_ids, rel, failures)
+        if etype == "component":
+            _check_scalar_ref(e, "runs_on", host_ids, rel, failures)
+        for dep in _as_list(e.get("depends_on")):
             if dep not in ids:
                 failures.append(f"[참조] {rel}: depends_on {dep!r} 없음")
         for anchor in KEYS_ANCHOR_RE.findall(str(e.get("access", ""))):
@@ -274,21 +304,111 @@ def check_expiry(root, today, warnings):
             warnings.append(f"[만료] {name}: {days}일 후 만료 ({expiry})")
 
 
-def run_audit(root, today):
+def _deny_rules_in(path):
+    """설정 파일에서 permissions.deny 목록을 읽는다.
+
+    파일이 없거나 JSON이 깨졌으면 None(=확인 불가), 정상이면 규칙 문자열 집합을
+    돌려준다. 이 파일에는 시크릿 값이 들어갈 자리가 없고 우리가 읽는 것은
+    permissions.deny 목록뿐이므로, 내용은 어디에도 출력하지 않는다.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    deny = data.get("permissions", {}).get("deny", []) if isinstance(data.get("permissions"), dict) else []
+    return {r for r in deny if isinstance(r, str)}
+
+
+def check_deny_rules(root, cfg, failures, warnings):
+    """secrets/ 읽기 차단 설정이 실제로 남아 있는지 확인한다.
+
+    두 가지를 본다.
+
+    1. **드리프트**: `init`이 심은 `.claude/settings.json`을 사용자가 지우거나 편집하면
+       차단은 조용히 사라진다. 플러그인은 자기 `permissions`를 배포할 수 없어서
+       (플러그인 settings.json은 `agent`·`subagentStatusLine` 키만 지원) 업데이트로
+       복구할 수도 없다. 그래서 드리프트 감지는 audit의 책임이다.
+
+    2. **하위 디렉터리 구멍**: `.claude/settings.json`은 cwd의 `.claude/`에서만, 부모
+       폴백 없이 로드된다. 반면 하네스 발견은 상향 탐색이라(D1) 하네스 하위 디렉터리에서
+       연 세션은 **스킬은 동작하는데 차단은 없는** 상태가 된다.
+       `.claude/settings.local.json`은 git 저장소 루트에서 로드되므로 이 구멍을 메운다.
+
+    `secrets_mode: none`인 하네스는 지킬 로컬 값이 없으므로 경고로만 다룬다.
+    """
+    mode = str(cfg.get("secrets_mode", "")).strip()
+    has_local_secrets = mode in ("plaintext", "encrypted")
+    report = failures if has_local_secrets else warnings
+    label = "[보호]"
+
+    settings = Path(root) / ".claude" / "settings.json"
+    rules = _deny_rules_in(settings)
+    if rules is None:
+        report.append(f"{label} .claude/settings.json이 없거나 읽을 수 없습니다 — "
+                      "secrets/ 읽기 차단이 걸려 있지 않습니다(init을 다시 실행하세요)")
+    else:
+        missing = [r for r in REQUIRED_DENY_RULES if r not in rules]
+        if missing:
+            report.append(f"{label} .claude/settings.json의 deny 규칙 누락 — {', '.join(missing)}")
+
+    # 하위 디렉터리 세션 보호: git 하네스만 settings.local.json으로 메울 수 있다.
+    if (Path(root) / ".git").exists():
+        local_rules = _deny_rules_in(Path(root) / ".claude" / "settings.local.json")
+        if local_rules is None or any(r not in local_rules for r in REQUIRED_DENY_RULES):
+            report.append(
+                f"{label} .claude/settings.local.json에 deny 규칙이 없습니다 — "
+                "하네스 하위 디렉터리에서 연 세션은 secrets/ 차단을 받지 못합니다"
+                "(settings.json은 부모 폴백 없이 cwd에서만 로드됩니다)")
+    elif has_local_secrets:
+        warnings.append(
+            f"{label} git 저장소가 아니라 하위 디렉터리 세션을 보호할 수 없습니다 — "
+            "세션은 하네스 루트에서 여세요")
+
+
+def _run_check(name, fn, failures, debug=False):
+    """검사 하나를 예외 격리해 실행한다.
+
+    한 검사가 죽어도 나머지는 계속 돌아야 한다 — 특히 시크릿 스캔이 다른 검사의
+    버그 때문에 건너뛰어지면, 사용자는 `실패 0건`을 보고 안전하다고 믿게 된다.
+
+    예외 **메시지는 싣지 않고 타입만** 보고한다(원칙 1). 디코딩·파싱 계열 예외는
+    메시지에 파일 내용 조각을 담을 수 있어서, 진단 편의보다 값 비유출을 우선한다.
+    상세가 필요하면 `--debug`로 재실행해 원래 트레이스백을 본다.
+    """
+    try:
+        fn()
+    except Exception as exc:  # noqa: BLE001 — 어떤 검사도 전체를 죽이지 못하게 한다
+        if debug:
+            raise
+        failures.append(
+            f"[내부오류] {name} 검사가 {type(exc).__name__}로 중단됐습니다 "
+            "(나머지 검사는 계속 수행). 상세는 --debug로 재실행하세요."
+        )
+
+
+def run_audit(root, today, debug=False):
     root = Path(root)
     failures, warnings = [], []
     try:
         cfg = harness_lib.load_harness_yaml(root / "harness.yaml")
     except (OSError, harness_lib.HarnessYamlError) as e:
         return [f"[harness.yaml] 읽기/파싱 실패 — {e}"], warnings
-    check_harness_yaml(cfg, failures)
-    check_schema_and_refs(root, failures)
-    check_structure(root, failures)
-    check_secret_scan(root, failures)
-    check_secret_policy(root, cfg, failures)
-    check_recipients(cfg, failures)
-    check_credentials(root, failures)
-    check_expiry(root, today, warnings)
+    checks = (
+        ("harness.yaml", lambda: check_harness_yaml(cfg, failures)),
+        ("스키마·참조", lambda: check_schema_and_refs(root, failures)),
+        ("구조", lambda: check_structure(root, failures)),
+        ("시크릿 스캔", lambda: check_secret_scan(root, failures)),
+        ("시크릿 정책", lambda: check_secret_policy(root, cfg, failures)),
+        ("수신자", lambda: check_recipients(cfg, failures)),
+        ("자격증명", lambda: check_credentials(root, failures)),
+        ("보호 설정", lambda: check_deny_rules(root, cfg, failures, warnings)),
+        ("만료", lambda: check_expiry(root, today, warnings)),
+    )
+    for name, fn in checks:
+        _run_check(name, fn, failures, debug)
     return failures, warnings
 
 
@@ -372,6 +492,8 @@ def main():
     ap.add_argument("--today", help="기준일 YYYY-MM-DD (테스트용)")
     ap.add_argument("--staged", action="store_true",
                      help="git staged 파일만 대상으로 시크릿 패턴 스캔 (pre-commit용)")
+    ap.add_argument("--debug", action="store_true",
+                     help="검사 내부 오류를 감추지 않고 트레이스백을 그대로 띄운다")
     args = ap.parse_args()
     root = Path(args.root) if args.root else harness_lib.find_harness_root()
     if root is None or not (Path(root) / "harness.yaml").is_file():
@@ -395,7 +517,7 @@ def main():
             return 1 if failures else 0
 
     today = datetime.date.fromisoformat(args.today) if args.today else datetime.date.today()
-    failures, warnings = run_audit(root, today)
+    failures, warnings = run_audit(root, today, debug=args.debug)
     print(f"# audit 결과 — {root}")
     for f in failures:
         print(f"FAIL {f}")

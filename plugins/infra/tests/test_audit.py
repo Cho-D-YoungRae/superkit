@@ -362,5 +362,171 @@ class TestRecipients(unittest.TestCase):
         self.assertEqual([f for f in failures if "recovery" in f or "recipient" in f], [])
 
 
+class TestListValuedRefFields(unittest.TestCase):
+    """참조 필드에 리스트가 와도 크래시하지 않고 스키마 오류로 보고한다.
+
+    회귀 방지 대상: `runs_on: [a, b]` 하나가 unhashable TypeError를 내며 audit
+    전체를 죽여서 시크릿 스캔까지 통째로 건너뛰던 문제(검토 P0-1). 크래시하면
+    `실패 0건`조차 못 내므로 사용자는 오염을 발견할 기회를 잃는다.
+    """
+
+    def _harness_with(self, entity_rel, body):
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp()
+        root = Path(d) / "h"
+        shutil.copytree(OK, root)
+        target = root / entity_rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+        return root
+
+    def test_list_runs_on_reports_schema_error_not_crash(self):
+        body = ("---\nid: multi\ntype: component\ncategory: monitoring\n"
+                "runs_on: [prod-k8s, prod-db-01]\nnamespace: monitoring\n"
+                "endpoint: https://x.invalid\ninstalled_by: helm://x/y@1\n"
+                'access: "API"\n---\n본문\n')
+        root = self._harness_with("inventory/components/multi.md", body)
+        failures, _ = audit.run_audit(root, TODAY)   # 크래시하면 여기서 터진다
+        self.assertTrue(any("runs_on" in f and "단일 id" in f for f in failures), failures)
+
+    def test_list_provider_reports_schema_error_not_crash(self):
+        body = ("---\nid: multi-srv\ntype: server\nenv: prod\n"
+                "provider: [aws-main, onprem-idc]\nruntime: vm\npurpose: 검증용\n"
+                'access: "ssh"\nmanaged_by: manual\ndepends_on: []\n---\n본문\n')
+        root = self._harness_with("inventory/multi-srv.md", body)
+        failures, _ = audit.run_audit(root, TODAY)
+        self.assertTrue(any("provider" in f and "단일 id" in f for f in failures), failures)
+
+    def test_secret_scan_still_runs_when_a_ref_field_is_a_list(self):
+        """핵심 회귀: 리스트 필드가 있어도 시크릿 스캔이 수행되어야 한다."""
+        body = ("---\nid: multi\ntype: component\ncategory: monitoring\n"
+                "runs_on: [prod-k8s, prod-db-01]\nnamespace: monitoring\n"
+                "endpoint: https://x.invalid\ninstalled_by: helm://x/y@1\n"
+                'access: "API"\n---\n본문\n')
+        root = self._harness_with("inventory/components/multi.md", body)
+        (root / "notes-leak.md").write_text(
+            "aws_access_key_id = AKIAIOSFODNN7EXAMPLE\n", encoding="utf-8")
+        failures, _ = audit.run_audit(root, TODAY)
+        self.assertTrue(any("[시크릿]" in f for f in failures),
+                        f"리스트 필드 때문에 시크릿 스캔이 건너뛰어졌다: {failures}")
+
+    def test_scalar_depends_on_is_not_iterated_per_character(self):
+        """`depends_on: prod-k8s`(스칼라)를 글자 단위로 순회하면 안 된다."""
+        body = ("---\nid: solo\ntype: server\nenv: prod\nprovider: aws-main\n"
+                "runtime: vm\npurpose: 검증용\n"
+                'access: "ssh"\nmanaged_by: manual\ndepends_on: prod-k8s\n---\n본문\n')
+        root = self._harness_with("inventory/solo.md", body)
+        failures, _ = audit.run_audit(root, TODAY)
+        bogus = [f for f in failures if "depends_on 'p'" in f or "depends_on 'r'" in f]
+        self.assertEqual(bogus, [], f"스칼라가 글자 단위로 쪼개졌다: {failures}")
+
+
+class TestDenyRuleProtection(unittest.TestCase):
+    """secrets/ 차단 설정의 드리프트와 하위 디렉터리 구멍을 잡는다(검토 P0-3).
+
+    `.claude/settings.json`은 cwd의 `.claude/`에서만 부모 폴백 없이 로드되는데
+    하네스 발견은 상향 탐색이라(D1), 하위 디렉터리 세션은 스킬만 동작하고 차단은
+    없는 상태가 된다. `.claude/settings.local.json`이 git 저장소 루트에서 로드되어
+    그 구멍을 메우므로, git 하네스라면 두 파일이 모두 있어야 한다.
+    """
+
+    DENY = {"permissions": {"deny": ["Read(/secrets/**)", "Read(./secrets/**)"]}}
+
+    def _harness(self, secrets_mode="plaintext", settings=None, local=None, git=False):
+        import json as _json
+        import tempfile
+        root = Path(tempfile.mkdtemp())
+        (root / "harness.yaml").write_text(
+            f"sharing: local\nsecrets_mode: {secrets_mode}\nenvironments: [prod]\n"
+            "policies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n",
+            encoding="utf-8")
+        if settings is not None or local is not None:
+            (root / ".claude").mkdir()
+        if settings is not None:
+            (root / ".claude" / "settings.json").write_text(_json.dumps(settings), encoding="utf-8")
+        if local is not None:
+            (root / ".claude" / "settings.local.json").write_text(_json.dumps(local), encoding="utf-8")
+        if git:
+            (root / ".git").mkdir()
+        return root
+
+    def _run(self, root):
+        failures, warnings = [], []
+        cfg = __import__("harness_lib").load_harness_yaml(root / "harness.yaml")
+        audit.check_deny_rules(root, cfg, failures, warnings)
+        return failures, warnings
+
+    def test_missing_settings_is_failure_when_secrets_are_local(self):
+        failures, _ = self._run(self._harness(secrets_mode="plaintext"))
+        self.assertTrue(any("settings.json" in f for f in failures), failures)
+
+    def test_missing_settings_is_only_warning_when_mode_none(self):
+        failures, warnings = self._run(self._harness(secrets_mode="none"))
+        self.assertEqual(failures, [])
+        self.assertTrue(any("settings.json" in w for w in warnings), warnings)
+
+    def test_incomplete_deny_list_is_reported(self):
+        partial = {"permissions": {"deny": ["Read(/secrets/**)"]}}   # ./ 형태 누락
+        failures, _ = self._run(self._harness(settings=partial))
+        self.assertTrue(any("Read(./secrets/**)" in f for f in failures), failures)
+
+    def test_git_harness_without_local_settings_is_reported(self):
+        failures, _ = self._run(self._harness(settings=self.DENY, git=True))
+        self.assertTrue(any("settings.local.json" in f for f in failures), failures)
+        self.assertTrue(any("하위 디렉터리" in f for f in failures), failures)
+
+    def test_git_harness_with_both_files_passes(self):
+        failures, _ = self._run(
+            self._harness(settings=self.DENY, local=self.DENY, git=True))
+        self.assertEqual(failures, [])
+
+    def test_non_git_harness_warns_to_open_at_root(self):
+        failures, warnings = self._run(self._harness(settings=self.DENY))
+        self.assertEqual(failures, [])
+        self.assertTrue(any("하네스 루트에서 여세요" in w for w in warnings), warnings)
+
+    def test_malformed_settings_json_does_not_crash(self):
+        import tempfile
+        root = Path(tempfile.mkdtemp())
+        (root / "harness.yaml").write_text(
+            "sharing: local\nsecrets_mode: plaintext\nenvironments: [prod]\n"
+            "policies:\n  mutating:\n    prod: confirm\nhooks:\n  change_reminder: true\n",
+            encoding="utf-8")
+        (root / ".claude").mkdir()
+        (root / ".claude" / "settings.json").write_text("{ not json", encoding="utf-8")
+        failures, _ = self._run(root)
+        self.assertTrue(any("settings.json" in f for f in failures), failures)
+
+
+class TestCheckIsolation(unittest.TestCase):
+    """한 검사가 죽어도 나머지 검사는 계속 수행되어야 한다(검토 P0-1)."""
+
+    def test_failing_check_does_not_block_others(self):
+        def boom():
+            raise RuntimeError("의도적 실패")
+
+        failures = []
+        audit._run_check("테스트", boom, failures)
+        self.assertTrue(any("[내부오류]" in f for f in failures), failures)
+        self.assertTrue(any("RuntimeError" in f for f in failures), failures)
+
+    def test_isolated_error_does_not_leak_exception_message(self):
+        """예외 메시지에 파일 내용이 실릴 수 있으므로 타입만 보고한다(원칙 1)."""
+        def boom():
+            raise ValueError("CANARY-SHOULD-NOT-APPEAR-IN-REPORT")
+
+        failures = []
+        audit._run_check("테스트", boom, failures)
+        self.assertNotIn("CANARY-SHOULD-NOT-APPEAR-IN-REPORT", "\n".join(failures))
+
+    def test_debug_reraises(self):
+        def boom():
+            raise RuntimeError("의도적 실패")
+
+        with self.assertRaises(RuntimeError):
+            audit._run_check("테스트", boom, [], debug=True)
+
+
 if __name__ == "__main__":
     unittest.main()
