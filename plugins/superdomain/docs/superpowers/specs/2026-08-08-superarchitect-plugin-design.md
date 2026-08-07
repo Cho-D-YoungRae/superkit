@@ -39,7 +39,7 @@ superarchitect/
 │   └── plugin.json              # name: superarchitect, version: 0.1.0 (필수 필드는 name뿐)
 ├── .claude/
 │   └── skills/
-│       └── add-knowledge/SKILL.md   # 저장소 로컬 스킬 — 지식 베이스 추가 (§7)
+│       └── study/SKILL.md   # 저장소 로컬 스킬 — 지식 베이스 추가·보완 (§7)
 ├── skills/                      # 플러그인 배포 스킬 10개 → /superarchitect:<skill>
 │   ├── init/SKILL.md
 │   ├── scaffold/SKILL.md
@@ -175,7 +175,7 @@ superarchitect/
 |---|---|
 | domain | com.imstargg.core.domain.{컨텍스트}.. |
 | application | com.imstargg.core.application.{컨텍스트}.. |
-| presentation | com.imstargg.core.{앱}.. |    ← {컨텍스트} 없는 패턴 = 컨텍스트 비분할 레이어
+| presentation | com.imstargg.{앱}.. |    ← {컨텍스트} 없는 패턴 = 컨텍스트 비분할 레이어. {앱}은 앱 이름의 하이픈을 점으로 치환해 대입(core-api → core.api)
 
 ## 컨텍스트: brawlstars
 - 프로젝트: imstargg-backend
@@ -344,17 +344,18 @@ domain 문서에 표현됐지만 코드에 없는 것을 찾아 구현하는 스
 3. 구현 중 발견한 모호함·모순은 임의로 해석하지 않고 열린 질문 섹션에 추가한다.
 4. 완료 후 check_invariants.py와 fitness를 실행해 결정적 게이트를 통과시킨다.
 
-## 7. 저장소 로컬 스킬 — add-knowledge
+## 7. 저장소 로컬 스킬 — study
 
-플러그인 배포 스킬이 아니다. 이 플러그인 저장소를 보완·개선할 때 쓰는 스킬로, `.claude/skills/add-knowledge/SKILL.md`에 두며 이 저장소를 연 세션에서만 노출된다. 이름은 gstack 전역 스킬 `/learn`(Manage project learnings)과의 혼동을 피해 `add-knowledge`로 확정(부록 A-4).
+플러그인 배포 스킬이 아니다. 이 플러그인 저장소를 보완·개선할 때 쓰는 스킬로, `.claude/skills/study/SKILL.md`에 두며 이 저장소를 연 세션에서만 노출된다. **신규 추가와 기존 문서 보완을 모두 담당한다** — 이름 `study`는 "스터디 결과를 지식 베이스에 반영한다"는 행위로 추가·보완·승격을 포괄하며(스펙 원칙 8의 언어와 일치), gstack 전역 스킬 `/learn`(Manage project learnings)과의 혼동을 피한다(부록 A-4).
 
 절차:
 
 1. 입력을 받는다: 대화 내용, URL, 붙여넣은 노트 등 스터디 결과물.
-2. `references/governance/knowledge-doc-template.md` 기반으로 초안을 작성한다 — summary(필수)와 가능하면 적용 기준·규칙 골격까지.
-3. 주제를 결정한다: 기존 `knowledge/` 주제 디렉터리를 제시하고, 맞는 것이 없으면 신규 디렉터리를 만든다(1단계 고정).
-4. `scripts/build_index.py`를 실행해 INDEX를 재생성하고, draft 여부를 안내한다.
-5. 커밋을 제안한다.
+2. `references/INDEX.md`를 읽어 대상을 결정한다: 입력이 기존 문서(key·summary가 같은 주제)와 겹치면 **보완 모드**, 아니면 **신규 모드**. 애매하면 후보를 제시하고 사용자에게 확인한다.
+3. 신규 모드: `references/governance/knowledge-doc-template.md` 기반으로 초안을 작성한다 — summary(필수)와 가능하면 적용 기준·규칙 골격까지. 주제는 기존 `knowledge/` 주제 디렉터리에서 제안하고, 맞는 것이 없으면 신규 디렉터리를 만든다(1단계 고정).
+4. 보완 모드: 기존 문서에 새 내용을 병합한다 — 기존 구조·서술을 유지하며 통합하고, 모순되면 임의로 대체하지 않고 사용자에게 확인한다. draft 문서(스텁)에 "적용 기준"·"규칙" 섹션을 갖춰주면 성숙으로 승격된다. 500줄을 넘으면 분할을 제안한다.
+5. `scripts/build_index.py`를 실행해 INDEX를 재생성하고, draft 변화를 안내한다.
+6. 변경 요약과 함께 커밋을 제안한다.
 
 트레이드오프(의도된 것): 다른 프로젝트 세션에서 발견한 지식은 그 자리에서 추가할 수 없고, 이 저장소를 열어 추가하는 워크플로다 — "플러그인을 보완할 때 사용"이라는 소유자 의도와 일치한다.
 
@@ -450,17 +451,17 @@ rules: [tactical.vo-immutable]  # 선택 — 이 문서가 정의하는 기계 �
 
 patterns 문서는 특히 "언제 쓰지 않는가"를 강하게 쓴다. LLM은 화려한 패턴을 과잉 적용하는 경향이 있으므로 이 문서들이 과잉 설계의 방어선이다 — 예: event-sourcing 문서는 "대부분의 컨텍스트에는 불필요하다"에서 시작한다.
 
-이 목록은 초기 씨앗일 뿐이다. 이후의 확장은 플러그인 개발자가 add-knowledge 스킬로 자유롭게 추가하는 몫이며, v1에서는 완벽한 내용보다 추가하기 좋은 골격이 우선이다.
+이 목록은 초기 씨앗일 뿐이다. 이후의 확장은 플러그인 개발자가 study 스킬로 자유롭게 추가하는 몫이며, v1에서는 완벽한 내용보다 추가하기 좋은 골격이 우선이다.
 
 ### 11.4 분량과 확장
 
 - 각 문서 100~300줄. 300줄 초과 시 목차 필수, 500줄 초과 시 문서를 분할한다.
-- 새 문서 추가 = md 파일 생성 + summary 한 줄 + build_index.py 실행(또는 add-knowledge 스킬 사용). 그 이상을 요구하지 않는다(초안은 자유 형식으로 draft 등재). 이 절차를 README에 문서화한다.
+- 새 문서 추가 = md 파일 생성 + summary 한 줄 + build_index.py 실행(또는 study 스킬 사용). 그 이상을 요구하지 않는다(초안은 자유 형식으로 draft 등재). 이 절차를 README에 문서화한다.
 
 ## 12. 구현 순서
 
-- **Phase 1 — 골격과 두뇌**: plugin.json, 디렉토리 구조, governance 5종(architecture-template, rule-vocabulary, adr-template, evolution-signals, knowledge-doc-template), parse_architecture.py, build_index.py, add-knowledge 로컬 스킬, 전체 knowledge 문서의 메타+요약 스텁과 INDEX, init이 읽는 문서 완성(strategic/ 3종, styles/ 4종, structure/ 2종), init 스킬, SessionStart 훅 + summary 체계.
-  - 검증: ① 임시 디렉토리에 최소 Kotlin/Spring 멀티모듈 샘플을 만들고 init 실행 → ARCHITECTURE.md·파생물 생성 확인 ② 모노레포 샘플(backend/ + frontend/ 더미)에서 init → backend만 제안·등록되고 frontend는 "프로파일 없음, 범위 외"로 표시되는지, 산출물이 루트에 생기는지, backend/를 cwd로 연 새 세션에서 훅이 요약을 주입하는지 ③ 빈 저장소(그린필드)에서 init → 설계 인터뷰만으로 ARCHITECTURE.md가 성립하는지 ④ 필수 결정 하나를 지워 parse_architecture.py가 라인 번호와 함께 실패하는지 ⑤ add-knowledge로 문서 1개 추가 → INDEX 갱신·draft 표시 확인.
+- **Phase 1 — 골격과 두뇌**: plugin.json, 디렉토리 구조, governance 5종(architecture-template, rule-vocabulary, adr-template, evolution-signals, knowledge-doc-template), parse_architecture.py, build_index.py, study 로컬 스킬, 전체 knowledge 문서의 메타+요약 스텁과 INDEX, init이 읽는 문서 완성(strategic/ 3종, styles/ 4종, structure/ 2종), init 스킬, SessionStart 훅 + summary 체계.
+  - 검증: ① 임시 디렉토리에 최소 Kotlin/Spring 멀티모듈 샘플을 만들고 init 실행 → ARCHITECTURE.md·파생물 생성 확인 ② 모노레포 샘플(backend/ + frontend/ 더미)에서 init → backend만 제안·등록되고 frontend는 "프로파일 없음, 범위 외"로 표시되는지, 산출물이 루트에 생기는지, backend/를 cwd로 연 새 세션에서 훅이 요약을 주입하는지 ③ 빈 저장소(그린필드)에서 init → 설계 인터뷰만으로 ARCHITECTURE.md가 성립하는지 ④ 필수 결정 하나를 지워 parse_architecture.py가 라인 번호와 함께 실패하는지 ⑤ study로 문서 1개 추가 및 기존 스텁 1개 보완 → INDEX 갱신·draft 변화(승격 포함) 확인.
 - **Phase 2 — 강제**: fitness, review, arch-reviewer, check_imports.py, review가 읽는 문서 완성(tactical/ 5종, patterns/ 3종).
   - 검증: ① 샘플의 domain 모듈에 spring import를 심고 fitness 실패와 review 리포트 확인 ② 샘플 컨텍스트에 `패턴: cqrs`를 선언하고 커맨드 핸들러에 조회 로직을 심어 review가 cqrs 체크리스트로 검출하는지 ③ 커스텀 스타일 문서를 하나 선언해 같은 파이프라인으로 fitness가 생성되는지 ④ app-embedded 샘플(레이어-우선 패키지 + 앱 2개)에서 패키지 규약 정규화를 거쳐 fitness가 생성되고 표준 파생 규칙(앱 봉쇄·공용 방향·컨텍스트 간 금지)이 포함되는지.
 - **Phase 3 — 도메인**: model(인터뷰·이벤트 스토밍·미팅 정리), apply, check_invariants.py, domain-doc-template, strategic/event-storming.md, review의 분류 확장(추가 논의 → 열린 질문 루프).
@@ -488,17 +489,17 @@ patterns 문서는 특히 "언제 쓰지 않는가"를 강하게 쓴다. LLM은 
 - SKILL.md에 references 내용 인라인 (500줄 상한 준수)
 - `knowledge/`를 통째로 또는 디렉토리 단위로 컨텍스트에 로드 — 항상 INDEX를 경유해 선별 로드
 - knowledge 주제 디렉터리 아래 추가 중첩 (build_index.py가 거부)
-- add-knowledge를 플러그인 배포 스킬(skills/)로 이동 — 저장소 로컬 유지
+- study를 플러그인 배포 스킬(skills/)로 이동 — 저장소 로컬 유지
 - 체크리스트·규칙 없는 백과사전식 지식 문서 작성 — 모든 문서는 판정 도구여야 한다
 - 용어집 기능 구현 — 보편언어의 정의·관리·검증은 superglossery 플러그인 담당이며, superarchitect는 등록 제안과 check 호출 등 통합 지점만 갖는다
 - 외부 패키지에 의존하는 스크립트 (bash + python3 stdlib만; Konsist/ArchUnit은 대상 프로젝트의 의존성이다. PyYAML도 금지 — frontmatter는 §11.1의 제한 문법만 파싱)
 
 ## 14. 최종 완료 기준
 
-- 로컬 경로(`claude --plugin-dir .`) 또는 로컬 마켓플레이스로 설치되고 10개 스킬이 `/superarchitect:*`로 노출되며, 이 저장소에서 add-knowledge 로컬 스킬이 동작한다.
+- 로컬 경로(`claude --plugin-dir .`) 또는 로컬 마켓플레이스로 설치되고 10개 스킬이 `/superarchitect:*`로 노출되며, 이 저장소에서 study 로컬 스킬이 동작한다.
 - 샘플 프로젝트 e2e 시나리오 1회 통과: init → scaffold(신규 컨텍스트) → 위반 코드 삽입 → review가 검출 → fitness 실패 → 수정 → sync 클린 → evolve 리포트 생성. 도메인 루프(model → apply → check_invariants → review의 열린 질문 반영)도 시나리오에 포함한다.
 - 형태 커버리지: 모노레포 샘플(backend + frontend 더미, 루트 SSOT), 그린필드 샘플(설계 선행 → scaffold로 생성), app-embedded 샘플(멀티 앱 + 패키지 규약)에서 각각 핵심 플로우가 확인된다. java-spring 샘플에서는 fitness 생성·실행과 scaffold까지 확인한다.
-- README.md 완비: 설치 방법, 워크플로 다이어그램(mermaid), 스킬별 사용법, ARCHITECTURE.md·domain 문서 예시, 지식 추가 절차(add-knowledge).
+- README.md 완비: 설치 방법, 워크플로 다이어그램(mermaid), 스킬별 사용법, ARCHITECTURE.md·domain 문서 예시, 지식 추가 절차(study).
 
 ## 부록 A. 확정 결정 기록 (브레인스토밍, 2026-08-07~08)
 
@@ -507,7 +508,7 @@ patterns 문서는 특히 "언제 쓰지 않는가"를 강하게 쓴다. LLM은 
 | A-1 | 모노레포 문서 위치 | 루트 SSOT + 반복 가능한 프로젝트 섹션 | 백엔드 내부 배치 / 2계층 분리(전략·전술) | 도메인 관계(컨텍스트 맵)는 프로젝트 경계를 넘는 개념 → SSOT는 루트. 단일 레포는 경로 "."인 프로젝트 1개로 동일 형식 — 특수 케이스 제거. 2계층 분리는 v1엔 과설계 |
 | A-2 | 구조 선언 형식 | markdown 결정 템플릿 (라벨 필드 + 표) | yaml 등 별도 설정 파일 | PyYAML은 stdlib이 아님 → yaml 채택 시 외부 의존 또는 자체 파서 필요. 라벨·표는 stdlib 라인 파싱으로 결정적으로 읽히고, 사람·Claude가 같은 문서를 읽는 목표에 부합 |
 | A-3 | 지식 베이스 구조 | 주제 디렉터리 1단계 고정 (topic = 디렉터리명 자동 유도) | 완전 flat + frontmatter topic | 마찰 총량은 비슷하나 1단계 고정 + 중첩 거부로 "깊어지는 디렉터리" 우려를 구조적으로 차단. 사람 브라우징에 그룹핑 이점 |
-| A-4 | 지식 추가 스킬 | 저장소 로컬 스킬 `.claude/skills/add-knowledge` | 플러그인 배포 스킬(learn) / 수동 절차만 | 지식 추가는 플러그인 소유자의 보완 작업 — 사용 프로젝트에 배포될 이유 없음. 이름은 gstack 전역 `/learn`과의 혼동 회피 |
+| A-4 | 지식 추가·보완 스킬 | 저장소 로컬 스킬 `.claude/skills/study` (신규 추가 + 기존 문서 보완·승격) | 플러그인 배포 스킬(learn) / 수동 절차만 / add-knowledge 명명 | 지식 관리는 플러그인 소유자의 보완 작업 — 사용 프로젝트에 배포될 이유 없음. `add-knowledge`는 추가만 함의해 보완 기능과 불일치. `study`는 추가·보완·승격을 포괄하고 gstack 전역 `/learn`과의 혼동 회피 |
 | A-5 | java-spring 시점 | v1 포함, 마지막 Phase 6 | v2로 연기 | 프로파일 계약의 언어 독립성을 실제로 검증(어휘 설계 결함 조기 발견). 마지막 Phase라 부담 시 축소 용이 |
 | A-6 | init 제외 기준 | 프로파일 매칭 (+ 사용자 확정) | package.json=frontend 등 스택 추측 | Node 백엔드 확장 시 추측 휴리스틱이 깨짐. 프로파일 추가만으로 자동 확장되는 기준이 미래 호환 |
 | A-7 | 컨텍스트 실현 모델 | 3형(multi-module/single-module/app-embedded) + "컨텍스트×레이어→패키지 패턴" 정규화 | 모듈 표 단일 모델 | 실물(imstargg-backend: 앱 4개 + 레이어-우선 패키지)이 모듈 표로 선언 불가. 정규화로 강제 파이프라인을 실현 형태와 분리 |
