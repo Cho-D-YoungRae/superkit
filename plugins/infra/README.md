@@ -7,10 +7,13 @@ sync/audit/secrets), 엔티티 템플릿, 검증 스크립트, hook으로 구성
 ## 빠른 시작
 
 ```bash
-mkdir ~/infra-workspace && cd ~/infra-workspace
-claude --plugin-dir /path/to/infra
+git clone <저장소 URL> ~/infra-plugin
+mkdir -p ~/infra-workspace && cd ~/infra-workspace
+claude --plugin-dir ~/infra-plugin
 # 대화창: "인프라 하네스 만들어줘" → 이후 자연어로 등록·조회·조작
 ```
+
+설치 상세와 요구 사항은 [3. 설치](#3-설치)를 참고한다.
 
 ## 목차
 
@@ -24,9 +27,10 @@ claude --plugin-dir /path/to/infra
 8. [테스트](#8-테스트)
 9. [수동 검증 체크리스트](#9-수동-검증-체크리스트)
 10. [안전성 FAQ](#10-안전성-faq)
-11. [트러블슈팅](#11-트러블슈팅)
-12. [기여·설계 문서](#12-기여설계-문서)
-13. [라이선스](#13-라이선스)
+11. [마이그레이션](#11-마이그레이션)
+12. [트러블슈팅](#12-트러블슈팅)
+13. [기여·설계 문서](#13-기여설계-문서)
+14. [라이선스](#14-라이선스)
 
 ## 1. 개요
 
@@ -56,6 +60,7 @@ prometheus·victoria-metrics 같은 설치 컴포넌트를 다룬다.
 ├── harness.yaml               # 정책 데이터 — sharing/secrets_mode/environments/policies/hooks(+secrets_recipients, D11)
 ├── CLAUDE.md                  # 하네스 소개·규약(플러그인의 CLAUDE.md와 다름)
 ├── .claude/settings.json      # secrets/ 읽기 차단(permissions.deny)
+├── .claude/settings.local.json # 같은 차단 — git 루트에서 로드되어 하위 디렉터리 세션도 보호(D15)
 ├── .gitignore                 # secrets/ 제외(git 전환 대비 선등록)
 ├── providers/                 # provider 엔티티 — 예: aws-main.md, onprem-idc.md
 ├── inventory/
@@ -88,19 +93,27 @@ manifest·GitOps 레포 참조로 넘긴다(원칙 4 — 하네스는 상태를 
 
 ## 3. 설치
 
-### 개발 모드
+### 표준 설치
 
 ```bash
-claude --plugin-dir /path/to/infra
+git clone <저장소 URL> ~/infra-plugin
+mkdir -p ~/infra-workspace && cd ~/infra-workspace   # 하네스로 쓸 디렉터리
+claude --plugin-dir ~/infra-plugin
 ```
 
-`/path/to/infra`는 `.claude-plugin/plugin.json`이 있는 이 저장소의 절대 경로다. 같은 이름의
-설치된 플러그인이 있어도 `--plugin-dir`로 띄운 로컬 버전이 우선한다.
+`--plugin-dir`에는 `.claude-plugin/plugin.json`이 있는 저장소 루트의 절대 경로를 준다.
+같은 이름의 설치된 플러그인이 있어도 `--plugin-dir`로 띄운 쪽이 우선한다.
 
-### marketplace로 배포하는 경우
+위 경로가 현재의 정식 설치 방법이다.
 
-이 플러그인을 사내/개인 marketplace에 등록해 배포한다면, 사용자는 저장소를 직접 내려받지
-않고 세션 안에서 `/plugin` 명령으로 marketplace 추가와 `infra` 플러그인 설치를 진행한다.
+> **언어**: 스킬 본문과 산출 문서는 한국어다. 영어권 사용자 대응(i18n)은 별도 작업으로
+> 예정돼 있으며, 그 전까지는 한국어를 읽을 수 있는 환경을 전제한다.
+
+### 사내·개인 marketplace에 등록해 배포하려면
+
+이 저장소는 marketplace를 운영하지 않지만, 사용자가 **자신의** 사내·개인 marketplace에
+이 플러그인을 등록해 팀에 배포할 수는 있다. 그 경우 팀원은 저장소를 직접 내려받지 않고
+세션 안에서 `/plugin` 명령으로 marketplace 추가와 `infra` 플러그인 설치를 진행한다.
 (marketplace 자체를 구성하는 작업은 이 저장소의 범위 밖이다.)
 
 ### 개발 루프
@@ -123,8 +136,9 @@ claude --plugin-dir /path/to/infra
    아니라 별도 디렉토리를 쓴다 — 하네스는 중앙 1개다).
 
    ```bash
-   mkdir ~/infra-workspace && cd ~/infra-workspace
-   claude --plugin-dir /path/to/infra
+   git clone <저장소 URL> ~/infra-plugin
+   mkdir -p ~/infra-workspace && cd ~/infra-workspace
+   claude --plugin-dir ~/infra-plugin
    ```
 
 2. 대화창에 "인프라 하네스 만들어줘"라고 요청한다. `init` 스킬이 로컬에 설치된 CLI를
@@ -319,8 +333,8 @@ bash tests/run_tests.sh
 ```
 
 `tests/fixtures/harness-ok`(정상 하네스)·`tests/fixtures/harness-bad`(오염 하네스)·
-`tests/fixtures/harness-off`(hook 비활성화 검증용) 세 fixture를 대상으로 다음을 자동
-검증한다.
+`tests/fixtures/harness-off`(hook 비활성화 검증용)·`tests/fixtures/harness-onprem`(온프렘 전용)
+네 fixture를 대상으로 다음을 자동 검증한다.
 
 - `scripts/audit.py`의 기대 결과 — 스키마/참조/시크릿 패턴/정책 조합/만료 경고에 더해 D13
   하드닝(심링크 거부·`secrets/` 재귀 스캔·`secrets_mode: none` 강제·엄격 헤더 판별·중복
@@ -367,9 +381,23 @@ bash tests/run_tests.sh
 ## 10. 안전성 FAQ
 
 **Q. 클로드가 내 시크릿 값(키·토큰·비밀번호)을 보게 되나?**
-아니다(원칙 1). 스킬·스크립트 어디에도 값을 읽거나 출력하는 경로가 없고, 사용은 항상 참조
-실행(`${VAR}`, `ssh -i <경로>`, `sops exec-env`)뿐이다. 하네스의 `secrets/`는 Read 도구가
-`.claude/settings.json` deny로 차단되어, 실수로도 값을 컨텍스트에 들일 수 없다.
+정상 사용 경로에서는 보지 않는다(원칙 1). 스킬·스크립트 어디에도 값을 읽거나 출력하는
+경로가 없고, 사용은 항상 참조 실행(`${VAR}`, `ssh -i <경로>`, `sops exec-env`)뿐이다.
+**1차 방어선은 "스킬이 스스로 값을 읽지 않는 것"이며**, `.claude/settings.json`의 deny
+규칙은 그 위에 얹는 2차 가드레일이다.
+
+**단, deny 규칙은 보안 경계가 아니다**(D15). 공식 문서도 Read 규칙 적용을 "best-effort"로
+서술한다. 아래 세 경우에는 차단이 걸리지 않으므로 알고 쓰는 편이 낫다.
+
+| 경우 | 동작 |
+|---|---|
+| **하네스 하위 디렉터리에서 세션을 연 경우** | `.claude/settings.json`은 cwd의 `.claude/`에서만, **부모 폴백 없이** 로드된다. `init`이 `settings.local.json`에도 같은 규칙을 쓰므로 **git 저장소인 하네스는 하위 디렉터리에서도 보호**되지만, git을 쓰지 않는 하네스는 **하네스 루트에서 세션을 열어야** 보호된다 |
+| **임의 서브프로세스** | deny는 Read 도구와 `cat`·`head`·`tail`·`sed` 같이 인식된 파일 명령에 적용되고, **파이썬·노드 스크립트처럼 스스로 파일을 여는 프로세스에는 적용되지 않는다.** 이 플러그인의 `scripts/*.py`도 여기 해당한다 — `audit`이 `secrets/`를 재귀 스캔할 수 있는 이유이며, 그래서 스크립트는 값을 출력하지 않도록 작성하고 회귀 테스트로 강제한다(`tests/test_secret_containment.py`) |
+| **하네스 밖에서 절대 경로로 지목한 경우** | deny는 cwd 기준이라 다른 디렉터리에서 연 세션이 하네스 `secrets/`를 절대 경로로 읽으면 걸리지 않는다 |
+
+OS 수준에서 모든 프로세스를 막고 싶다면 Claude Code의 **샌드박스**를 켜는 것이 유일한
+방법이다. 반대로 값을 아예 로컬에 두지 않는 선택(`secrets_mode: none` + Vault·1Password
+같은 외부 매니저 참조, D14)도 이 위험을 근본적으로 줄인다.
 
 **Q. 하네스를 팀과 git으로 공유해도 되나?**
 된다. 단 `secrets_mode: encrypted`로 두고 SOPS+age 암호문만 커밋한다(복호 키는 각 머신
@@ -403,7 +431,21 @@ bash tests/run_tests.sh
 정책에 없는 env는 안전 기본값 `confirm`으로 취급한다. read-only 명령은 게이트 없이 즉시
 실행되고, mutating만 이 파이프라인을 탄다(원칙 7).
 
-## 11. 트러블슈팅
+## 11. 마이그레이션
+
+### 기존 하네스에 보호 설정 보강 (D15)
+
+`.claude/settings.local.json`이 없는 기존 git 하네스는 `audit`가 실패로 보고한다
+(`secrets_mode`가 `plaintext`/`encrypted`인 경우. `none`이면 지킬 로컬 값이 없으므로
+경고로만 보고한다). 하네스 하위 디렉터리에서 연 세션이 `secrets/` 차단을 받지 못하기
+때문이다(`settings.json`은 부모 폴백 없이 cwd에서만 로드된다).
+
+하네스에서 **"하네스 점검해줘"**라고 말하면 `audit`가 누락을 짚고 `init`이 보완을 제안한다.
+직접 처리하려면 `.claude/settings.json`과 같은 내용으로 `.claude/settings.local.json`을
+만들면 된다. `sharing: git` 하네스라면 이 파일을 **커밋한다** — 이름은 `local`이지만 팀
+전체가 같은 보호를 받게 하려는 의도적 선택이며, `.gitignore`에 넣지 않는다.
+
+## 12. 트러블슈팅
 
 자주 겪는 문제와 해결 방법.
 
@@ -427,22 +469,37 @@ encrypted`로 전환하고 `secrets` 스킬로 `secrets_recipients`(팀원 공�
 값이 필요하면 읽지 말고 `keys.md`의 위치 참조 + `usage` 컬럼의 참조 실행
 레시피(`sops exec-env`, `op run`, `ssh -i` 등)로 사용한다.
 
-## 12. 기여·설계 문서
+## 13. 기여·설계 문서
 
 이 저장소를 **수정**하려는 경우:
 
 - [`CLAUDE.md`](CLAUDE.md) — 저장소를 수정하는 세션용 지침(테스트 명령, python3 stdlib
   전용·hook exit 0·SKILL.md description 형식 같은 비자명 제약).
 - [`docs/superpowers/specs/2026-07-19-infra-plugin-design.md`](docs/superpowers/specs/2026-07-19-infra-plugin-design.md)
-  — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D14.
+  — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D16.
 - [`docs/superpowers/plans/2026-07-19-infra-plugin.md`](docs/superpowers/plans/2026-07-19-infra-plugin.md)
   — 태스크별 구현 계획(D1~D10, init~audit 스킬).
+- [`docs/superpowers/plans/2026-07-21-server-body-info.md`](docs/superpowers/plans/2026-07-21-server-body-info.md)
+  — 서버 본문 정보 구현 계획(D10).
 - [`docs/superpowers/plans/2026-07-22-team-secrets.md`](docs/superpowers/plans/2026-07-22-team-secrets.md)
   — 팀 시크릿·자격증명·audit 하드닝 구현 계획(D11~D14, secrets 스킬).
+- [`docs/superpowers/plans/2026-08-06-promise-alignment.md`](docs/superpowers/plans/2026-08-06-promise-alignment.md)
+  — 약속과 실제의 일치 구현 계획(D15~D16, 보호 설정·문서 정합성).
 
 원칙·스키마·D 결정은 확정 사항이다. 이를 바꾸는 변경은 스펙을 먼저 갱신하고 진행한다.
 변경 후에는 `bash tests/run_tests.sh`로 전체 테스트를 확인한다.
 
-## 13. 라이선스
+### 기여자 주의 — `skills/secrets/` 열람
+
+`Read(secrets/**)` 계열 deny 규칙을 쓰는 환경에서 **플러그인 저장소가 세션 cwd 아래에
+있으면** `skills/secrets/` 이하 문서가 차단된다. deny 규칙이 앵커 아래 임의 깊이의
+`secrets` 디렉터리를 매치하기 때문이다(문서화된 동작).
+
+이때는 git 경유로 읽는다: `git show HEAD:skills/secrets/SKILL.md`
+
+실사용자에게는 발생하지 않는다 — 사용자의 cwd는 하네스이고 플러그인은
+`~/.claude/plugins/…`나 clone 경로에 있어 앵커 밖이기 때문이다.
+
+## 14. 라이선스
 
 [MIT License](LICENSE) — Copyright (c) 2026 Youngrae Cho.

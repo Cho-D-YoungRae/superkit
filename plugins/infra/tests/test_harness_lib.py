@@ -88,5 +88,23 @@ class TestIterEntities(unittest.TestCase):
             self.assertNotIn("_error", e)
 
 
+class TestFrontmatterErrorMessages(unittest.TestCase):
+    """오류 메시지가 진짜 원인을 지목해야 한다 (검토 P2-7)."""
+
+    def test_leading_whitespace_names_indentation_not_nesting(self):
+        text = "---\n  id: prod-db-01\n  type: server\n---\n본문\n"
+        with self.assertRaises(harness_lib.FrontmatterError) as ctx:
+            harness_lib.parse_frontmatter(text)
+        msg = str(ctx.exception)
+        self.assertIn("선행 공백", msg)
+        self.assertNotIn("중첩 구조 미지원", msg)
+
+    def test_genuine_nesting_still_names_nesting(self):
+        text = "---\nid: x\npolicies:\n---\n본문\n"
+        with self.assertRaises(harness_lib.FrontmatterError) as ctx:
+            harness_lib.parse_frontmatter(text)
+        self.assertIn("중첩 맵", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

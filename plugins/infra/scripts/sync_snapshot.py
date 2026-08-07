@@ -43,6 +43,24 @@ def build_expected(root):
     return exp
 
 
+def provider_skip_reason(prov):
+    """provider를 자동 수집할 수 없는 이유. 수집 가능하면 None.
+
+    이 함수가 생기기 전에는 diff_state가 aws/gcp가 아닌 provider를 조용히
+    건너뛰어, 온프렘 하네스가 4구획 전부 0건으로 나왔다 — 대조하지 않았는데
+    문서와 실제가 일치한 것처럼 읽혔다. 스펙 §7.8이 요구하는 "확인 불가로
+    구분 보고(오탐 방지)"를 이행한다.
+    """
+    kind = prov.get("kind")
+    if kind not in ("aws", "gcp"):
+        return f"{kind} provider는 자동 수집기가 없습니다 — 확인 불가(수동 확인 필요)"
+    if not prov.get("cli_profile"):
+        return "cli_profile 미기재 — 확인 불가"
+    if kind == "aws" and not harness_lib.as_list(prov.get("regions")):
+        return "regions 미기재로 리전을 특정할 수 없습니다 — 확인 불가"
+    return None
+
+
 def build_collect_commands(root):
     exp = build_expected(root)
     cmds = []
@@ -53,12 +71,17 @@ def build_collect_commands(root):
         cmds.append({"target": cid, "kind": "helm-releases",
                      "cmd": ["helm", "--kube-context", ctx, "list", "-A", "-o", "json"]})
     for pid, p in exp["providers"].items():
-        if p.get("kind") == "aws" and p.get("cli_profile"):
-            cmds.append({"target": pid, "kind": "instances", "cmd": [
-                "aws", "ec2", "describe-instances", "--profile", str(p["cli_profile"]),
-                "--query", "Reservations[].Instances[].[Tags[?Key=='Name'].Value | [0]]",
-                "--output", "text"]})
-        elif p.get("kind") == "gcp" and p.get("cli_profile"):
+        if provider_skip_reason(p):
+            continue  # 사유는 diff_state가 "확인 불가"로 보고한다
+        if p.get("kind") == "aws":
+            # 리전당 명령 하나씩 — profile 기본 리전에 암묵 의존하지 않는다(원칙 6)
+            for region in harness_lib.as_list(p.get("regions")):
+                cmds.append({"target": pid, "kind": "instances", "cmd": [
+                    "aws", "ec2", "describe-instances",
+                    "--profile", str(p["cli_profile"]), "--region", str(region),
+                    "--query", "Reservations[].Instances[].[Tags[?Key=='Name'].Value | [0]]",
+                    "--output", "text"]})
+        else:  # gcp — instances list는 전 존을 조회하므로 리전 지정이 불필요하다
             cmds.append({"target": pid, "kind": "instances", "cmd": [
                 "gcloud", "compute", "instances", "list",
                 "--configuration", str(p["cli_profile"]), "--format", "value(name)"]})
@@ -89,8 +112,15 @@ def collect(root):
             else:
                 entry["reachable"] = False
         elif item["kind"] == "instances":
-            names = [l.strip() for l in (r.stdout.splitlines() if ok else []) if l.strip() and l.strip() != "None"]
-            actual["providers"][item["target"]] = {"reachable": ok, "instances": names}
+            entry = actual["providers"].setdefault(
+                item["target"], {"reachable": True, "instances": []})
+            if ok:
+                entry["instances"].extend(
+                    l.strip() for l in r.stdout.splitlines()
+                    if l.strip() and l.strip() != "None")
+            else:
+                # 한 리전이라도 실패하면 부분 결과다 — 전부 본 것처럼 보고하지 않는다
+                entry["reachable"] = False
     return actual
 
 
@@ -129,7 +159,9 @@ def diff_state(expected, actual):
                     f"{c_id}: 문서 {comp.get('installed_by')} vs 실측 {releases[c_id]['chart']}")
     # provider 인스턴스 대조 (Name 태그 = 문서 서버 id 가정)
     for pid, prov in expected["providers"].items():
-        if prov.get("kind") not in ("aws", "gcp"):
+        reason = provider_skip_reason(prov)
+        if reason:
+            report["unverifiable"].append(f"{pid}: {reason}")
             continue
         prov_actual = actual.get("providers", {}).get(pid)
         if not prov_actual or not prov_actual.get("reachable"):

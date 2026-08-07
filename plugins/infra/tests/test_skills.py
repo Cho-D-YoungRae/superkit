@@ -46,8 +46,33 @@ class TestOpsReferences(unittest.TestCase):
 class TestAuditSkillCategories(unittest.TestCase):
     def test_audit_skill_documents_new_categories(self):
         body = (PLUGIN_ROOT / "skills" / "audit" / "SKILL.md").read_text(encoding="utf-8")
-        for token in ("[구조]", "[키]", "recovery"):
+        for token in ("[구조]", "[키]", "recovery", "[보호]", "[내부오류]", "secrets_format"):
             self.assertIn(token, body, f"audit SKILL.md에 {token} 카테고리 설명 없음")
+
+
+class TestHandoffPathsResolve(unittest.TestCase):
+    """문서가 가리키는 곳에 실제로 그 절이 있어야 한다 (검토 P1-6)."""
+
+    def _read(self, rel):
+        import subprocess
+        p = PLUGIN_ROOT / rel
+        try:
+            return p.read_text(encoding="utf-8")
+        except (OSError, PermissionError):
+            out = subprocess.run(["git", "-C", str(PLUGIN_ROOT), "show", f"HEAD:{rel}"],
+                                 capture_output=True, text=True, check=True)
+            return out.stdout
+
+    def test_secrets_skill_has_initial_encryption_section(self):
+        body = self._read("skills/secrets/SKILL.md")
+        self.assertIn("신규 시크릿 생성", body,
+                      "init이 인계하는 초기 암호화 절이 secrets 스킬에 없다")
+        self.assertIn(".sops.yaml", body)
+
+    def test_init_handoff_names_the_section(self):
+        body = self._read("skills/init/SKILL.md")
+        self.assertIn("신규 시크릿 생성", body,
+                      "init의 인계 문구가 실재하는 절 이름을 가리키지 않는다")
 
 
 if __name__ == "__main__":
