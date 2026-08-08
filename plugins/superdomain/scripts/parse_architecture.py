@@ -4,9 +4,9 @@
 `Architecture` 데이터클래스 트리로 추출하는 유일한 결정론적 리더다.
 다른 모든 스크립트는 이 모듈의 `parse_architecture()`를 import해서 사용한다.
 
-이 파일은 "구조 추출"만 담당한다(Task 2 범위). 필수 결정 누락·비정규
-값 검증(Task 3)과 실현 정규화(Task 4)는 이후 별도 함수로 추가되며,
-이 파일의 파싱 루프 자체는 그대로 재사용된다.
+구조 추출(Task 2)에 이어 필수 결정 누락·비정규 값 검증(`validate()`, Task 3)과
+실현(multi-module/single-module/app-embedded) 정규화(`normalize()`, Task 4)까지
+이 파일 하나가 담당한다.
 """
 
 import re
@@ -421,6 +421,22 @@ def _validate_project(project: Project, context_names: set, errors: list) -> Non
                     f"컨텍스트 '{ctx_name}'을(를) 찾을 수 없습니다.",
                 ))
 
+    # 패키지 규약은 실현 형태를 가리지 않고 프로젝트 전체에 적용되므로(app-embedded 여부와
+    # 무관), '{앱}' 플레이스홀더를 쓰는 레이어가 하나라도 있으면 애플리케이션 표가 있어야
+    # 한다. 없으면 normalize()가 그 레이어의 패턴을 조용히 0개 만들고 끝나 버린다(app이 0개면
+    # 전개할 대상이 없으므로) — 오류 없이 규칙이 사라지는 상태라 여기서 막는다.
+    app_dependent_layers = sorted(
+        layer for layer, pattern in project.package_conventions.items() if "{앱}" in pattern
+    )
+    if app_dependent_layers and not project.applications:
+        for layer in app_dependent_layers:
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}'의 패키지 규약 레이어 '{layer}'가 '{{앱}}' 패턴을 쓰는데 "
+                f"'애플리케이션' 표가 없습니다 (애플리케이션 표를 추가하거나 패턴에서 "
+                f"'{{앱}}'을 빼세요).",
+            ))
+
 
 def _validate_context(context: Context, project_names: set, context_names: set,
                        multiple_projects: bool, errors: list) -> None:
@@ -692,7 +708,8 @@ def parse_architecture(text: str) -> tuple:
     """(Architecture, [ParseError])를 반환.
 
     구조를 추출한 뒤 validate()로 필수 결정 누락·비정규 값을 검사해 오류
-    목록을 채운다. 실현 정규화(Task 4)는 이후 별도 함수로 추가된다.
+    목록을 채운다. 실현(레이아웃) 정규화는 normalize()가 별도로 담당하며,
+    이 함수는 정규화를 호출하지 않는다.
     """
     architecture = _parse_document(text)
     errors = validate(architecture)

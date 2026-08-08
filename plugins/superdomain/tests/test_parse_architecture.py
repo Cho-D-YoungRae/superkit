@@ -261,6 +261,37 @@ class TestValidation(unittest.TestCase):
         errs = self._errors(text)
         self.assertTrue(any("애플리케이션" in e.message for e in errs))
 
+    # --- Task 4 fix round 1: {앱} 패턴은 app-embedded 여부와 무관하게 애플리케이션 표를 요구한다 ---
+
+    def test_app_placeholder_convention_without_applications_table_errors_even_without_app_embedded(self):
+        # 컨텍스트가 전부 multi-module인 프로젝트(app-embedded 없음)라도 '패키지 규약'
+        # 표에 '{앱}' 패턴을 선언하면 애플리케이션 표가 필수다. 기존
+        # _validate_app_embedded_consistency는 app-embedded 컨텍스트가 있을 때만 발동하므로
+        # 이 케이스(순수 multi-module + {앱} 패턴)는 그 검사로는 못 잡는다 — 이 테스트가
+        # 바로 그 구멍을 겨냥한다.
+        anchor = "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin\n"
+        text = load("minimal.md")
+        self.assertEqual(text.count(anchor), 1)
+        self.assertNotIn("app-embedded", text)  # minimal.md에는 app-embedded 컨텍스트가 없다
+        convention_block = (
+            "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin\n\n"
+            "### 패키지 규약\n"
+            "| 레이어 | 패턴 |\n|---|---|\n"
+            "| presentation | com.acme.{앱}.. |\n"
+        )
+        text = text.replace(anchor, convention_block)
+        self.assertNotIn("### 애플리케이션", text)
+        errs = self._errors(text)
+        matches = [e for e in errs if "애플리케이션" in e.message and "presentation" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 4)  # 프로젝트 섹션 헤딩(minimal.md 4번째 줄)로 폴백
+
+    def test_app_placeholder_convention_with_applications_table_is_valid(self):
+        # full.md는 '{앱}' 패턴(presentation)과 애플리케이션 표를 둘 다 가지므로 이 새 규칙에
+        # 걸리지 않아야 한다(회귀 방지용 대조 케이스).
+        arch, errors = parse_architecture(load("full.md"))
+        self.assertEqual(errors, [])
+
     def test_app_embedded_same_style(self):
         anchor = "## 컨텍스트: statistics\n- 프로젝트: imstargg-backend\n- 분류: core\n- 스타일: layered-domain"
         replacement = "## 컨텍스트: statistics\n- 프로젝트: imstargg-backend\n- 분류: core\n- 스타일: hexagonal"
