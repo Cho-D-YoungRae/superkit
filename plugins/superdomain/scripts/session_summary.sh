@@ -8,7 +8,7 @@ while :; do
     cat "$dir/docs/architecture/summary.md"
     exit 0
   fi
-  # git 루트 또는 파일시스템 루트에 도달하면 중단
+  # git 루트(일반 저장소 디렉터리 또는 worktree 파일) 또는 파일시스템 루트에 도달하면 중단
   if [ -e "$dir/.git" ] || [ "$dir" = "/" ]; then
     exit 0
   fi
