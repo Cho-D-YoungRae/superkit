@@ -2,7 +2,7 @@ import sys, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from parse_architecture import parse_architecture
+from parse_architecture import parse_architecture, normalize
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -384,6 +384,86 @@ class TestValidation(unittest.TestCase):
         )
         errs = self._errors(text)
         self.assertTrue(any("레이어" in e.message for e in errs))
+
+    # --- Task 4 컨트롤러 결의: single-module도 모듈 표가 필수다 ---
+
+    def test_single_module_requires_module_table(self):
+        # minimal.md: 13번째 줄이 "- 모듈 구성: multi-module". 표 라인만 지우고
+        # multi-module -> single-module로 바꾸면, 모듈 표가 없는 single-module 컨텍스트가 된다.
+        # 오류가 라벨 라인(13)을 가리켜야 한다 — 헤딩 라인(10)으로 폴백하면 회귀다.
+        text = _remove_table_lines(load("minimal.md")).replace(
+            "- 모듈 구성: multi-module", "- 모듈 구성: single-module"
+        )
+        errs = self._errors(text)
+        matches = [e for e in errs if "모듈 표" in e.message and "single-module" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 13)
+
+    def test_single_module_with_table_is_valid(self):
+        # 모듈 표가 있으면 single-module도 오류 없이 통과한다(회귀 방지용 대조 케이스).
+        text = load("minimal.md").replace("- 모듈 구성: multi-module", "- 모듈 구성: single-module")
+        errs = self._errors(text)
+        self.assertEqual(errs, [])
+
+
+class TestNormalize(unittest.TestCase):
+    def test_multi_module_default_convention(self):
+        arch, _ = parse_architecture(load("minimal.md"))
+        pats = normalize(arch)
+        got = {(p.context, p.layer, p.pattern) for p in pats}
+        self.assertIn(("claim", "domain", "com.acme.claim.domain.."), got)
+        self.assertIn(("claim", "application", "com.acme.claim.application.."), got)
+        self.assertIn(("claim", "adapter", "com.acme.claim.adapter.."), got)
+        self.assertEqual(len([p for p in pats if p.layer == "adapter"]), 1)  # in/out 중복 제거
+
+    def test_app_embedded_conventions(self):
+        arch, _ = parse_architecture(load("full.md"))
+        pats = normalize(arch)
+        got = {(p.context, p.layer, p.pattern) for p in pats}
+        self.assertIn(("brawlstars", "domain", "com.imstargg.core.domain.brawlstars.."), got)
+        self.assertIn(("brawlstars", "application", "com.imstargg.core.application.brawlstars.."), got)
+        # {앱} 패턴은 앱별 전개(하이픈→점 치환), 컨텍스트 비분할이므로 context="*"
+        self.assertIn(("*", "presentation", "com.imstargg.core.api.."), got)
+        self.assertIn(("*", "presentation", "com.imstargg.core.batch.."), got)
+
+    def test_presentation_star_pattern_emitted_once_per_app_not_per_context(self):
+        # full.md는 컨텍스트 4개(brawlstars/statistics/operation/renewal)를 가진 프로젝트에
+        # presentation 규약(컨텍스트 비분할, {앱} 포함)을 선언한다. 컨텍스트마다 한 번씩
+        # 돌면서 전개하면 4(컨텍스트) x 4(앱) = 16개가 생기는 버그가 될 수 있다 — 실제로는
+        # 프로젝트당 1회만 전개되어 앱 개수만큼(4개)만 나와야 한다.
+        arch, _ = parse_architecture(load("full.md"))
+        pats = normalize(arch)
+        star_presentation = [p for p in pats if p.context == "*" and p.layer == "presentation"]
+        self.assertEqual(len(star_presentation), 4)
+        self.assertEqual(
+            {p.pattern for p in star_presentation},
+            {
+                "com.imstargg.core.api..",
+                "com.imstargg.core.batch..",
+                "com.imstargg.core.worker..",
+                "com.imstargg.core.admin..",
+            },
+        )
+
+    def test_single_module_all_layer(self):
+        text = load("minimal.md").replace("- 모듈 구성: multi-module", "- 모듈 구성: single-module") \
+            .replace("| claim-domain | claim/domain | domain |", "| claim | claim | all |")
+        # 나머지 모듈 행 3개 삭제
+        for row in ["| claim-application | claim/application | application |",
+                    "| claim-adapter-in | claim/adapter-in | adapter |",
+                    "| claim-adapter-out | claim/adapter-out | adapter |"]:
+            text = text.replace(row + "\n", "")
+        arch, errors = parse_architecture(text)
+        self.assertEqual(errors, [])
+        pats = normalize(arch)
+        self.assertIn(("claim", "all", "com.acme.claim.."), {(p.context, p.layer, p.pattern) for p in pats})
+
+    def test_result_sorted_and_deduplicated(self):
+        arch, _ = parse_architecture(load("minimal.md"))
+        pats = normalize(arch)
+        as_tuples = [(p.project, p.context, p.layer, p.pattern) for p in pats]
+        self.assertEqual(as_tuples, sorted(set(as_tuples)))
+        self.assertEqual(len(as_tuples), len(set(as_tuples)))
 
 
 if __name__ == "__main__":

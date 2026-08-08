@@ -93,6 +93,13 @@ class Architecture:
     contexts: list = field(default_factory=list)
     has_template_marker: bool = False
 
+@dataclass(frozen=True)
+class NormalizedPattern:
+    project: str
+    context: str   # "*" = 컨텍스트로 분할되지 않는 레이어(패키지 규약에 {컨텍스트} 없음)
+    layer: str     # 모듈 표의 레이어 값 그대로("all" 가능)
+    pattern: str   # 예: "com.acme.claim.domain.." (항상 ".." 접미)
+
 
 # 정규식
 RE_PROJECT = re.compile(r"^##\s+프로젝트:\s*(.+?)\s*$")
@@ -456,6 +463,13 @@ def _validate_context(context: Context, project_names: set, context_names: set,
             f"컨텍스트 '{context.name}': 모듈 구성이 multi-module인데 모듈 표가 없습니다.",
         ))
 
+    if context.module_layout == "single-module" and not context.modules:
+        line = context.label_lines.get("모듈 구성", context.line)
+        errors.append(ParseError(
+            line,
+            f"컨텍스트 '{context.name}': 모듈 구성이 single-module인데 모듈 표가 없습니다.",
+        ))
+
     if context.module_layout == "app-embedded" and context.modules:
         line = context.label_lines.get("모듈 구성", context.line)
         errors.append(ParseError(
@@ -597,6 +611,81 @@ def validate(architecture: Architecture) -> list:
     _validate_app_embedded_consistency(architecture, errors)
 
     return errors
+
+
+def _expand_app_placeholder(pattern: str, applications: list) -> list:
+    """패턴의 '{앱}' 자리를 애플리케이션별로 전개한다(이름의 하이픈을 점으로 치환).
+
+    패키지 세그먼트에는 하이픈을 쓸 수 없으므로 'core-api' -> 'core.api'로 바꿔 대입한다.
+    """
+    return [pattern.replace("{앱}", app.name.replace("-", ".")) for app in applications]
+
+
+def _normalize_project_conventions(project: Project, contexts: list) -> list:
+    """프로젝트의 '패키지 규약' 표를 컨텍스트x레이어 패턴으로 전개한다.
+
+    이 경로는 실현 형태(multi-module/single-module/app-embedded)를 가리지 않는다 —
+    규약 표가 있으면 그 프로젝트에 속한 모든 컨텍스트에 그대로 우선 적용된다.
+    패턴에 '{컨텍스트}'가 있으면 컨텍스트마다 자기 이름만 대입해 하나씩 만들고,
+    없으면 컨텍스트로 분할되지 않는 레이어이므로 프로젝트당 한 번만 context="*"로
+    만든다. '{앱}'이 있으면 그 자리에서 다시 애플리케이션별로 전개된다.
+    """
+    results = []
+    for layer, pattern in project.package_conventions.items():
+        if "{컨텍스트}" in pattern:
+            for context in contexts:
+                expanded = pattern.replace("{컨텍스트}", context.name)
+                if "{앱}" in expanded:
+                    for final in _expand_app_placeholder(expanded, project.applications):
+                        results.append(NormalizedPattern(project.name, context.name, layer, final))
+                else:
+                    results.append(NormalizedPattern(project.name, context.name, layer, expanded))
+        elif "{앱}" in pattern:
+            for final in _expand_app_placeholder(pattern, project.applications):
+                results.append(NormalizedPattern(project.name, "*", layer, final))
+        else:
+            results.append(NormalizedPattern(project.name, "*", layer, pattern))
+    return results
+
+
+def _normalize_context_default(context: Context, project: Project) -> list:
+    """패키지 규약이 없는 프로젝트의 컨텍스트에 기본 관례를 적용한다.
+
+    모듈 표에 등장하는 레이어 값(중복 제거)마다 '{기본 패키지}.{컨텍스트}.{레이어}..'를
+    만든다. 레이어 'all'은 컨텍스트 전체를 가리키므로 '{기본 패키지}.{컨텍스트}..'로 축약된다.
+    """
+    results = []
+    for layer in {module.layer for module in context.modules if module.layer}:
+        if layer == "all":
+            pattern = f"{project.base_package}.{context.name}.."
+        else:
+            pattern = f"{project.base_package}.{context.name}.{layer}.."
+        results.append(NormalizedPattern(project.name, context.name, layer, pattern))
+    return results
+
+
+def normalize(arch: Architecture) -> list:
+    """Architecture를 [NormalizedPattern]으로 정규화한다(정렬·중복 제거 완료).
+
+    실현 형태(multi-module/single-module/app-embedded)에 관계없이 컨텍스트x레이어를
+    패키지 패턴으로 펼쳐, 이후 단계(Konsist/ArchUnit 규칙 생성)가 레이아웃을 몰라도
+    되게 한다. 프로젝트에 '패키지 규약' 표가 있으면 그 규약이 모든 컨텍스트에 우선
+    적용되고, 없으면 기본 관례('{기본 패키지}.{컨텍스트}.{레이어}..')를 적용한다.
+    """
+    contexts_by_project = {}
+    for context in arch.contexts:
+        contexts_by_project.setdefault(context.project, []).append(context)
+
+    results = []
+    for project in arch.projects:
+        contexts = contexts_by_project.get(project.name, [])
+        if project.package_conventions:
+            results.extend(_normalize_project_conventions(project, contexts))
+        else:
+            for context in contexts:
+                results.extend(_normalize_context_default(context, project))
+
+    return sorted(set(results), key=lambda p: (p.project, p.context, p.layer, p.pattern))
 
 
 def parse_architecture(text: str) -> tuple:
