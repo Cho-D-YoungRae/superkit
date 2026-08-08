@@ -79,8 +79,8 @@ class Context:
     transition_raw: str = "" # 이행 라벨이 존재하면 원문 값을 그대로 보존(성공/실패 무관).
                               # ""=라벨 없음, 값 있음+transition=()는 형식 오류(Task 3 판정)
     modules: list = field(default_factory=list)          # [Module]
-    relations: list = field(default_factory=list)
-    label_lines: dict = field(default_factory=dict)  # 라벨 키(한국어) -> 그 라벨이 등장한 1-기준 라인 번호        # [Relation]
+    relations: list = field(default_factory=list)         # [Relation]
+    label_lines: dict = field(default_factory=dict)  # 라벨 키(한국어) -> 그 라벨이 등장한 1-기준 라인 번호
 
 @dataclass
 class ParseError:
@@ -450,14 +450,16 @@ def _validate_context(context: Context, project_names: set, context_names: set,
         ))
 
     if context.module_layout == "multi-module" and not context.modules:
+        line = context.label_lines.get("모듈 구성", context.line)
         errors.append(ParseError(
-            context.line,
+            line,
             f"컨텍스트 '{context.name}': 모듈 구성이 multi-module인데 모듈 표가 없습니다.",
         ))
 
     if context.module_layout == "app-embedded" and context.modules:
+        line = context.label_lines.get("모듈 구성", context.line)
         errors.append(ParseError(
-            context.line,
+            line,
             f"컨텍스트 '{context.name}': 모듈 구성이 app-embedded이면 모듈 표를 작성할 수 없습니다.",
         ))
 

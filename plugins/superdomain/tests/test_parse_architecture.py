@@ -179,24 +179,40 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(any("프로젝트" in e.message for e in errs))
 
     def test_unknown_profile(self):
+        # minimal.md: 4번째 줄이 "## 프로젝트: backend"(섹션 헤딩), 6번째 줄이 "- 프로파일: ...".
+        # 오류가 라벨 자신의 라인(6)을 가리켜야 한다 — 헤딩 라인(4)으로 폴백하면 회귀다.
         text = load("minimal.md").replace("- 프로파일: kotlin-spring", "- 프로파일: rust-axum")
         errs = self._errors(text)
-        self.assertTrue(any("프로파일" in e.message for e in errs))
+        matches = [e for e in errs if "프로파일" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 6)
 
     def test_context_missing_style(self):
+        # 라벨 자체가 없으므로 label_lines에 항목이 없다 — 이 경우엔 섹션 헤딩 라인(10)으로
+        # 폴백하는 것이 올바른 동작이다(라벨이 없으니 라벨 라인을 가리킬 수 없다).
         text = load("minimal.md").replace("- 스타일: hexagonal\n", "")
         errs = self._errors(text)
-        self.assertTrue(any("스타일" in e.message for e in errs))
+        matches = [e for e in errs if "스타일" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 10)
 
     def test_invalid_module_layout(self):
+        # minimal.md: 10번째 줄이 "## 컨텍스트: claim"(섹션 헤딩), 13번째 줄이 "- 모듈 구성: ...".
+        # 오류가 라벨 자신의 라인(13)을 가리켜야 한다 — 헤딩 라인(10)으로 폴백하면 회귀다.
         text = load("minimal.md").replace("- 모듈 구성: multi-module", "- 모듈 구성: mono")
         errs = self._errors(text)
-        self.assertTrue(any("모듈 구성" in e.message for e in errs))
+        matches = [e for e in errs if "모듈 구성" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 13)
 
     def test_invalid_style_value(self):
+        # minimal.md: 10번째 줄이 "## 컨텍스트: claim"(섹션 헤딩), 12번째 줄이 "- 스타일: ...".
+        # 오류가 라벨 자신의 라인(12)을 가리켜야 한다 — 헤딩 라인(10)으로 폴백하면 회귀다.
         text = load("minimal.md").replace("- 스타일: hexagonal", "- 스타일: onion")
         errs = self._errors(text)
-        self.assertTrue(any("스타일" in e.message and "onion" in e.message for e in errs))
+        matches = [e for e in errs if "스타일" in e.message and "onion" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 12)
 
     def test_custom_style_accepted(self):
         text = load("minimal.md").replace("- 스타일: hexagonal", "- 스타일: custom/our-hex")
