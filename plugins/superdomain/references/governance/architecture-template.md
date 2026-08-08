@@ -385,8 +385,10 @@
 ## 7. 스타일 선언 형식
 
 프리셋(`references/knowledge/styles/<이름>.md`)과 커스텀 스타일
-(대상 프로젝트의 `docs/architecture/styles/<이름>.md`)은 **같은 형식**을 쓴다. `## 선언` 소제목 아래
-레이어 목록 라벨 하나와 규칙 인스턴스 표 하나다.
+(대상 프로젝트의 `docs/architecture/styles/<이름>.md`)은 **같은 형식**을 쓴다. `선언` 소제목 아래
+레이어 목록 라벨 하나와 규칙 인스턴스 표 하나다. 소제목의 **이름**이 계약이고 헤딩 레벨은 그 문서의
+구조를 따른다 — `references/knowledge/styles/`의 프리셋은 knowledge 문서 표준을 지켜야 하므로
+`## 규칙` 아래 `### 선언`으로 들어간다.
 
 ```markdown
 ## 선언
