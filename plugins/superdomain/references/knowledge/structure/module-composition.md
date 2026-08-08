@@ -11,7 +11,7 @@ read_when: [init, scaffold]
 |---|---|---|---|
 | `multi-module` | 컨텍스트 × 레이어마다 Gradle 모듈 하나 | 모듈들의 묶음 | 모듈 표 필수 |
 | `single-module` | 컨텍스트마다 모듈 하나 | 모듈 하나, 레이어는 그 안의 패키지 | 모듈 표 필수(보통 한 행, 레이어 `all`) |
-| `app-embedded` | 실행 단위(애플리케이션)마다 모듈 | 여러 앱 모듈에 걸친 패키지들 | 애플리케이션 표 + 패키지 규약 표 필수, 모듈 표 금지 |
+| `app-embedded` | 실행 단위마다 앱 모듈 하나 + 공유 레이어를 소유하는 비실행 모듈 | 레이어마다 소유 모듈이 다른 패키지들 — 공유 레이어는 비실행 모듈에, 앱별 레이어는 각 앱 모듈에 | 애플리케이션 표 + 패키지 규약 표 필수, 모듈 표 금지 |
 
 ### 왜 세 형태를 모두 지원하면서도 규칙은 하나인가
 
@@ -21,7 +21,7 @@ collect_signals는 정규화 결과만 소비한다.
 ```
 multi-module   claim/domain 모듈           ─┐
 single-module  claim 모듈의 domain 패키지   ─┼→  com.acme.claim.domain..
-app-embedded   core-api 안의 domain.claim   ─┘
+app-embedded   공유 모듈의 domain.claim     ─┘
 ```
 
 Konsist와 ArchUnit이 판정하는 단위가 패키지 패턴이기 때문에, 정규화를 거치면 강제 파이프라인이
@@ -42,20 +42,24 @@ Konsist와 ArchUnit이 판정하는 단위가 패키지 패턴이기 때문에, 
 ```
 imstargg-backend/
 ├── core/
-│   ├── core-api/       com.imstargg.core.domain.brawlstars..   ← 컨텍스트는 여기 있다
-│   ├── core-admin/     com.imstargg.core.application.statistics..
-│   ├── core-batch/
-│   └── core-worker/
+│   ├── core-domain/    ← 비실행 모듈. 아래 네 앱이 모두 이것을 의존한다
+│   │                     com.imstargg.core.domain.{컨텍스트}..
+│   │                     com.imstargg.core.application.{컨텍스트}..
+│   ├── core-api/       ← 실행 단위. com.imstargg.core.api..    (presentation만)
+│   ├── core-admin/     ← 실행 단위. com.imstargg.core.admin..
+│   ├── core-batch/     ← 실행 단위. com.imstargg.core.batch..
+│   ├── core-worker/    ← 실행 단위. com.imstargg.core.worker..
+│   └── core-enum/               (역할: shared-kernel)
 ├── infrastructure/db-core/      (역할: infrastructure)
 ├── client/brawlstars-client/    (역할: client)
-├── support/logging/             (역할: support)
-└── core/core-enum/              (역할: shared-kernel)
+└── support/logging/             (역할: support)
 ```
 
-앱 4개(api·admin·batch·worker), 역할별 공용 모듈 4개. 컨텍스트 `brawlstars`는 모듈 하나가 아니라
-여러 모듈에 걸친 패키지들로 실현된다. 어느 앱이 어떤 컨텍스트를 쓸 수 있는지는 `### 애플리케이션`
-표의 `포함 컨텍스트` 열이 선언하고, 각 레이어의 패키지 모양은 `### 패키지 규약` 표가
-선언한다([[package-conventions]]).
+앱 4개(api·admin·batch·worker), 역할별 공용 모듈 4개, 그리고 앱이 아닌 `core-domain` 하나.
+컨텍스트 `brawlstars`는 모듈 하나가 아니라 여러 모듈에 걸친 패키지들로 실현된다 —
+domain·application은 `core-domain`에, presentation은 네 앱 각각에. 어느 앱이 어떤 컨텍스트를 쓸
+수 있는지는 `### 애플리케이션` 표의 `포함 컨텍스트` 열이 선언하고, 각 레이어의 패키지 모양은
+`### 패키지 규약` 표가 선언한다([[package-conventions]]).
 
 **"걸친다"가 뜻하는 것 — 레이어마다 소유 모듈이 다르다는 뜻이지 한 레이어가 쪼개진다는 뜻이
 아니다.**
@@ -63,7 +67,8 @@ imstargg-backend/
 - **컨텍스트의 각 레이어 패키지는 정확히 하나의 모듈이 물리적으로 소유한다.** 여러 앱이 함께
   쓰는 레이어(보통 domain·application)는 그 앱들이 **함께 의존하는 비실행 모듈**에 두고, 앱마다
   다른 레이어(보통 presentation)만 각 앱 모듈에 둔다. 위 예에서
-  `com.imstargg.core.domain.brawlstars..`는 한 곳에만 있고 세 앱이 그것을 의존한다.
+  `com.imstargg.core.domain.brawlstars..`는 `core-domain` 한 곳에만 있고, 네 앱이 모두 그것을
+  참조할 수 있다(`core-admin`의 포함 컨텍스트가 `all`이므로 셋이 아니라 넷이다).
 - 같은 패키지가 두 모듈에 동시에 존재하면 split package이거나 복제다. 정규화 패턴은 파일이 어느
   모듈에 있는지 구분하지 않으므로 **이 상태는 어떤 생성 규칙으로도 잡히지 않는다** — 사람이
   지켜야 하는 몇 안 되는 항목이다.
@@ -78,7 +83,8 @@ imstargg-backend/
 
 ### 선택 절차 — 위에서부터 먼저 걸리는 것이 답이다
 
-1. **이미 레이어-우선 패키지로 앱 모듈 안에 코드가 들어 있고, 옮기는 비용이 이득보다 큰가?**
+1. **이미 레이어-우선 패키지(레이어가 최상위, 컨텍스트가 그 아래)로 코드가 배치돼 있고, 옮기는
+   비용이 이득보다 큰가?**
    → `app-embedded`. 이 형태는 **있는 현실을 선언하기 위한 값**이지 그린필드에서 먼저 고르는
    값이 아니다. 새로 만들면서 여러 앱이 도메인을 공유해야 한다면 `multi-module`(컨텍스트 모듈 +
    그것을 의존하는 앱 모듈)이 더 명확하다. 그린필드에서 `app-embedded`를 고를 만한 유일한 이유는
@@ -123,12 +129,14 @@ imstargg-backend/
 
 - `multi-module`·`single-module`: 컨텍스트 섹션에 모듈 표가 필수다(모듈 표가 없으면 sync가
   대조할 대상도, scaffold가 생성할 위치도 없다). 각 행의 `레이어` 값은 그 컨텍스트 스타일이
-  선언한 레이어 이름이거나 `all`이어야 한다. multi-module에서 모듈 표가 없으면 파서가 오류로
+  선언한 레이어 이름이거나 `all`이어야 한다. **두 형태 모두** 모듈 표가 없으면 파서가 오류로
   거부한다.
 - `app-embedded`: 소속 프로젝트에 `### 애플리케이션` 표와 `### 패키지 규약` 표가 필수이며,
   컨텍스트에 모듈 표를 두면 오류다. 셋 다 파서가 검사한다.
 - 같은 프로젝트의 app-embedded 컨텍스트들은 하나의 패키지 규약을 공유하므로 **같은 스타일이어야
-  한다**(파서가 검사한다). 규약 표의 레이어 이름도 그 스타일의 레이어 이름과 일치해야 한다.
+  한다**(파서가 검사한다). 규약 표의 레이어 이름도 그 스타일의 레이어 이름과 일치해야 하지만,
+  **이쪽은 검사되지 않는다** — 파서는 스타일 문서를 로드하지 않으므로 눈으로 대조해야 한다
+  ([[package-conventions]] R1).
 - 한 프로젝트 안에서 컨텍스트마다 다른 모듈 구성을 쓰는 것은 허용된다(레거시 컨텍스트만
   app-embedded로 남기는 등).
 
