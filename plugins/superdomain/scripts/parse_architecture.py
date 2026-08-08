@@ -74,7 +74,9 @@ class Context:
     module_layout: str = ""
     patterns: list = field(default_factory=list)         # [str]
     rule_exceptions: list = field(default_factory=list)  # [RuleException]
-    transition: tuple = ()    # (출발, 목표) 또는 ()
+    transition: tuple = ()    # (출발, 목표) — 파싱 성공(→ 존재) 시에만
+    transition_raw: str = "" # 이행 라벨이 존재하면 원문 값을 그대로 보존(성공/실패 무관).
+                              # ""=라벨 없음, 값 있음+transition=()는 형식 오류(Task 3 판정)
     modules: list = field(default_factory=list)          # [Module]
     relations: list = field(default_factory=list)        # [Relation]
 
@@ -186,13 +188,19 @@ def _apply_label(current_project, current_context, key: str, value: str) -> None
                 m = RE_RULE_EXCEPTION.match(item)
                 if m:
                     exceptions.append(RuleException(rule_id=m.group(1), adr=m.group(2) or ""))
+                else:
+                    # 정규식에 맞지 않아도 항목을 버리지 않는다 — 앞의 '-'만 제거한
+                    # 원문을 rule_id로 보존해 Task 3이 형식 오류로 판정할 수 있게 한다.
+                    exceptions.append(RuleException(rule_id=re.sub(r"^-\s*", "", item), adr=""))
             current_context.rule_exceptions = exceptions
         elif key == "이행":
             stripped = _strip_comment(value)
+            current_context.transition_raw = stripped
             if "→" in stripped:
                 start, target = stripped.split("→", 1)
                 current_context.transition = (start.strip(), target.strip())
-            # '→'가 없는 경우는 구조만 남기고 넘어간다 — 값 누락 검증은 Task 3.
+            # '→'가 없으면 transition은 기본값 ()로 남는다. transition_raw는 채워져
+            # 있으므로 "라벨 없음"과 "형식 오류"를 Task 3이 구분할 수 있다.
         # 그 외 모르는 키는 무시한다.
 
 
@@ -331,7 +339,12 @@ def _parse_document(text: str) -> Architecture:
 
 
 def parse_architecture(text: str) -> tuple:
-    """(Architecture, [ParseError])를 반환. 구조 추출 + 검증(Task 3)까지 수행."""
+    """(Architecture, [ParseError])를 반환.
+
+    이 함수는 구조 추출만 수행한다 — 오류 목록은 항상 빈 리스트([])다.
+    필수 결정 누락·비정규 값 검증(Task 3)은 이후 validate(architecture)
+    호출을 여기에 추가해 채워진다.
+    """
     architecture = _parse_document(text)
     errors = []  # Task 3에서 validate(architecture)를 호출해 여기에 채운다.
     return architecture, errors

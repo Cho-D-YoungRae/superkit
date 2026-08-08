@@ -64,3 +64,6 @@
 - 분류: supporting
 - 스타일: layered-domain
 - 모듈 구성: app-embedded
+- 패턴: cqrs, outbox
+- 규칙 예외: -ld.domain-pure (ADR-0007)
+- 이행: layered-simple → layered-domain

@@ -192,7 +192,9 @@ class Context:
     module_layout: str = ""
     patterns: list = field(default_factory=list)         # [str]
     rule_exceptions: list = field(default_factory=list)  # [RuleException]
-    transition: tuple = ()    # (출발, 목표) 또는 ()
+    transition: tuple = ()    # (출발, 목표) — 파싱 성공(→ 존재) 시에만
+    transition_raw: str = "" # 이행 라벨이 존재하면 원문 값을 그대로 보존(성공/실패 무관).
+                              # ""=라벨 없음, 값 있음+transition=()는 형식 오류(Task 3 판정)
     modules: list = field(default_factory=list)          # [Module]
     relations: list = field(default_factory=list)        # [Relation]
 
@@ -208,7 +210,9 @@ class Architecture:
     has_template_marker: bool = False
 
 def parse_architecture(text: str) -> tuple:
-    """(Architecture, [ParseError])를 반환. 구조 추출 + 검증(Task 3)까지 수행."""
+    """(Architecture, [ParseError])를 반환. 이 태스크는 구조 추출만 수행하며
+    오류 목록은 항상 []다 — 필수 결정 누락·비정규 값 검증(Task 3)은 이후
+    validate(architecture) 호출을 여기에 추가해 채운다."""
 ```
 
 - 라벨 키(한국어) ↔ 필드 매핑: `경로→path, 프로파일→profile, 기본 패키지→base_package, 아키텍처 테스트 위치→test_location, 프로젝트→project, 분류→classification, 스타일→style, 모듈 구성→module_layout, 패턴→patterns, 규칙 예외→rule_exceptions, 이행→transition`
@@ -331,8 +335,8 @@ def _strip_comment(value: str) -> str:
 - `## 프로젝트:`/`## 컨텍스트:` 매치 → 새 섹션 시작(라인 번호 기록). 그 외 `##` 헤딩 → 섹션 없음(무시 모드).
 - 섹션 내 `- 키: 값` → 알려진 라벨만 처리, 모르는 키는 무시. `규칙 예외`를 제외한 모든 값에 `_strip_comment` 적용.
   - `패턴`: 쉼표 분리 리스트.
-  - `규칙 예외`: 쉼표 분리 후 각 항목을 `^-?\s*([A-Za-z0-9_.\-]+)\s*(?:\((ADR-\d{4})\))?$`로 파싱 → `RuleException(rule_id, adr)`.
-  - `이행`: `→` 기준 분리 → `(출발, 목표)`. `→`가 없으면 검증 오류(Task 3).
+  - `규칙 예외`: 쉼표 분리 후 각 항목을 `^-?\s*([A-Za-z0-9_.\-]+)\s*(?:\((ADR-\d{4})\))?$`로 파싱 → `RuleException(rule_id, adr)`. 정규식이 매치하지 않아도 항목을 버리지 않는다 — 앞의 `-`만 제거한 원문을 `rule_id`로, `adr=""`로 보존해 Task 3이 형식 오류로 판정할 수 있게 한다.
+  - `이행`: `→` 기준 분리 → `(출발, 목표)`. 라벨 값은 성공 여부와 무관하게 `transition_raw`에 그대로 보존한다. `→`가 없으면 `transition`은 `()`로 남고(검증 오류는 Task 3), `transition_raw`로 "라벨 없음"과 "형식 오류"를 구분할 수 있다.
 - 표 파싱: `|` 라인 연속 블록을 (헤더, 구분, 데이터행들)로 읽는다. 셀은 `|` 분리 후 strip. 표의 의미는 위치로 결정:
   - 프로젝트 섹션 + 소제목 `애플리케이션` → Application 행 (이름/모듈 경로/포함 컨텍스트, 포함 컨텍스트는 쉼표 분리)
   - 프로젝트 섹션 + 소제목 `공용 모듈` → SharedModule 행
