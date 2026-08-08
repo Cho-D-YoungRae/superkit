@@ -151,10 +151,19 @@ class TestRenderIndex(unittest.TestCase):
         self.assertLess(out.index("| alpha "), out.index("| zeta "))
 
     def test_draft_flag_rendered(self):
+        # 표 헤더 자체에 "draft"라는 글자가 들어있으므로(`| ... | draft |` 컬럼명),
+        # `assertIn("draft", out)`처럼 렌더링 결과 전체를 상대로 단언하면 셀 렌더링
+        # 로직이 완전히 망가지거나 문서가 0개여도 통과해버린다(헤더만으로 충족).
+        # 반드시 해당 문서의 행 전체 모양을 단언하고, draft=False 문서는 셀이
+        # 비어 있는지도 함께 확인해야 판별력이 생긴다.
         from build_index import DocMeta
-        docs = [DocMeta(key="a", topic="t", summary="s", read_when=[], rules=[], draft=True)]
+        docs = [
+            DocMeta(key="a", topic="t", summary="s", read_when=[], rules=[], draft=True),
+            DocMeta(key="b", topic="t", summary="s", read_when=[], rules=[], draft=False),
+        ]
         out = render_index(docs)
-        self.assertIn("draft", out)
+        self.assertIn("| a | t | s |  |  | draft |", out)
+        self.assertIn("| b | t | s |  |  |  |", out)
 
 
 if __name__ == "__main__":
