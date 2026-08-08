@@ -132,7 +132,9 @@ init은 이 매핑을 **제안**하고 최종 결정은 사용자가 한다. 매
 
 분류 자체를 검사하는 rule primitive는 없다(없어야 한다 — 기계가 판정할 수 없는 대상이다).
 core로 분류하고 `hexagonal`을 채택하면 그 스타일이 선언한 `confine-type`·`forbid-import`·
-`layer-order` 인스턴스가 fitness로 생성된다. 분류를 바꾸면 스타일이 바뀌고, 스타일이 바뀌어야
+`layer-order` 인스턴스가 fitness로 생성된다(**생성 자체는 Phase 2 작업이며 아직 동작하지
+않는다** — 현황은 정본 `references/governance/architecture-template.md` §5.3). 분류를 바꾸면
+스타일이 바뀌고, 스타일이 바뀌어야
 강제가 바뀐다. 분류만 고치고 스타일을 그대로 두면 아무 일도 일어나지 않는다.
 
 ### R4. 리뷰 체크리스트

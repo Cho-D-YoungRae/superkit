@@ -19,10 +19,15 @@ read_when: [init, scaffold]
 collect_signals는 정규화 결과만 소비한다.
 
 ```
-multi-module   claim/domain 모듈           ─┐
-single-module  claim 모듈의 domain 패키지   ─┼→  com.acme.claim.domain..
-app-embedded   공유 모듈의 domain.claim     ─┘
+multi-module   claim/domain 모듈              ─┐
+                                                ├→  com.acme.claim.domain..   (컨텍스트-우선 규약)
+single-module  claim 모듈의 domain 패키지      ─┘
+
+app-embedded   공유 모듈의 domain.claim 패키지  →  com.acme.domain.claim..    (레이어-우선 규약)
 ```
+
+**정규화는 세그먼트 순서를 바꾸지 않는다.** 레이어-우선으로 배치된 코드는 레이어-우선 패턴을
+낳는다. 같아지는 것은 패턴 문자열이 아니라 **강제 파이프라인이 받는 입력의 종류**다.
 
 Konsist와 ArchUnit이 판정하는 단위가 패키지 패턴이기 때문에, 정규화를 거치면 강제 파이프라인이
 실현 형태를 알 필요가 없어진다. 실용적 귀결이 둘이다.
@@ -66,7 +71,10 @@ domain·application은 `core-domain`에, presentation은 네 앱 각각에. 어�
 
 - **컨텍스트의 각 레이어 패키지는 정확히 하나의 모듈이 물리적으로 소유한다.** 여러 앱이 함께
   쓰는 레이어(보통 domain·application)는 그 앱들이 **함께 의존하는 비실행 모듈**에 두고, 앱마다
-  다른 레이어(보통 presentation)만 각 앱 모듈에 둔다. 위 예에서
+  다른 레이어(보통 presentation)만 각 앱 모듈에 둔다. **어느 쪽인지는 시스템을 뜯어보지 않고
+  패키지 규약 표를 조회해 답한다 — 패턴에 `{앱}`이 있으면 앱마다 사본이 있는 레이어라 각 앱
+  모듈이 소유하고, `{앱}`이 없으면 프로젝트에 사본이 하나뿐인 레이어라 비실행 모듈이
+  소유한다**(정본 §3). 위 예에서
   `com.imstargg.core.domain.brawlstars..`는 `core-domain` 한 곳에만 있고, 네 앱이 모두 그것을
   참조할 수 있다(`core-admin`의 포함 컨텍스트가 `all`이므로 셋이 아니라 넷이다).
 - 같은 패키지가 두 모듈에 동시에 존재하면 split package이거나 복제다. 정규화 패턴은 파일이 어느
@@ -129,8 +137,9 @@ domain·application은 `core-domain`에, presentation은 네 앱 각각에. 어�
 
 - `multi-module`·`single-module`: 컨텍스트 섹션에 모듈 표가 필수다(모듈 표가 없으면 sync가
   대조할 대상도, scaffold가 생성할 위치도 없다). 각 행의 `레이어` 값은 그 컨텍스트 스타일이
-  선언한 레이어 이름이거나 `all`이어야 한다. **두 형태 모두** 모듈 표가 없으면 파서가 오류로
-  거부한다.
+  선언한 레이어 이름이거나 `all`이어야 하지만, **이 값은 검사되지 않는다**(정본 §5.3) — 오타 난
+  레이어는 오류가 아니라 매칭 0건의 규칙을 만든다. 모듈 표가 **아예 없는** 것은 두 형태 모두
+  파서가 오류로 거부한다.
 - `app-embedded`: 소속 프로젝트에 `### 애플리케이션` 표와 `### 패키지 규약` 표가 필수이며,
   컨텍스트에 모듈 표를 두면 오류다. 셋 다 파서가 검사한다.
 - 같은 프로젝트의 app-embedded 컨텍스트들은 하나의 패키지 규약을 공유하므로 **같은 스타일이어야
@@ -152,6 +161,11 @@ domain·application은 `core-domain`에, presentation은 네 앱 각각에. 어�
 | `support` | 로깅·측정 등 횡단 지원 | 금지(위와 같음) |
 
 방향 규칙 — 모두 `forbid-import` 인스턴스로 fitness가 생성한다.
+
+> **구현 상태**: 아래에서 "fitness가 생성한다"고 적은 규칙 생성은 Phase 2 작업이며 아직
+> 동작하지 않는다. 지금은 사람이 확인해야 한다 — 현황 목록은 정본
+> `references/governance/architecture-template.md` §5.3이 갖는다.
+
 
 1. **공용 모듈은 어떤 애플리케이션·컨텍스트 코드에도 의존할 수 없다.** 역할 공통이며 예외 없다.
 2. **애플리케이션 봉쇄**: 앱은 `포함 컨텍스트`로 선언된 컨텍스트의 코드만 참조한다(`all` 허용).

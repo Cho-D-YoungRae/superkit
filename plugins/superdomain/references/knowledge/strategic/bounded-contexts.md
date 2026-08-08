@@ -12,6 +12,10 @@ read_when: [init, model]
 호출 왕복, 최종 일관성. 그러므로 "여기 경계가 있다"가 아니라 **"여기에 경계를 긋는 값이 있는가"**를
 묻는다.
 
+> **구현 상태**: 아래에서 "fitness가 생성한다"고 적은 규칙 생성은 Phase 2 작업이며 아직
+> 동작하지 않는다. 지금은 사람이 확인해야 한다 — 현황 목록은 정본
+> `references/governance/architecture-template.md` §5.3이 갖는다.
+
 이 플러그인에서 경계는 선언되어야 존재한다. `ARCHITECTURE.md`의 `## 컨텍스트: <name>` 섹션이
 없으면 그 경계는 없는 것이고, 선언된 순간부터 컨텍스트 간 직접 참조는 기본 금지가 되어
 fitness가 이를 강제한다([[context-mapping]]).

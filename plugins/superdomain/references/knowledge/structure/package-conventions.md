@@ -181,7 +181,9 @@ domain·application에서 실수로 `{컨텍스트}`를 빠뜨리면 그 순간 
 | domain | com.acme.claim.domian.. |     ← domain 오타
 ```
 
-fitness가 생성되고, 테스트가 돌고, 초록불이 켜진다. 검사한 파일은 0개다. 컨텍스트의 도메인
+fitness가 생성되고, 테스트가 돌고, 초록불이 켜진다(그 생성은 Phase 2 작업이라 **오늘은 초록불
+조차 없다** — 현황은 정본 `references/governance/architecture-template.md` §5.3). 검사한 파일은
+0개다. 컨텍스트의 도메인
 순수성 규칙은 6개월 동안 아무것도 막지 못했고, 아무도 모른다.
 
 ### 안티패턴 2 — 컨텍스트 이름과 패키지 세그먼트 불일치
