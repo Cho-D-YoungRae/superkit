@@ -52,7 +52,14 @@ ACL 패키지·클래스 이름. 칸이 비어 있으면 "연결은 있는데 �
    - 안 된다 → `acl`
 3. **(우리가 공급자일 때) 소비자가 몇인가?**
    - 1~2 → `customer-supplier`
-   - 3 이상 → `open-host`. 계약을 버전 관리하며 배포한다면 `published-language`를 함께 쓴다
+   - 3 이상 → `open-host`. 계약을 버전 관리하며 배포한다면 바로 아래 표기 규칙을 따른다
+
+**두 유형이 동시에 성립할 때 표에 적는 법**: `유형` 칸은 6종 중 **하나**만 받고 같은 방향에 두
+줄을 쓰지 않으므로, "함께 쓴다"를 그대로 옮길 수 없다. 규칙은 하나다 — **`유형`은 `open-host`로
+두고 `계약` 칸에 버전을 포함한 스키마 이름을 적는다**(`claim-events-v1`). 계약 칸에 버전이 있다는
+사실이 published-language의 존재를 나타낸다. `유형`을 `published-language`로 쓰는 경우는 호스트
+서비스 없이 **스키마만이 계약의 전부일 때**다 — 버전 관리되는 이벤트 스트림을 소비하기만 하는
+관계가 전형이다([[domain-events]]).
 
 **core 컨텍스트가 하류일 때의 기본값은 `acl`이다.** core 모델이 남의 모델 모양에 맞춰지는 순간
 차별화 자산이 상대의 스키마에 종속된다([[domain-classification]] R2와 같은 논리다).
@@ -98,8 +105,8 @@ ACL 패키지·클래스 이름. 칸이 비어 있으면 "연결은 있는데 �
 - [ ] `acl`로 선언된 관계에서 상류 타입이 ACL 패키지 밖에 등장하는가? 등장하면 ACL이 이름뿐이다.
       `confine-type` 또는 `forbid-import`로 격리를 실제 규칙으로 만든다.
 - [ ] core 컨텍스트가 `conformist`로 무언가를 수용하고 있는가? 근거 ADR이 있는가?
-- [ ] `partnership`이 6개월 이상 유지되고 있는가? → 병합 또는 계약화(customer-supplier +
-      published-language) 검토.
+- [ ] `partnership`이 6개월 이상 유지되고 있는가? → 병합 또는 계약화(유형을
+      `customer-supplier`로 낮추고 `계약` 칸에 버전 스키마 이름을 넣기) 검토.
 - [ ] 한 컨텍스트의 관계 줄이 5개를 넘는가? → 허브가 됐다. 경계 자체를 다시 본다
       ([[bounded-contexts]]).
 - [ ] 표에서 지운 줄이 있다면, 그 참조를 실제로 제거했는가? 지우기만 하면 다음 fitness에서
@@ -152,3 +159,5 @@ class ClaimSettlementService(private val translator: BillingTranslator) {
 - [[domain-classification]] — core가 하류일 때 `acl`이 기본값인 이유
 - [[module-composition]] — 공용 모듈과 애플리케이션의 방향 규칙(관계 표가 다루지 않는 영역)
 - [[package-conventions]] — 관계 금지가 판정되는 단위인 패키지 패턴
+- [[domain-events]] — `계약` 칸에 적히는 이벤트 스키마의 명명과 발행 시점
+- [[outbox]] — 이벤트로 맺은 관계에서 발행 신뢰성을 보장하는 방법
