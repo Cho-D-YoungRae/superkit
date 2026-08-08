@@ -220,11 +220,20 @@ class TestValidation(unittest.TestCase):
         self.assertEqual(errs, [])
 
     def test_multi_module_requires_module_table(self):
+        # minimal.md: 10번째 줄이 "## 컨텍스트: claim"(섹션 헤딩), 13번째 줄이
+        # "- 모듈 구성: multi-module". 표 라인만 지우므로 라벨 라인은 그대로 13에 남는다.
+        # 오류가 라벨 라인(13)을 가리켜야 한다 — 헤딩 라인(10)으로 폴백하면 회귀다.
         text = _remove_table_lines(load("minimal.md"))
         errs = self._errors(text)
-        self.assertTrue(any("모듈 표" in e.message for e in errs))
+        matches = [e for e in errs if "모듈 표" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 13)
 
     def test_app_embedded_forbids_module_table(self):
+        # full.md: 33번째 줄이 "## 컨텍스트: brawlstars"(섹션 헤딩), 37번째 줄이
+        # "- 모듈 구성: app-embedded"(cat -n으로 직접 세어 확인). 표는 그 라벨 뒤에
+        # 삽입하므로 라벨 자신의 라인 번호는 바뀌지 않는다.
+        # 오류가 라벨 라인(37)을 가리켜야 한다 — 헤딩 라인(33)으로 폴백하면 회귀다.
         anchor = "- 모듈 구성: app-embedded\n\n### 관계"
         insertion = (
             "- 모듈 구성: app-embedded\n\n"
@@ -236,7 +245,9 @@ class TestValidation(unittest.TestCase):
         self.assertEqual(text.count(anchor), 1)
         text = text.replace(anchor, insertion)
         errs = self._errors(text)
-        self.assertTrue(any("app-embedded" in e.message for e in errs))
+        matches = [e for e in errs if "app-embedded" in e.message]
+        self.assertTrue(matches)
+        self.assertEqual(matches[0].line, 37)
 
     def test_app_embedded_requires_conventions(self):
         text = _remove_heading_block(load("full.md"), "### 패키지 규약")
