@@ -3,8 +3,17 @@
 
 | key | topic | summary | read_when | rules | draft |
 |---|---|---|---|---|---|
+| aggregates | tactical | 애그리거트 경계 설정 기준, 불변식, 트랜잭션 규칙, ID 참조 | model, apply, review |  | draft |
 | bounded-contexts | strategic | 컨텍스트 경계를 긋는 4가지 휴리스틱(언어·소유권·트랜잭션·데이터)과 경계가 잘못 그어졌을 때의 신호 | init, model |  |  |
 | context-mapping | strategic | 관계 표에 쓸 수 있는 6종 관계 유형의 정의·선택 시점·안티패턴. 관계 표는 문서가 아니라 컨텍스트 간 참조의 allow-list다 | init, review |  |  |
+| cqrs | patterns | CQRS 적용 판단 스펙트럼(호출 분리~저장소 분리)과 커맨드/쿼리 분리 규칙 | apply, review |  | draft |
 | domain-classification | strategic | 컨텍스트를 core·supporting·generic으로 판정하는 4문항 체크리스트와 분류→스타일 기본 매핑(기본값은 순수 도메인 모델) | init, evolve |  |  |
+| domain-events | tactical | 도메인 이벤트 발행 위치와 시점, 명명 규칙 | model, apply, review |  | draft |
+| event-sourcing | patterns | 대부분의 컨텍스트에는 불필요하다 — 적용 판단 기준, 스냅샷·리플레이·스키마 진화 | apply, review |  | draft |
+| event-storming | strategic | 텍스트 채팅 기반 이벤트 스토밍 진행 규약 — 이벤트 과거형 나열부터 컨텍스트 경계·핫스팟 도출까지 | model, init |  | draft |
 | module-composition | structure | 모듈 구성 3형(multi-module·single-module·app-embedded)의 정본, 선택 체크리스트, 공용 모듈 역할 4종과 방향 규칙 | init, scaffold |  |  |
+| outbox | patterns | 트랜잭션적 이벤트 발행(outbox) 패턴 — 적용 시점과 구현 절차 | apply, review |  | draft |
 | package-conventions | structure | 기본 패키지 관례({기본 패키지}.{컨텍스트}.{레이어}..)와 패키지 규약 표 작성법, 패키지 명명 규칙 | init, scaffold |  |  |
+| persistence | tactical | 순수 도메인 모델과 영속 엔티티 분리 전략 — 매핑 위치, 어댑터 봉쇄 규칙, lazy loading·양방향 연관 안티패턴, JPA 직접 사용이 정당한 조건 | apply, review, scaffold |  | draft |
+| repositories-domain-services | tactical | 리포지토리·도메인 서비스의 책임 경계와 애플리케이션 서비스와의 구분 기준 | apply, review |  | draft |
+| value-objects | tactical | 값 객체의 불변성, 동등성, 원시 타입 강박 회피, Kotlin data/value class 활용 기준 | apply, review |  | draft |
