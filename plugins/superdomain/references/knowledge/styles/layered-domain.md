@@ -82,14 +82,7 @@ infrastructure의 리포지터리 구현이 진다([[persistence]]). JPA 엔티�
 - presentation → infrastructure 통로가 위험하게 느껴진다 → 아래 R4를 읽고, 그래도 기계로 막아야
   하면 [[hexagonal]]이 그 선택이다
 
-## 규칙
-
-아래가 이 스타일의 선언이다. `파라미터` 셀의 문법과 레이어·패키지 판별은
-`references/governance/rule-vocabulary.md` §2·§2.1이 정본이며 여기서 다시 정의하지 않는다.
-각 인스턴스가 어떤 테스트 코드가 되는지는 `profiles/<프로파일>/rule-mappings.md`가 정한다 —
-아래 "검사 형태"는 생성될 검사의 종류만 적는다.
-
-### 선언
+## 선언
 
 - 레이어: domain, application, presentation, infrastructure (domain이 가장 안쪽)
 
@@ -99,6 +92,14 @@ infrastructure의 리포지터리 구현이 진다([[persistence]]). JPA 엔티�
 | ld.domain-pure | confine-type | type=jpa-entity; allowed_layer=infrastructure |
 | ld.domain-no-framework | forbid-import | from=domain; to=org.springframework..,jakarta.persistence.. |
 | ld.infra-isolated | forbid-import | from=domain,application; to=infrastructure |
+
+`파라미터` 셀의 문법과 레이어·패키지 판별은 `references/governance/rule-vocabulary.md` §2·§2.1이
+정본이며 여기서 다시 정의하지 않는다. 각 인스턴스의 해설은 아래 `## 규칙`에 있다.
+
+## 규칙
+
+각 인스턴스가 어떤 테스트 코드가 되는지는 `profiles/<프로파일>/rule-mappings.md`가 정한다 —
+아래 "검사 형태"는 생성될 검사의 종류만 적는다.
 
 ### R1. ld.layer-order — 세 레이어의 호출 방향
 

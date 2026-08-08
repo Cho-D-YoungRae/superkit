@@ -82,14 +82,7 @@ hexagonal과 [[layered-domain]]은 도메인 순수성(`*.domain-pure` + 프레�
 분류 기본값을 벗어나는 선택(예: `supporting`인데 hexagonal)은 가능하며, 그때는 2단계의 A·B 값을
 근거로 ADR을 남긴다.
 
-## 규칙
-
-아래가 이 스타일의 선언이다. `파라미터` 셀의 문법과 레이어·패키지 판별은
-`references/governance/rule-vocabulary.md` §2·§2.1이 정본이며 여기서 다시 정의하지 않는다.
-각 인스턴스가 어떤 테스트 코드가 되는지는 `profiles/<프로파일>/rule-mappings.md`가 정한다 —
-아래 "검사 형태"는 생성될 검사의 종류만 적는다.
-
-### 선언
+## 선언
 
 - 레이어: domain, application, adapter (안 → 밖 순서)
 
@@ -99,6 +92,14 @@ hexagonal과 [[layered-domain]]은 도메인 순수성(`*.domain-pure` + 프레�
 | hex.domain-pure | confine-type | type=jpa-entity; allowed_layer=adapter |
 | hex.domain-no-framework | forbid-import | from=domain; to=org.springframework..,jakarta.persistence.. |
 | hex.ports-owned-inside | naming-suffix | scope=application; suffixes=Port,UseCase |
+
+`파라미터` 셀의 문법과 레이어·패키지 판별은 `references/governance/rule-vocabulary.md` §2·§2.1이
+정본이며 여기서 다시 정의하지 않는다. 각 인스턴스의 해설은 아래 `## 규칙`에 있다.
+
+## 규칙
+
+각 인스턴스가 어떤 테스트 코드가 되는지는 `profiles/<프로파일>/rule-mappings.md`가 정한다 —
+아래 "검사 형태"는 생성될 검사의 종류만 적는다.
 
 ### R1. hex.deps-inward — 의존은 안으로만
 
@@ -139,20 +140,32 @@ R3은 import 자체를 막는다. 둘은 겹치지 않는다 — `@Component`가
 
 `scope=application`은 레이어 전체이므로 **application의 모든 최상위 public 타입**이 `Port` 또는
 `UseCase`로 끝나야 한다. 강한 규칙이고, 프리셋 4종에서 예외가 가장 자주 필요해지는 규칙이다
-(`rule-vocabulary.md` §3.4). 규칙을 켠 채로 사는 방법은 넷이며, 이 순서로 검토한다.
+(`rule-vocabulary.md` §3.4).
 
-1. **유스케이스 클래스 자체를 `...UseCase`로 이름 짓는다.** in 포트 인터페이스를 따로 두지 않는
-   변형이다. 커맨드·결과 타입은 그 클래스의 중첩 타입으로 둔다 — 중첩 타입은 검사 대상이 아니다.
-2. **구현을 `internal`로 둔다.** 최상위 public 타입만 대상이므로 `internal class ApproveClaimService`는
-   위반이 아니다. 컨텍스트가 모듈 하나일 때 유효하다.
-3. **스코프를 좁힌 커스텀 스타일을 선언한다** — `scope`에 레이어 대신 패키지 패턴을 준다.
-   프리셋 문서를 고치는 것이 아니라 새 스타일을 선언하는 경로다.
-4. **컨텍스트에서 규칙 예외로 뺀다** — `- 규칙 예외: -hex.ports-owned-inside (ADR-XXXX)`.
-   근거 ADR이 반드시 따른다.
+걸리는 것은 대개 하나다. 흔한 관례에서 in 포트 인터페이스는 이미 `ApproveClaimUseCase`인데
+**구현 클래스 이름만** `ApproveClaimService`여서 위반이 된다. 규칙을 켠 채로 사는 방법은 넷이며,
+이 순서로 검토한다.
 
-1번을 먼저 시도한다. 흔한 관례인 `SendMoneyService`류의 이름은 이 규칙에서 위반이므로, 프리셋을
-그대로 쓰려면 이름 관례를 먼저 맞춘다. **애노테이션은 검사 대상이 아니다** — `@Service`가 붙은
-`ApproveClaimUseCase`는 정상이다. 검사하는 것은 타입 이름뿐이다.
+1. **구현에 접두사를 붙여 `DefaultApproveClaimUseCase`로 짓는다.** 인터페이스와 구현이 모두
+   `UseCase`로 끝나 통과한다. **포기하는 것이 없고 한 단어면 된다** — in 포트도 그대로 두고 명명
+   규율도 그대로 지킨다. 관례에서 바꾸는 것은 구현 클래스 이름 하나뿐이다.
+2. **in 포트 인터페이스를 두지 않고 유스케이스 클래스 자체를 `...UseCase`로 짓는다.** 커맨드·결과
+   타입은 그 클래스의 중첩 타입으로 둔다(중첩 타입은 검사 대상이 아니다). 다만 이것은 in 포트를
+   포기하는 선택이고, in 포트는 이 스타일을 [[layered-domain]] 대신 고른 이유의 절반이다 —
+   적용 기준 2단계의 A가 1이었다면 애초에 layered-domain이 맞았을 수 있다.
+3. **구현을 `internal`로 둔다.** 최상위 public 타입만 대상이므로 `internal class ApproveClaimService`는
+   위반이 아니다. 단 **Kotlin 전용 답이며 java-spring 프로파일에는 대응물이 없다**(Java의
+   package-private은 같은 패키지 안에서만 보인다). 컨텍스트가 모듈 하나일 때만 유효하다.
+4. **스코프를 좁힌 커스텀 스타일을 선언하거나, 컨텍스트에서 규칙 예외로 뺀다** —
+   `- 규칙 예외: -hex.ports-owned-inside (ADR-XXXX)`. 근거 ADR이 반드시 따른다.
+
+**애노테이션은 검사 대상이 아니다** — `@Service`가 붙은 `ApproveClaimUseCase`는 정상이다.
+검사하는 것은 타입 이름뿐이다.
+
+**예외 타입은 domain에 선언한다.** application에 최상위 public으로 두면 `Port`·`UseCase`로 끝나지
+않아 위반이다. domain에는 명명 규칙이 없고, "청구를 찾을 수 없다"는 업무 사실이므로 도메인에
+속하는 것이 자연스럽다. 순수성 규칙(R2·R3)도 걸리지 않는다 — 예외는 프레임워크 타입도
+`@Entity`도 아니다.
 
 **검사 형태**: application 패턴의 최상위 public 타입 이름이 `Port`·`UseCase` 중 하나로 끝나는지
 확인하는 검사 1건.
@@ -162,7 +175,7 @@ R3은 import 자체를 막는다. 둘은 겹치지 않는다 — `@Component`가
 - [ ] out 포트가 도메인 타입만 주고받는가? 시그니처에 어댑터 DTO가 있으면 R2를 우회한 누수다
 - [ ] 포트 이름이 기술이 아니라 의도인가? `SaveClaimPort`는 좋고 `ClaimJpaPort`는 어댑터가
       이름으로 새어 나온 것이다
-- [ ] 구현이 하나뿐인 포트가 대부분인가? → 적용 기준의 한 문항을 다시 수행한다
+- [ ] 구현이 하나뿐인 포트가 대부분인가? → 적용 기준 2단계의 A·B를 다시 센다
 - [ ] 도메인 문서에 이 컨텍스트의 불변식이 있는가? hexagonal은 도메인 문서가 필수다
 - [ ] adapter 패턴이 실제 소스를 잡는가? 어긋난 패턴은 위반 0건으로 보인다([[package-conventions]])
 
@@ -181,21 +194,27 @@ class Claim(val id: ClaimId, private var status: ClaimStatus) {
     }
 }
 
+// 예외는 domain에 둔다 — domain에는 명명 규칙이 없고, 업무 사실이다 (R4)
+class ClaimNotFound(id: ClaimId) : RuntimeException("청구 없음: $id")
+
 // com.acme.claim.application — 포트는 안쪽이 소유한다
 package com.acme.claim.application
 
 interface LoadClaimPort { fun findById(id: ClaimId): Claim? }
 interface SaveClaimPort { fun save(claim: Claim) }
 
-@Service                                     // 애노테이션은 검사 대상이 아니다
-class ApproveClaimUseCase(                   // 타입 이름이 UseCase로 끝난다 — R4 통과
+interface ApproveClaimUseCase {                        // in 포트 — UseCase로 끝난다
+    fun handle(command: Command)
+    data class Command(val claimId: ClaimId, val approver: UserId)   // 중첩 타입 — R4 대상 아님
+}
+
+@Service                                               // 애노테이션은 검사 대상이 아니다
+class DefaultApproveClaimUseCase(                      // 구현도 UseCase로 끝난다 — R4의 1번
     private val loadClaim: LoadClaimPort,
     private val saveClaim: SaveClaimPort,
-) {
-    data class Command(val claimId: ClaimId, val approver: UserId)   // 중첩 타입 — R4 대상 아님
-
+) : ApproveClaimUseCase {
     @Transactional
-    fun handle(command: Command) {
+    override fun handle(command: ApproveClaimUseCase.Command) {
         val claim = loadClaim.findById(command.claimId) ?: throw ClaimNotFound(command.claimId)
         claim.approve(command.approver)
         saveClaim.save(claim)
