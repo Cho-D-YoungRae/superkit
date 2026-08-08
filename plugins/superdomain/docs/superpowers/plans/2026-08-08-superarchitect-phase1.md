@@ -877,11 +877,11 @@ git commit -m "docs: 전략·구조 지식 5종 (init 판정 도구)"
 | hex.domain-no-framework | forbid-import | from=domain; to=org.springframework..,jakarta.persistence.. |
 | hex.ports-owned-inside | naming-suffix | scope=application; suffixes=Port,UseCase |
 
-**clean** — 레이어: `domain, usecase, interface-adapter, framework`:
+**clean** — 레이어: `domain, usecase, adapter, framework`:
 
 | 규칙 id | primitive | 파라미터 |
 |---|---|---|
-| cl.deps-inward | layer-order | layers=domain,usecase,interface-adapter,framework |
+| cl.deps-inward | layer-order | layers=domain,usecase,adapter,framework |
 | cl.domain-pure | confine-type | type=jpa-entity; allowed_layer=framework |
 | cl.domain-no-framework | forbid-import | from=domain,usecase; to=org.springframework..,jakarta.persistence.. |
 
