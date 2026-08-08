@@ -46,6 +46,7 @@ class Project:
     applications: list = field(default_factory=list)    # [Application]
     shared_modules: list = field(default_factory=list)  # [SharedModule]
     package_conventions: dict = field(default_factory=dict)  # 레이어명 -> 패턴 문자열
+    label_lines: dict = field(default_factory=dict)  # 라벨 키(한국어) -> 그 라벨이 등장한 1-기준 라인 번호
 
 @dataclass
 class Module:
@@ -78,7 +79,8 @@ class Context:
     transition_raw: str = "" # 이행 라벨이 존재하면 원문 값을 그대로 보존(성공/실패 무관).
                               # ""=라벨 없음, 값 있음+transition=()는 형식 오류(Task 3 판정)
     modules: list = field(default_factory=list)          # [Module]
-    relations: list = field(default_factory=list)        # [Relation]
+    relations: list = field(default_factory=list)
+    label_lines: dict = field(default_factory=dict)  # 라벨 키(한국어) -> 그 라벨이 등장한 1-기준 라인 번호        # [Relation]
 
 @dataclass
 class ParseError:
@@ -164,20 +166,29 @@ def _collect_table_block(lines: list, start: int) -> tuple:
     return block, j
 
 
-def _apply_label(current_project, current_context, key: str, value: str) -> None:
-    """'- 키: 값' 한 줄을 현재 활성 섹션에 반영한다. 알려진 키만 처리한다."""
+def _apply_label(current_project, current_context, key: str, value: str, lineno: int) -> None:
+    """'- 키: 값' 한 줄을 현재 활성 섹션에 반영한다. 알려진 키만 처리한다.
+
+    라벨을 반영할 때마다 `label_lines[key] = lineno`도 함께 기록한다. 이는 Task 3의
+    validate()가 라벨별 오류를 (섹션 헤딩 라인이 아니라) 그 라벨 자신의 라인에 붙일 수
+    있게 하는 additive 필드로, 값이 여러 줄에 걸쳐 반복 등장하면 마지막 등장 라인이
+    남는다(현재 템플릿 문법상 같은 키가 한 섹션에 두 번 나타나는 경우는 없다).
+    """
     if current_project is not None:
         field_name = PROJECT_LABELS.get(key)
         if field_name:
             setattr(current_project, field_name, _strip_comment(value))
+            current_project.label_lines[key] = lineno
         return
 
     if current_context is not None:
         if key in CONTEXT_LABELS:
             setattr(current_context, CONTEXT_LABELS[key], _strip_comment(value))
+            current_context.label_lines[key] = lineno
         elif key == "패턴":
             stripped = _strip_comment(value)
             current_context.patterns = [p.strip() for p in stripped.split(",") if p.strip()]
+            current_context.label_lines[key] = lineno
         elif key == "규칙 예외":
             # 각 항목의 '(...)'는 ADR 참조이므로 _strip_comment를 적용하지 않는다.
             exceptions = []
@@ -193,6 +204,7 @@ def _apply_label(current_project, current_context, key: str, value: str) -> None
                     # 원문을 rule_id로 보존해 Task 3이 형식 오류로 판정할 수 있게 한다.
                     exceptions.append(RuleException(rule_id=re.sub(r"^-\s*", "", item), adr=""))
             current_context.rule_exceptions = exceptions
+            current_context.label_lines[key] = lineno
         elif key == "이행":
             stripped = _strip_comment(value)
             current_context.transition_raw = stripped
@@ -201,6 +213,7 @@ def _apply_label(current_project, current_context, key: str, value: str) -> None
                 current_context.transition = (start.strip(), target.strip())
             # '→'가 없으면 transition은 기본값 ()로 남는다. transition_raw는 채워져
             # 있으므로 "라벨 없음"과 "형식 오류"를 Task 3이 구분할 수 있다.
+            current_context.label_lines[key] = lineno
         # 그 외 모르는 키는 무시한다.
 
 
@@ -315,7 +328,7 @@ def _parse_document(text: str) -> Architecture:
         if current_project is not None or current_context is not None:
             m_label = RE_LABEL.match(line)
             if m_label:
-                _apply_label(current_project, current_context, m_label.group(1), m_label.group(2))
+                _apply_label(current_project, current_context, m_label.group(1), m_label.group(2), lineno)
                 i += 1
                 continue
 
@@ -338,13 +351,275 @@ def _parse_document(text: str) -> Architecture:
     return architecture
 
 
+# 프로젝트 섹션의 필수 라벨(라벨 한국어 키 -> Project 필드명)
+REQUIRED_PROJECT_LABELS = [
+    ("경로", "path"),
+    ("프로파일", "profile"),
+    ("기본 패키지", "base_package"),
+    ("아키텍처 테스트 위치", "test_location"),
+]
+# 컨텍스트 섹션의 필수 라벨(라벨 한국어 키 -> Context 필드명)
+REQUIRED_CONTEXT_LABELS = [
+    ("분류", "classification"),
+    ("스타일", "style"),
+    ("모듈 구성", "module_layout"),
+]
+
+
+def _check_duplicate_names(items: list, kind: str, errors: list) -> None:
+    """섹션 목록(프로젝트 또는 컨텍스트)에서 이름이 중복되는 항목을 찾아 보고한다."""
+    first_seen = {}
+    for item in items:
+        if item.name in first_seen:
+            errors.append(ParseError(
+                item.line,
+                f"{kind} 이름 '{item.name}'이(가) 중복되었습니다 "
+                f"(처음 등장: {first_seen[item.name]}번째 줄).",
+            ))
+        else:
+            first_seen[item.name] = item.line
+
+
+def _validate_project(project: Project, context_names: set, errors: list) -> None:
+    """프로젝트 하나의 필수 라벨·값 유효성·표 내용을 검사한다."""
+    for label, field_name in REQUIRED_PROJECT_LABELS:
+        if not getattr(project, field_name):
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}': 필수 라벨 '{label}'이(가) 없습니다.",
+            ))
+
+    if project.profile and project.profile not in KNOWN_PROFILES:
+        line = project.label_lines.get("프로파일", project.line)
+        errors.append(ParseError(
+            line,
+            f"프로젝트 '{project.name}'의 프로파일 값 '{project.profile}'이(가) 올바르지 않습니다 "
+            f"(허용값: {sorted(KNOWN_PROFILES)}).",
+        ))
+
+    for shared_module in project.shared_modules:
+        if shared_module.role and shared_module.role not in SHARED_ROLES:
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}'의 공용 모듈 '{shared_module.name}' 역할 값 "
+                f"'{shared_module.role}'이(가) 올바르지 않습니다 (허용값: {sorted(SHARED_ROLES)}).",
+            ))
+
+    for application in project.applications:
+        for ctx_name in application.contexts:
+            if ctx_name != "all" and ctx_name not in context_names:
+                errors.append(ParseError(
+                    project.line,
+                    f"프로젝트 '{project.name}'의 애플리케이션 '{application.name}'이(가) 참조하는 "
+                    f"컨텍스트 '{ctx_name}'을(를) 찾을 수 없습니다.",
+                ))
+
+
+def _validate_context(context: Context, project_names: set, context_names: set,
+                       multiple_projects: bool, errors: list) -> None:
+    """컨텍스트 하나의 필수 라벨·값 유효성·표·이행 규칙을 검사한다."""
+    for label, field_name in REQUIRED_CONTEXT_LABELS:
+        if not getattr(context, field_name):
+            errors.append(ParseError(
+                context.line,
+                f"컨텍스트 '{context.name}': 필수 라벨 '{label}'이(가) 없습니다.",
+            ))
+
+    if context.classification and context.classification not in CLASSIFICATIONS:
+        line = context.label_lines.get("분류", context.line)
+        errors.append(ParseError(
+            line,
+            f"컨텍스트 '{context.name}'의 분류 값 '{context.classification}'이(가) 올바르지 않습니다 "
+            f"(허용값: {sorted(CLASSIFICATIONS)}).",
+        ))
+
+    if context.style and not (context.style in PRESET_STYLES or context.style.startswith("custom/")):
+        line = context.label_lines.get("스타일", context.line)
+        errors.append(ParseError(
+            line,
+            f"컨텍스트 '{context.name}'의 스타일 값 '{context.style}'이(가) 올바르지 않습니다 "
+            f"(허용값: {sorted(PRESET_STYLES)} 또는 custom/<이름>).",
+        ))
+
+    if context.module_layout and context.module_layout not in MODULE_LAYOUTS:
+        line = context.label_lines.get("모듈 구성", context.line)
+        errors.append(ParseError(
+            line,
+            f"컨텍스트 '{context.name}'의 모듈 구성 값 '{context.module_layout}'이(가) 올바르지 않습니다 "
+            f"(허용값: {sorted(MODULE_LAYOUTS)}).",
+        ))
+
+    if context.module_layout == "multi-module" and not context.modules:
+        errors.append(ParseError(
+            context.line,
+            f"컨텍스트 '{context.name}': 모듈 구성이 multi-module인데 모듈 표가 없습니다.",
+        ))
+
+    if context.module_layout == "app-embedded" and context.modules:
+        errors.append(ParseError(
+            context.line,
+            f"컨텍스트 '{context.name}': 모듈 구성이 app-embedded이면 모듈 표를 작성할 수 없습니다.",
+        ))
+
+    for module in context.modules:
+        if not module.layer:
+            errors.append(ParseError(
+                context.line,
+                f"컨텍스트 '{context.name}'의 모듈 '{module.name}' 레이어 값이 비어 있습니다.",
+            ))
+
+    if context.project:
+        if context.project not in project_names:
+            line = context.label_lines.get("프로젝트", context.line)
+            errors.append(ParseError(
+                line,
+                f"컨텍스트 '{context.name}'이(가) 참조하는 프로젝트 '{context.project}'를 찾을 수 없습니다.",
+            ))
+    elif multiple_projects:
+        errors.append(ParseError(
+            context.line,
+            f"컨텍스트 '{context.name}': 프로젝트가 여러 개이므로 '- 프로젝트: <이름>' 라벨로 "
+            f"속한 프로젝트를 지정해야 합니다.",
+        ))
+
+    for relation in context.relations:
+        if relation.type and relation.type not in RELATION_TYPES:
+            errors.append(ParseError(
+                context.line,
+                f"컨텍스트 '{context.name}'의 관계 유형 값 '{relation.type}'이(가) 올바르지 않습니다 "
+                f"(허용값: {sorted(RELATION_TYPES)}).",
+            ))
+        if relation.target and relation.target not in context_names:
+            errors.append(ParseError(
+                context.line,
+                f"컨텍스트 '{context.name}'의 관계 상대 '{relation.target}'을(를) 찾을 수 없습니다.",
+            ))
+
+    for rule_exception in context.rule_exceptions:
+        if not rule_exception.adr:
+            line = context.label_lines.get("규칙 예외", context.line)
+            errors.append(ParseError(
+                line,
+                f"컨텍스트 '{context.name}'의 규칙 예외 '{rule_exception.rule_id}'에 ADR 참조가 없습니다 "
+                f"(형식: <규칙 ID> (ADR-0001)).",
+            ))
+
+    if context.transition_raw:
+        line = context.label_lines.get("이행", context.line)
+        if context.transition == ():
+            errors.append(ParseError(
+                line,
+                f"컨텍스트 '{context.name}'의 이행 값 '{context.transition_raw}'에 '→' 구분자가 없습니다 "
+                f"(형식: <출발 스타일> → <목표 스타일>).",
+            ))
+        else:
+            _start, target = context.transition
+            if context.style and target != context.style:
+                errors.append(ParseError(
+                    line,
+                    f"컨텍스트 '{context.name}'의 이행 목표 '{target}'이(가) 현재 스타일 "
+                    f"'{context.style}'과(와) 같지 않습니다.",
+                ))
+
+
+def _validate_app_embedded_consistency(architecture: Architecture, errors: list) -> None:
+    """app-embedded 컨텍스트가 있는 프로젝트는 애플리케이션·패키지 규약 표가 필수이고,
+    같은 프로젝트에 속한 app-embedded 컨텍스트들은 같은 스타일을 가져야 한다."""
+    by_project = {}
+    for context in architecture.contexts:
+        if context.module_layout == "app-embedded":
+            by_project.setdefault(context.project, []).append(context)
+
+    for project in architecture.projects:
+        contexts = by_project.get(project.name)
+        if not contexts:
+            continue
+
+        if not project.package_conventions:
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}': app-embedded 컨텍스트가 있으면 "
+                f"'패키지 규약' 표가 필수입니다.",
+            ))
+        if not project.applications:
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}': app-embedded 컨텍스트가 있으면 "
+                f"'애플리케이션' 표가 필수입니다.",
+            ))
+
+        styles = {c.style for c in contexts if c.style}
+        if len(styles) > 1:
+            detail = ", ".join(f"{c.name}={c.style}" for c in contexts)
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}'의 app-embedded 컨텍스트들은 같은 스타일을 가져야 "
+                f"합니다 ({detail}).",
+            ))
+
+
+def validate(architecture: Architecture) -> list:
+    """Architecture를 검사해 [ParseError] 목록을 반환한다(문제 없으면 빈 리스트).
+
+    구조 추출(Task 2) 이후 단계로, 필수 라벨 누락·비정규 값·상호 참조 무결성을
+    확인한다. 모듈 표의 레이어 값을 스타일 문서와 대조하는 것, 커스텀 스타일
+    문서의 실존 여부, 패턴 값의 유효성은 이 단계의 범위 밖이다(Phase 2).
+    """
+    errors = []
+
+    if not architecture.has_template_marker:
+        errors.append(ParseError(
+            0,
+            f"템플릿 마커({TEMPLATE_MARKER})가 없습니다. 결정 템플릿에서 문서를 생성했는지 확인하세요.",
+        ))
+
+    if not architecture.projects:
+        errors.append(ParseError(
+            0,
+            "프로젝트 섹션이 없습니다. '## 프로젝트: <이름>' 섹션을 최소 1개 작성하세요.",
+        ))
+
+    _check_duplicate_names(architecture.projects, "프로젝트", errors)
+    _check_duplicate_names(architecture.contexts, "컨텍스트", errors)
+
+    project_names = {p.name for p in architecture.projects}
+    context_names = {c.name for c in architecture.contexts}
+    multiple_projects = len(architecture.projects) > 1
+
+    for project in architecture.projects:
+        _validate_project(project, context_names, errors)
+
+    for context in architecture.contexts:
+        _validate_context(context, project_names, context_names, multiple_projects, errors)
+
+    _validate_app_embedded_consistency(architecture, errors)
+
+    return errors
+
+
 def parse_architecture(text: str) -> tuple:
     """(Architecture, [ParseError])를 반환.
 
-    이 함수는 구조 추출만 수행한다 — 오류 목록은 항상 빈 리스트([])다.
-    필수 결정 누락·비정규 값 검증(Task 3)은 이후 validate(architecture)
-    호출을 여기에 추가해 채워진다.
+    구조를 추출한 뒤 validate()로 필수 결정 누락·비정규 값을 검사해 오류
+    목록을 채운다. 실현 정규화(Task 4)는 이후 별도 함수로 추가된다.
     """
     architecture = _parse_document(text)
-    errors = []  # Task 3에서 validate(architecture)를 호출해 여기에 채운다.
+    errors = validate(architecture)
     return architecture, errors
+
+
+if __name__ == "__main__":
+    import sys
+
+    path = sys.argv[1] if len(sys.argv) > 1 else "ARCHITECTURE.md"
+    try:
+        text = open(path, encoding="utf-8").read()
+    except FileNotFoundError:
+        print(f"오류: {path} 파일이 없습니다. /superarchitect:init으로 초기화하세요.", file=sys.stderr)
+        sys.exit(1)
+    arch, errors = parse_architecture(text)
+    if errors:
+        for e in sorted(errors, key=lambda e: e.line):
+            print(f"{path}:{e.line}: {e.message}", file=sys.stderr)
+        sys.exit(1)
+    print(f"OK: 프로젝트 {len(arch.projects)}, 컨텍스트 {len(arch.contexts)}")

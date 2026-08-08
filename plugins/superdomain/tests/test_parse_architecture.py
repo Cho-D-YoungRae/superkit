@@ -85,7 +85,11 @@ class TestParseCore(unittest.TestCase):
             "- 이행: layered-simple",
         )
         arch, errors = parse_architecture(text)
-        self.assertEqual(errors, [])
+        # Task 3 계약 변경: transition_raw는 채워져 있는데 transition이 ()면 형식 오류로
+        # 판정된다(위 주석이 원래 의도한 대로) — 이 fixture 자체가 그 오류 케이스이므로
+        # errors는 더 이상 빈 리스트가 아니다. validate() 도입 전에는 항상 []였을 뿐이다.
+        self.assertEqual(len(errors), 1)
+        self.assertIn("→", errors[0].message)
         renewal = next(c for c in arch.contexts if c.name == "renewal")
         self.assertEqual(renewal.transition, ())
         self.assertEqual(renewal.transition_raw, "layered-simple")
@@ -98,11 +102,262 @@ class TestParseCore(unittest.TestCase):
             "- 규칙 예외: -ld.domain-pure (ADR-0007), 이상한 항목 !!",
         )
         arch, errors = parse_architecture(text)
-        self.assertEqual(errors, [])
+        # Task 3 계약 변경: adr가 빈 규칙 예외는 검증 오류로 판정된다(위 주석이 원래 의도한
+        # 대로) — "이상한 항목 !!"이 정확히 그 케이스라 errors는 더 이상 빈 리스트가 아니다.
+        # 기존 유효한 예외(-ld.domain-pure, ADR-0007 있음)는 오류를 만들지 않으므로 오류는 1건뿐이다.
+        self.assertEqual(len(errors), 1)
+        self.assertIn("ADR", errors[0].message)
+        self.assertIn("이상한 항목 !!", errors[0].message)
         renewal = next(c for c in arch.contexts if c.name == "renewal")
         self.assertEqual(len(renewal.rule_exceptions), 2)
         self.assertEqual(renewal.rule_exceptions[1].rule_id, "이상한 항목 !!")
         self.assertEqual(renewal.rule_exceptions[1].adr, "")
+
+def _remove_heading_block(text, start_marker):
+    """start_marker로 시작하는 라인부터, 다음 '##'/'###' 헤딩 라인 전까지 제거한다.
+
+    표(레이어 값이 없는 자유 텍스트 포함) 전체를 헤딩 단위로 들어내되, 정확한
+    바이트 스니펫에 의존하지 않도록 라인 기반으로 동작한다.
+    """
+    lines = text.split("\n")
+    out = []
+    skipping = False
+    for ln in lines:
+        if not skipping and ln.startswith(start_marker):
+            skipping = True
+            continue
+        if skipping:
+            if ln.startswith("##"):
+                skipping = False
+            else:
+                continue
+        out.append(ln)
+    return "\n".join(out)
+
+
+def _remove_table_lines(text):
+    """'|'로 시작하는 모든 라인을 제거한다 (단일 표만 있는 fixture에서 사용)."""
+    return "\n".join(ln for ln in text.split("\n") if not ln.startswith("|"))
+
+
+class TestValidation(unittest.TestCase):
+    def _errors(self, text):
+        _, errors = parse_architecture(text)
+        return errors
+
+    # --- 브리프 예시 그대로 ---
+
+    def test_missing_required_project_label(self):
+        text = load("minimal.md").replace("- 기본 패키지: com.acme\n", "")
+        errs = self._errors(text)
+        self.assertTrue(any("기본 패키지" in e.message for e in errs))
+
+    def test_invalid_classification(self):
+        text = load("minimal.md").replace("- 분류: core", "- 분류: important")
+        errs = self._errors(text)
+        self.assertTrue(any("분류" in e.message and "important" in e.message for e in errs))
+        self.assertTrue(all(e.line > 0 for e in errs))
+
+    # --- 표의 24개 케이스 ---
+
+    def test_no_template_marker(self):
+        text = load("minimal.md").replace("<!-- superarchitect:template v1 -->\n", "")
+        errs = self._errors(text)
+        self.assertTrue(any("템플릿 마커" in e.message for e in errs))
+
+    def test_no_project(self):
+        project_block = (
+            "## 프로젝트: backend\n"
+            "- 경로: .\n"
+            "- 프로파일: kotlin-spring\n"
+            "- 기본 패키지: com.acme\n"
+            "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin\n\n"
+        )
+        text = load("minimal.md").replace(project_block, "")
+        self.assertNotIn("## 프로젝트:", text)
+        errs = self._errors(text)
+        self.assertTrue(any("프로젝트" in e.message for e in errs))
+
+    def test_unknown_profile(self):
+        text = load("minimal.md").replace("- 프로파일: kotlin-spring", "- 프로파일: rust-axum")
+        errs = self._errors(text)
+        self.assertTrue(any("프로파일" in e.message for e in errs))
+
+    def test_context_missing_style(self):
+        text = load("minimal.md").replace("- 스타일: hexagonal\n", "")
+        errs = self._errors(text)
+        self.assertTrue(any("스타일" in e.message for e in errs))
+
+    def test_invalid_module_layout(self):
+        text = load("minimal.md").replace("- 모듈 구성: multi-module", "- 모듈 구성: mono")
+        errs = self._errors(text)
+        self.assertTrue(any("모듈 구성" in e.message for e in errs))
+
+    def test_invalid_style_value(self):
+        text = load("minimal.md").replace("- 스타일: hexagonal", "- 스타일: onion")
+        errs = self._errors(text)
+        self.assertTrue(any("스타일" in e.message and "onion" in e.message for e in errs))
+
+    def test_custom_style_accepted(self):
+        text = load("minimal.md").replace("- 스타일: hexagonal", "- 스타일: custom/our-hex")
+        errs = self._errors(text)
+        self.assertEqual(errs, [])
+
+    def test_multi_module_requires_module_table(self):
+        text = _remove_table_lines(load("minimal.md"))
+        errs = self._errors(text)
+        self.assertTrue(any("모듈 표" in e.message for e in errs))
+
+    def test_app_embedded_forbids_module_table(self):
+        anchor = "- 모듈 구성: app-embedded\n\n### 관계"
+        insertion = (
+            "- 모듈 구성: app-embedded\n\n"
+            "| 모듈 | 경로 | 레이어 |\n|---|---|---|\n"
+            "| brawlstars-domain | brawlstars/domain | domain |\n\n"
+            "### 관계"
+        )
+        text = load("full.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, insertion)
+        errs = self._errors(text)
+        self.assertTrue(any("app-embedded" in e.message for e in errs))
+
+    def test_app_embedded_requires_conventions(self):
+        text = _remove_heading_block(load("full.md"), "### 패키지 규약")
+        self.assertNotIn("패키지 규약", text)
+        errs = self._errors(text)
+        self.assertTrue(any("패키지 규약" in e.message for e in errs))
+
+    def test_app_embedded_requires_applications(self):
+        text = _remove_heading_block(load("full.md"), "### 애플리케이션")
+        self.assertNotIn("### 애플리케이션", text)
+        errs = self._errors(text)
+        self.assertTrue(any("애플리케이션" in e.message for e in errs))
+
+    def test_app_embedded_same_style(self):
+        anchor = "## 컨텍스트: statistics\n- 프로젝트: imstargg-backend\n- 분류: core\n- 스타일: layered-domain"
+        replacement = "## 컨텍스트: statistics\n- 프로젝트: imstargg-backend\n- 분류: core\n- 스타일: hexagonal"
+        text = load("full.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, replacement)
+        errs = self._errors(text)
+        self.assertTrue(any("같은 스타일" in e.message for e in errs))
+
+    def test_context_project_ref(self):
+        anchor = "## 컨텍스트: claim\n- 분류: core"
+        replacement = "## 컨텍스트: claim\n- 프로젝트: nothere\n- 분류: core"
+        text = load("minimal.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, replacement)
+        errs = self._errors(text)
+        self.assertTrue(any("프로젝트" in e.message and "nothere" in e.message for e in errs))
+
+    def test_ambiguous_project_when_multiple(self):
+        second_project = (
+            "## 프로젝트: frontend\n"
+            "- 경로: frontend\n"
+            "- 프로파일: kotlin-spring\n"
+            "- 기본 패키지: com.acme.frontend\n"
+            "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin\n\n"
+        )
+        text = load("minimal.md").replace("## 컨텍스트: claim", second_project + "## 컨텍스트: claim", 1)
+        errs = self._errors(text)
+        self.assertTrue(any("프로젝트를 지정" in e.message for e in errs))
+
+    def test_invalid_shared_role(self):
+        anchor = "| core-enum | core/core-enum | shared-kernel |"
+        replacement = "| core-enum | core/core-enum | common |"
+        text = load("full.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, replacement)
+        errs = self._errors(text)
+        self.assertTrue(any("역할" in e.message and "common" in e.message for e in errs))
+
+    def test_invalid_relation_type(self):
+        anchor = "| statistics | customer-supplier | brawlstars-events-v1 |"
+        replacement = "| statistics | friends | brawlstars-events-v1 |"
+        text = load("full.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, replacement)
+        errs = self._errors(text)
+        self.assertTrue(any("관계 유형" in e.message and "friends" in e.message for e in errs))
+
+    def test_relation_target_exists(self):
+        anchor = "| statistics | customer-supplier | brawlstars-events-v1 |"
+        replacement = "| ghost | customer-supplier | brawlstars-events-v1 |"
+        text = load("full.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, replacement)
+        errs = self._errors(text)
+        self.assertTrue(any("ghost" in e.message for e in errs))
+
+    def test_application_context_exists(self):
+        anchor = "| core-worker | core/core-worker | brawlstars |"
+        replacement = "| core-worker | core/core-worker | ghost |"
+        text = load("full.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, replacement)
+        errs = self._errors(text)
+        self.assertTrue(any("ghost" in e.message for e in errs))
+
+    def test_rule_exception_requires_adr(self):
+        anchor = "- 모듈 구성: multi-module\n"
+        text = load("minimal.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, anchor + "- 규칙 예외: -hex.domain-pure\n")
+        errs = self._errors(text)
+        self.assertTrue(any("ADR" in e.message for e in errs))
+
+    def test_transition_target_matches_style(self):
+        anchor = "- 모듈 구성: multi-module\n"
+        text = load("minimal.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, anchor + "- 이행: layered-simple → clean\n")
+        errs = self._errors(text)
+        self.assertTrue(any("이행" in e.message for e in errs))
+
+    def test_transition_format(self):
+        anchor = "- 모듈 구성: multi-module\n"
+        text = load("minimal.md")
+        self.assertEqual(text.count(anchor), 1)
+        text = text.replace(anchor, anchor + "- 이행: layered-simple\n")
+        errs = self._errors(text)
+        self.assertTrue(any("→" in e.message for e in errs))
+
+    def test_duplicate_context_name(self):
+        text = load("minimal.md")
+        idx = text.index("## 컨텍스트: claim")
+        context_block = text[idx:]
+        text = text + "\n" + context_block
+        self.assertEqual(text.count("## 컨텍스트: claim"), 2)
+        errs = self._errors(text)
+        self.assertTrue(any("중복" in e.message for e in errs))
+
+    def test_duplicate_project_name(self):
+        project_block = (
+            "## 프로젝트: backend\n"
+            "- 경로: .\n"
+            "- 프로파일: kotlin-spring\n"
+            "- 기본 패키지: com.acme\n"
+            "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin\n\n"
+        )
+        text = load("minimal.md")
+        self.assertIn(project_block, text)
+        text = text.replace(project_block, project_block + project_block, 1)
+        self.assertEqual(text.count("## 프로젝트: backend"), 2)
+        errs = self._errors(text)
+        self.assertTrue(any("중복" in e.message for e in errs))
+
+    # --- 결의안 2에서 명시한 "레이어 값 비어있지 않음" 확인 (표에는 없지만 브리프가 요구) ---
+
+    def test_module_layer_empty(self):
+        text = load("minimal.md").replace(
+            "| claim-domain | claim/domain | domain |",
+            "| claim-domain | claim/domain |  |",
+        )
+        errs = self._errors(text)
+        self.assertTrue(any("레이어" in e.message for e in errs))
+
 
 if __name__ == "__main__":
     unittest.main()
