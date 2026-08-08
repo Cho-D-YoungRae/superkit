@@ -1,0 +1,154 @@
+---
+summary: 관계 표에 쓸 수 있는 6종 관계 유형의 정의·선택 시점·안티패턴. 관계 표는 문서가 아니라 컨텍스트 간 참조의 allow-list다
+read_when: [init, review]
+---
+
+## 개념
+
+컨텍스트를 그으면 그 사이에 연결이 생긴다. 관계 유형은 그 연결에서 **누가 누구에게 맞추는가**를
+정하는 이름이다. 6종뿐이고, 이것이 `### 관계` 표의 `유형` 칸에 쓸 수 있는 값의 전부다.
+
+```markdown
+### 관계
+| 상대 | 유형 | 계약 |
+|---|---|---|
+| policy | customer-supplier | claim-events-v1 |
+```
+
+**이 표는 문서가 아니라 allow-list다.** 표에 선언되지 않은 컨텍스트 쌍은 서로를 참조할 수 없고,
+fitness가 그 금지를 `forbid-import` 인스턴스로 생성한다. 그러므로 표에서 한 줄이 빠지면 문서가
+불완전해지는 것이 아니라 **빌드가 깨진다**. 반대로 필요 없어진 줄을 지우는 것은 문서 정리가 아니라
+새 금지를 세우는 행위다.
+
+`계약` 칸에는 그 연결이 실제로 통과하는 물건의 이름을 쓴다 — 이벤트 스키마 이름, 공개 API 이름,
+ACL 패키지·클래스 이름. 칸이 비어 있으면 "연결은 있는데 무엇을 통해 연결되는지 모른다"는 뜻이고,
+그 상태에서는 관계가 검증될 수 없다.
+
+## 적용 기준
+
+### 언제 관계를 선언하는가
+
+- 두 컨텍스트 사이에 **코드 참조 · 런타임 호출 · 이벤트 소비** 중 하나라도 있으면 선언한다.
+- 같은 DB 테이블을 한쪽이 읽기만 하더라도 관계다. 데이터 결합도 결합이다.
+- 방향이 한쪽뿐이면 한 줄만 쓴다. 양쪽이 서로 호출할 때만 두 줄이 된다.
+
+### 언제 선언하지 않는가
+
+- 지금 연결이 없는 쌍은 쓰지 않는다. **"나중에 쓸지도 모르니까" 미리 선언하는 것은 스스로 세운
+  금지선을 지우는 일이다.** 필요해질 때 한 줄 추가하는 비용은 1분이다.
+- 같은 컨텍스트 안의 모듈 간 관계는 여기에 쓰지 않는다. 그것은 레이어 규칙이 다룬다.
+- 공용 모듈(shared-kernel 등)과의 관계는 여기에 쓰지 않는다. 공용 모듈은 컨텍스트가 아니며 그
+  방향 규칙은 [[module-composition]]에 있다.
+
+### 유형 선택 결정 절차
+
+1. **우리가 상대의 모델을 바꿀 수 있는가?**
+   - 바꿀 수 있고, 두 쪽이 함께 릴리스된다 → `partnership`
+   - 바꿔 달라고 요청할 수 있고, 상대가 그 요청을 백로그로 받는다 → `customer-supplier`
+   - 바꿀 수 없다 → 2로
+2. **상대 모델을 우리 도메인에 그대로 들여도 되는가?** (우리 도메인 문서에 상대 용어가 등장해도
+   괜찮은가)
+   - 괜찮다 → `conformist`
+   - 안 된다 → `acl`
+3. **(우리가 공급자일 때) 소비자가 몇인가?**
+   - 1~2 → `customer-supplier`
+   - 3 이상 → `open-host`. 계약을 버전 관리하며 배포한다면 `published-language`를 함께 쓴다
+
+**core 컨텍스트가 하류일 때의 기본값은 `acl`이다.** core 모델이 남의 모델 모양에 맞춰지는 순간
+차별화 자산이 상대의 스키마에 종속된다([[domain-classification]] R2와 같은 논리다).
+
+### 6종 유형
+
+| 유형 | 뜻 | 고르는 시점 | 잘못될 때의 모습 |
+|---|---|---|---|
+| `partnership` | 두 컨텍스트가 함께 성공하거나 함께 실패한다. 서로 맞춰 바꾸고 릴리스를 조율한다 | 같은 목표·같은 릴리스 열차. 한쪽만 배포하면 깨진다 | 매 스프린트 조율 비용이 나고 어느 쪽도 독립 배포를 못 한다 → 사실은 한 컨텍스트 |
+| `customer-supplier` | 하류가 요구를 내고 상류가 백로그로 받는다. 우선순위는 상류에 있다 | 상류에 하류를 고려할 유인이 있을 때 | 상류가 요구를 계속 미룬다 → 실질은 conformist인데 문서만 남는다 |
+| `conformist` | 하류가 상류 모델을 변환 없이 그대로 수용한다 | 상류가 안정적이고 그 모델이 우리에게 나쁘지 않으며 번역 비용을 아끼고 싶을 때 | 상류의 개념이 우리 도메인 용어를 밀어낸다. 도메인 문서에 상류 필드명이 등장하기 시작한다 |
+| `acl` | 하류가 번역 계층을 두고 상류 모델을 우리 모델로 바꾼다 | 상류가 레거시·외부 벤더거나 모델이 근본적으로 다를 때. core가 하류일 때의 기본값 | ACL이 얇은 DTO 매퍼에 그치고 상류 타입이 ACL 밖으로 흘러나온다 |
+| `open-host` | 상류가 다수 하류를 위한 공개 프로토콜을 제공한다 | 하류가 3개 이상이라 각각에 맞춰 줄 수 없을 때 | 하류마다 특수 엔드포인트가 늘어난다 → open-host가 아니라 customer-supplier N개 |
+| `published-language` | 관계의 계약이 버전 관리되는 공유 스키마(이벤트 스키마·IDL)로 존재한다 | 다수가 소비하고 계약을 독립적으로 진화시켜야 할 때. 보통 open-host와 짝 | 특정 소비자만 쓰는 필드가 스키마에 쌓이거나, 버전 규칙 없이 필드를 지운다 |
+
+`partnership`은 가장 비싼 관계다. 두 컨텍스트의 독립성을 포기하는 대가로 조율을 얻으므로, 6개월
+이상 유지되고 있다면 병합이 더 싸지 않은지 검토한다.
+
+## 규칙
+
+### R1. 관계 표는 allow-list이며 정규 값은 6종뿐이다
+
+- 유형 칸에 쓸 수 있는 값: `partnership`, `customer-supplier`, `conformist`, `acl`, `open-host`,
+  `published-language`. 그 외 값은 `parse_architecture.py`가 라인 번호와 함께 거부한다.
+- 표에 없는 컨텍스트 쌍의 직접 참조는 금지되고, 그 금지는 정규화된 패키지 패턴 위의
+  `forbid-import` 인스턴스로 fitness가 생성한다(스펙 §4.3 규칙 5).
+- 유형별 허용 방향의 해석 정본은 `references/governance/architecture-template.md`다. 이 문서는
+  "어떤 유형을 고를 것인가"를 다루고, 그 유형이 어느 방향의 참조를 여는지는 그쪽이 정본이다.
+
+### R2. 계약 칸은 실재하는 이름이어야 한다
+
+`계약`에 적은 이름을 코드에서 검색했을 때 나와야 한다 — 이벤트 클래스, API 경로 상수, ACL
+패키지. 검색해서 안 나오는 이름은 관계가 문서에만 있다는 뜻이다.
+
+### R3. 리뷰 체크리스트
+
+- [ ] 이번 변경에서 새로 생긴 컨텍스트 간 import가 관계 표의 어떤 줄에 대응하는가? 대응하는 줄이
+      없으면 줄을 추가하거나(그리고 유형을 고르거나) import를 되돌린다.
+- [ ] `계약` 칸의 이름을 코드에서 grep 하면 나오는가?
+- [ ] `customer-supplier`로 선언된 관계에서 최근 2개 분기에 하류의 요구가 상류에 실제 반영된
+      적이 있는가? 없으면 `conformist`로 정정한다 — 지켜지지 않는 관계 선언은 거짓말이고,
+      거짓말은 다음 설계 결정을 오염시킨다.
+- [ ] `acl`로 선언된 관계에서 상류 타입이 ACL 패키지 밖에 등장하는가? 등장하면 ACL이 이름뿐이다.
+      `confine-type` 또는 `forbid-import`로 격리를 실제 규칙으로 만든다.
+- [ ] core 컨텍스트가 `conformist`로 무언가를 수용하고 있는가? 근거 ADR이 있는가?
+- [ ] `partnership`이 6개월 이상 유지되고 있는가? → 병합 또는 계약화(customer-supplier +
+      published-language) 검토.
+- [ ] 한 컨텍스트의 관계 줄이 5개를 넘는가? → 허브가 됐다. 경계 자체를 다시 본다
+      ([[bounded-contexts]]).
+- [ ] 표에서 지운 줄이 있다면, 그 참조를 실제로 제거했는가? 지우기만 하면 다음 fitness에서
+      위반으로 나타난다(그것이 의도라면 정상이다).
+
+## 사례
+
+### 올바른 선언 — 청구 시스템
+
+```markdown
+## 컨텍스트: claim
+- 분류: core
+- 스타일: hexagonal
+
+### 관계
+| 상대 | 유형 | 계약 |
+|---|---|---|
+| policy | customer-supplier | policy-snapshot-v2 |
+| billing | acl | BillingTranslator |
+```
+
+`policy`는 사내 팀이 소유하고 요구를 받아 준다 → customer-supplier. `billing`은 10년 된 레거시라
+모델이 우리와 전혀 다르다 → acl, 계약 칸에 번역기 이름을 적어 검증 가능하게 만든다.
+
+### 안티패턴 — 이름만 ACL
+
+```kotlin
+// com.acme.claim.adapter.out.billing.BillingTranslator   (ACL 이라고 부르는 곳)
+class BillingTranslator(private val client: LegacyBillingClient) {
+    fun fetch(id: String): LegacyInvoiceDto = client.getInvoice(id)   // 그대로 반환
+}
+
+// com.acme.claim.application.ClaimSettlementService
+import com.acme.legacy.billing.LegacyInvoiceDto      // 상류 타입이 ACL 밖으로 나왔다
+class ClaimSettlementService(private val translator: BillingTranslator) {
+    fun settle(id: String) {
+        val invoice = translator.fetch(id)
+        if (invoice.stat_cd == "03") { /* 레거시 코드값이 도메인 로직에 박힌다 */ }
+    }
+}
+```
+
+번역기가 번역을 하지 않으므로 `acl`이 아니라 사실상 `conformist`다. 둘 중 하나를 해야 한다 —
+번역기가 도메인 타입을 반환하게 고치거나, 관계 유형을 `conformist`로 정정하고 그 대가(레거시
+코드값이 도메인에 들어옴)를 ADR로 받아들이거나. 문서와 코드 중 하나는 바뀌어야 한다.
+
+## 관련 문서
+
+- [[bounded-contexts]] — 관계의 양 끝인 경계를 먼저 긋는다
+- [[domain-classification]] — core가 하류일 때 `acl`이 기본값인 이유
+- [[module-composition]] — 공용 모듈과 애플리케이션의 방향 규칙(관계 표가 다루지 않는 영역)
+- [[package-conventions]] — 관계 금지가 판정되는 단위인 패키지 패턴
