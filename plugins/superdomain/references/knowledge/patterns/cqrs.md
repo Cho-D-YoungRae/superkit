@@ -1,6 +1,6 @@
 ---
 summary: CQRS 적용 판단 스펙트럼(호출 분리~저장소 분리)과 커맨드/쿼리 분리 규칙
-read_when: [apply, review]
+read_when: [apply, review, scaffold]
 ---
 
 Phase 2에서 완성 예정. 담을 내용:

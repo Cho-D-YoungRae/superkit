@@ -1,6 +1,6 @@
 ---
 summary: 트랜잭션적 이벤트 발행(outbox) 패턴 — 적용 시점과 구현 절차
-read_when: [apply, review]
+read_when: [apply, review, scaffold]
 ---
 
 Phase 2에서 완성 예정. 담을 내용:

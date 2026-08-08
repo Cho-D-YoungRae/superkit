@@ -1,6 +1,6 @@
 ---
 summary: 대부분의 컨텍스트에는 불필요하다 — 적용 판단 기준, 스냅샷·리플레이·스키마 진화
-read_when: [apply, review]
+read_when: [apply, review, scaffold]
 ---
 
 Phase 2에서 완성 예정. 담을 내용:
