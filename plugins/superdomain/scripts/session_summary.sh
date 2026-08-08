@@ -9,7 +9,7 @@ while :; do
     exit 0
   fi
   # git 루트 또는 파일시스템 루트에 도달하면 중단
-  if [ -d "$dir/.git" ] || [ "$dir" = "/" ]; then
+  if [ -e "$dir/.git" ] || [ "$dir" = "/" ]; then
     exit 0
   fi
   dir="$(dirname "$dir")"
