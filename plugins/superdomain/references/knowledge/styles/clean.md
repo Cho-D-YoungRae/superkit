@@ -68,9 +68,9 @@ clean이 [[hexagonal]]에 더하는 강제는 `cl.domain-no-framework`의 `from`
 
 ### 고르지 않는 조건 — 하나라도 해당하면 clean이 아니다
 
-- 인터랙터에 `@Transactional`을 붙일 생각이다(①이 아니오) → [[hexagonal]]. 같은 도메인 순수성을
-  더 싸게 얻는다
-- 전달 메커니즘이 HTTP 하나뿐이고 프레임워크 교체 계획이 없다(②가 아니오) → [[hexagonal]] 또는
+- **①이 아니오다** — 트랜잭션 경계를 무엇으로 감쌀지 말하지 못한다(인터랙터에 `@Transactional`을
+  붙일 생각이다) → [[hexagonal]]. 같은 도메인 순수성을 더 싸게 얻는다
+- **②가 아니오다** — 위 ②에 열거된 경로 중 어느 것도 해당하지 않는다 → [[hexagonal]] 또는
   [[layered-domain]]
 - 분류가 `supporting`·`generic`인데 위 문항이 둘 다 예로 서지 않는다 → 기본 매핑
   ([[layered-domain]]·[[layered-simple]])을 따른다

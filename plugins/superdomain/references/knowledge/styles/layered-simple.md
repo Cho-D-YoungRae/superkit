@@ -242,7 +242,7 @@ class NotificationTemplateController(private val service: NotificationTemplateSe
 
 레이어 라벨은 `presentation, application, data`로 옳게 적었는데, `ls.layer-order`의 파라미터를
 `layers=presentation,application,data`로 — 즉 라벨을 그대로 복사해 — 적은 선언이다.
-(이 문서의 유일한 정본 선언은 위 `### 선언`의 표이며, 여기 적은 것은 틀린 값이다.)
+(이 문서의 유일한 정본 선언은 위 `## 선언`의 표이며, 여기 적은 것은 틀린 값이다.)
 
 `layers`가 안→밖이라는 것을 잊었을 때 나오는 결과다. 파서는 오류를 내지 않는다 — 세
 항목 모두 선언된 레이어이므로 문법적으로 완전히 정상이다. 대신 강제되는 내용이 정반대가 된다.
