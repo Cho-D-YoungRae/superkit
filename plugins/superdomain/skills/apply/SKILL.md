@@ -166,21 +166,41 @@ domain 레이어를 등록하는 것은 사용자의 몫이고, 골격 생성은
 레이어를 등록해야 하고 그것은 사용자의 결정이다.
 
 **(나) 스타일에 domain 레이어가 없다 — 등록하라고 말하지 않는다.** `layered-simple`
-(presentation·application·data)이 그 경우다. 스타일이 선언하지 않은 레이어를 모듈 표나 패키지
-규약에 적으면 `resolve_rules`가 스타일 선언과 대조해 **오류로 거부한다** — (가)의 안내를 여기서
-그대로 하면 문서를 깨뜨리는 지시가 된다. 실현의 공백이 아니라 **스타일 선택의 문제**이므로
-중단하고 그렇게 알린다.
+(presentation·application·data)이 전형이지만 **그것 하나가 아니다** — 레이어 이름이 다른 커스텀
+스타일도 여기 온다. 스타일이 선언하지 않은 레이어를 모듈 표나 패키지 규약에 적으면
+`resolve_rules`가 스타일 선언과 대조해 **오류로 거부한다** — (가)의 안내를 여기서 그대로 하면
+문서를 깨뜨리는 지시가 된다. 어느 쪽이든 **중단하고** 알리되, 처방은 아래에서 갈린다.
 
-> `<컨텍스트>`의 스타일 `<이름>`에는 domain 레이어가 없습니다. domain 레이어를 두지 않는
-> 스타일에서 domain 문서는 선택이고(`domain-doc-template.md` §1), 기록할 불변식이 쌓이면 문서를
-> 늘리기 전에 스타일 선택부터 다시 봅니다. 스타일 재검토는 `/superarchitect:init`, 그 결정을
-> 남기는 것은 `/superarchitect:adr`입니다.
+**(나) 안에서 한 번 더 갈린다 — 판별자는 레이어 이름이 아니라 `confine-type`이다.**
+`domain-pure` 여부는 **예외 적용 후의 유효 규칙에 `confine-type` 인스턴스가 하나라도 있는가**로
+정해진다(`architecture-template.md` §5.1 규칙 5). 레이어 이름과는 무관하다 — 프리셋의
+`domain-pure`도 `allowed_layer`가 `adapter`(hexagonal)·`framework`(clean)·`infrastructure`
+(layered-domain)이지 `domain`이 아니다. 같은 JSON의 `effective[]`에서 이 프로젝트·컨텍스트 항목
+중 `primitive == "confine-type"`이 있는지 보면 끝난다.
 
-인용 안의 근거 문서는 **그 컨텍스트가 실제로 선언한 스타일**을 가리킨다 — 프리셋이면
+**(나-1) `confine-type`이 없다 — domain-pure가 아니다.**
+
+> `<컨텍스트>`의 스타일 `<이름>`에는 domain 레이어가 없고 도메인 순수성 규칙
+> (`confine-type`)도 없습니다. 기록할 불변식이 쌓이면 문서를 늘리기 전에 스타일 선택부터 다시
+> 봅니다. 스타일 재검토는 `/superarchitect:init`, 그 결정을 남기는 것은 `/superarchitect:adr`입니다.
+
+정본 §1이 domain 문서를 **선택**으로 명시한 스타일은 `layered-simple` 하나다. 그 밖의 스타일이
+여기 걸렸다면 "정본이 선택이라고 했다"고 인용하지 말고, **표에 없는 조합**이라는 사실 그대로
+말한다.
+
+**(나-2) `confine-type`이 있다 — domain-pure이므로 domain 문서는 필수다.**
+
+> `<컨텍스트>`의 스타일 `<이름>`은 도메인 순수성 규칙(`<규칙 id>`)을 두므로 domain-pure이고,
+> domain 문서는 **필수**입니다(`domain-doc-template.md` §1). 다만 이 스타일의 레이어 목록에는
+> `domain`이라는 이름이 없어 구현 자리를 이 스킬이 정할 수 없습니다. 문서를 먼저 갖추고, 어느
+> 레이어가 도메인 코어인지 확정한 뒤 다시 부르세요.
+
+여기서는 **스타일 재검토를 처방하지 않는다.** 부족한 것은 스타일 선택이 아니라 레이어 이름과
+도메인 코어의 대응이고, 그 대응을 정하는 것은 사용자다.
+
+두 인용의 근거 문서는 **그 컨텍스트가 실제로 선언한 스타일**을 가리킨다 — 프리셋이면
 `references/knowledge/styles/<이름>.md`, 커스텀이면 대상 프로젝트의
-`docs/architecture/styles/<이름>.md`다. `layered-simple`을 하드코딩하지 않는다. **커스텀 스타일도
-domain 레이어를 선언했다면 (나)가 아니라 (가)이고, `domain-pure`를 포함하는 커스텀 스타일에서는
-domain 문서가 선택이 아니라 필수다**(정본 §1).
+`docs/architecture/styles/<이름>.md`다. `layered-simple`을 하드코딩하지 않는다.
 
 파일 자리는 셋을 이어 만든다.
 
@@ -347,7 +367,10 @@ grep -n 'include' "<프로젝트 경로>"/settings.gradle*
 - **`ARCHITECTURE.md`·스타일 선언·fitness 생성 파일을 고치는 것.** 게이트가 막히면 어디를 고쳐야
   하는지 알리고 멈춘다.
 - **스타일이 선언하지 않은 레이어를 모듈 표·패키지 규약에 등록하라고 안내하는 것.**
-  `resolve_rules`가 거부해 문서가 깨진다 — 그 상황의 처방은 스타일 재검토다(3단계 (나)).
+  `resolve_rules`가 거부해 문서가 깨진다 — 처방은 3단계 (나)가 갈라 준다((나-1) 스타일 재검토,
+  (나-2) domain 문서 먼저).
+- **`domain-pure`를 레이어 이름으로 판정하는 것.** 판별자는 `confine-type` 인스턴스의 존재다
+  (3단계 (나)) — 프리셋조차 `allowed_layer`가 `domain`이 아니다.
 - **`blocked`를 확인하지 않고 빈 `violations`를 "할 일 없음"으로 읽는 것.**
 - **태그를 `grep`으로 다시 세어 검사기와 다른 목록을 만드는 것.**
 - **모호함을 임의 해석으로 메우는 것.** 열린 질문으로 올리고 그 자리는 남긴다.
