@@ -417,13 +417,22 @@ class ClaimArchitectureTest {
 > **정정(2026-08-11, 구현 착지 반영)** — 위 예시는 설명용이며 **강제력이 없다.** Konsist의
 > `dependsOn(...)`은 비-strict 기본값이라 "그 의존이 있어도 된다"만 뜻하고 아무것도 검사하지
 > 않는다 — `application.dependsOn(domain)`만 나열한 테스트는 application이 adapter를 참조해도
-> 통과한다. 실제 매핑의 정본은 `profiles/kotlin-spring/rule-mappings.md`이며, 거기서 방향 금지는
-> `dependsOnNothing()`과 `doesNotDependOn()`으로만 표현한다(매핑 §1 layer-order 번역 규칙). 0건 매칭의
-> 침묵은 라우트마다 다르게 막는다: 선언 어서션을 쓰는 라우트(`forbid-import` 라우트 B,
-> `naming-suffix`, `forbid-sibling-dependency`, 파생 3종)는 `strict = true`로 0건을 실패로
-> 바꾸고, `assertArchitecture` 기반의 `layer-order`·`forbid-import` 라우트 A는 그 인자가 없어
-> 조용히 빌 수 있으므로 `resolve_rules`의 공허 레이어 경고와 `check_imports`의 레이어별
-> `[0건 경고]`가 바깥에서 감시한다. `{앱}` 치환 규칙과 마찬가지로 스펙 본문이 아니라 매핑 문서가
+> 통과한다. 실제 매핑의 정본은 `profiles/kotlin-spring/rule-mappings.md`이며, **§1 layer-order
+> 범위에서** 방향 금지는 `dependsOnNothing()`·`doesNotDependOn()`으로 표현한다(다른 primitive는
+> 라우트가 달라 `files`+`imports`나 선언 어서션을 쓴다).
+>
+> **0건 처리는 라우트마다 다르다.** `assertArchitecture` 기반인 `layer-order`·`forbid-import`
+> 라우트 A는 `strict` 인자가 없는 대신, 등록된 `Layer` 중 하나라도 스코프 파일이 0건이면
+> `KoPreconditionFailedException`으로 **즉시 실패한다**(매핑 §0.3-1) — 침묵이 아니라 가장 시끄러운
+> 실패이며, 외부 라이브러리 패턴을 라우트 A로 쓸 수 없는 이유도 이것이다. 선언 어서션
+> (`assertTrue`/`assertFalse`) 라우트는 `strict = true`로 0건을 실패로 바꾸고(`forbid-import`
+> 라우트 B·`naming-suffix`·`forbid-sibling-dependency`·파생 3종), `confine-type`만 격리 대상이
+> 정당하게 0개일 수 있어 기본값을 쓴다(매핑 §0.3-2).
+>
+> 따라서 layer-order에 남는 침묵은 0건 매칭이 아니라 **미등록 레이어와 빈 금지집합**이다(매핑 §1
+> 번역 규칙 — 등록되지 않은 레이어는 `dependsOnNothing()`의 검사 대상에서도 빠지고, 금지 집합이
+> 비면 그 줄이 생략된다). 그 층위는 `resolve_rules`의 공허 레이어 경고와 `check_imports`의 레이어별
+> `[0건 경고]`가 바깥에서 본다. `{앱}` 치환 규칙과 마찬가지로 스펙 본문이 아니라 매핑 문서가
 > 이긴다.
 
 - `java-spring/rule-mappings.md`: 동일 primitive → ArchUnit 매핑(`ArchRuleDefinition`, `layeredArchitecture()` API). 같은 선언에서 Java 프로젝트용 아키텍처 테스트를 생성한다.
