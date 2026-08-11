@@ -338,17 +338,20 @@ def _collect(doc, contexts, report) -> None:
 # ---------------------------------------------------------------------------
 
 def _is_test_path(parts) -> bool:
-    """디렉터리 세그먼트만 보고 테스트 소스인지 판정한다.
+    """디렉터리 세그먼트만 보고 테스트 소스인지 판정한다(P3-D4의 `src/test/`·`test/`).
 
-    check_imports가 프로덕션 소스에서 걷어내는 바로 그 디렉터리(`src/` 아래 `test*`·`*Test`)가
-    여기서는 수집 대상이다 — 두 검사기가 같은 트리를 반대 방향으로 읽는다. 여기에 `test/`
-    디렉터리를 더한다(P3-D4).
+    `src/<소스셋>`이 나오면 **그 소스셋이 판정을 끝낸다.** `src/main/kotlin/com/acme/test/`처럼
+    프로덕션 아래 `test` 패키지가 있어도 테스트 소스가 아니다 — 여기서 끊지 않으면 프로덕션
+    코드의 `@Tag` 리터럴이 confirmed를 충족시켜 검사가 조용히 통과한다.
+
+    `src/` 아래의 테스트 소스셋 이름(`test*`·`*Test`)은 check_imports가 프로덕션에서 걷어내는
+    것과 같은 규칙이지만 그쪽 판정 함수는 비공개라 여기 다시 적었다 — 임포트가 보장하는
+    공유는 `SKIP_DIRS`와 소스 확장자뿐이므로 이 규칙은 갈라질 수 있다.
     """
     for index, part in enumerate(parts[:-1]):
+        if index and parts[index - 1] == SRC_DIR:
+            return part.startswith("test") or part.endswith("Test")
         if part == "test":
-            return True
-        if index and parts[index - 1] == SRC_DIR and (part.startswith("test")
-                                                      or part.endswith("Test")):
             return True
     return False
 

@@ -254,6 +254,16 @@ class TestTableContract(InvariantTestCase):
         self.assertEqual(self.messages(report), [])
         self.assertEqual([i.status for i in report.invariants], ["confirmed"])
 
+    def test_undecodable_document_is_error_not_silence(self):
+        """읽지 못한 문서를 '불변식 0건'으로 넘기면 그 컨텍스트가 검사에서 통째로 사라진다."""
+        path = self.tmpdir / "docs/architecture/domain/claim.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"# claim \xff\xfe Domain\n")
+        report = self.check()
+        message = self.assert_error(report, "claim.md:0:")
+        self.assertIn("읽지 못했습니다", message)
+        self.assertEqual(report.invariants, [])
+
     def test_pipe_in_description_splits_the_row_loudly(self):
         """서술 칸의 `|`는 열을 가른다 — 조용히 통과하지 않고 상태 칸에서 걸린다(§4.1)."""
         self.doc("claim", domain_doc("| INV-CLAIM-001 | 금액 | 수량은 0보다 크다 | confirmed |"))
@@ -550,6 +560,19 @@ class TestTagScan(InvariantTestCase):
         self.empty_tests()
         self.assert_seen(seen=False)
 
+    def test_test_package_under_src_main_is_not_a_test_source(self):
+        """`src/main/.../test/`는 프로덕션 소스다.
+
+        여기 태그가 세어지면 프로덕션 코드의 리터럴이 confirmed를 충족시켜 exit 0이 난다 —
+        결정적 검사의 침묵 통과 채널이다(P3-D4의 스캔 범위는 테스트 소스로 한정된다).
+        """
+        self.tagged("INV-CLAIM-001", relpath="src/main/kotlin/com/acme/test/Helper.kt")
+        self.empty_tests()
+        report = self.check()
+        self.assertEqual(report.test_sources, 1)      # empty_tests의 것 하나뿐
+        self.assertEqual(report.tags, [])
+        self.assertEqual([v.invariant_id for v in report.violations], ["INV-CLAIM-001"])
+
     def test_build_output_is_not_scanned(self):
         self.tagged("INV-CLAIM-001", relpath="build/test/kotlin/com/acme/ClaimTest.kt")
         self.empty_tests()
@@ -575,6 +598,23 @@ class TestTagScan(InvariantTestCase):
     def test_fully_qualified_annotation_is_invisible(self):
         self.tagged("INV-CLAIM-001", form='@org.junit.jupiter.api.Tag("{id}")')
         self.assert_seen(seen=False)
+
+    def test_unreadable_test_source_makes_a_false_violation_and_is_reported(self):
+        """읽지 못한 테스트 파일의 태그는 안 보인다 — 그 결과가 거짓 위반이다.
+
+        검사는 이 사각지대를 없애지 못하므로 render의 고지가 유일한 방어선이다. 고지가
+        빠지면 사용자는 태그를 지운 적도 없는데 위반을 보고 문서를 고치게 된다.
+        """
+        path = self.tmpdir / "src/test/kotlin/com/acme/ClaimTest.kt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'@Tag("INV-CLAIM-001")\n\xff\xfe\n')
+        report = self.check()
+        self.assertEqual(report.test_sources, 1)
+        self.assertEqual(report.tags, [])
+        self.assertEqual([v.invariant_id for v in report.violations], ["INV-CLAIM-001"])
+        self.assertEqual(report.unreadable, ["src/test/kotlin/com/acme/ClaimTest.kt"])
+        self.assertTrue(any("읽지 못한 테스트 소스" in line for line in render(report)),
+                        render(report))
 
     def test_limitation_note_is_always_rendered(self):
         self.tagged("INV-CLAIM-001")
