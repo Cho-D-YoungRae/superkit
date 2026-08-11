@@ -190,8 +190,12 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
 정한다. 이 스킬이 판단할 것은 넷뿐이다.
 
 - **앱 패키지**: `detail.app_patterns`가 **있으면 선언**이 진실이다. 그 표에는 프로젝트의 **모든
-  앱**이 들어 있으므로 `타 앱 패턴`은 subject를 뺀 나머지 값들의 합집합이다. 키가 **없으면**
-  `detail.module_path`로 관측한다(3단계).
+  앱**이 들어 있으므로 `앱 패턴(subject)`은 그 표의 subject 항목이고, `타 앱 패턴`은 subject를 뺀
+  나머지 값들의 합집합이다. 키가 **없으면 둘 다 관측이다**(3단계) — subject는 자기
+  `detail.module_path`로, **타 앱은 같은 프로젝트의 다른 `app-confinement` 인스턴스들의
+  `module_path`로** 관측해 합친다(매핑 §6.2의 `타 앱 패턴` 정의). `detail.module_path`에는 subject
+  앱 자신의 경로밖에 없으므로, 여기서 형제 인스턴스를 훑지 않으면 `타 앱 패턴`이 비어 앱 간 행이
+  통째로 빠지고 앱이 하나뿐인 프로젝트로 잘못 집계된다.
 - **공용 모듈 패키지는 언제나 관측**이다.
 - 목록이 비면 매핑이 "생성하지 않는다"고 적어 둔 행들이다: `forbidden`이 빈 app-confinement
   정방향(`포함 컨텍스트: all`), 앱이 하나뿐일 때의 앱 간, `domain_restricted_contexts`가 빈 도메인
