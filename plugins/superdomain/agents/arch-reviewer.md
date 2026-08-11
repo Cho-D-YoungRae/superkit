@@ -65,8 +65,8 @@ review 스킬이 아래 넷을 전달한다. 없는 것을 스스로 찾아 채�
 
 ## 4. 검토 범위 — 문서 규칙 + 자유 관측 5범주
 
-**전달받은 문서의 `## 규칙`·리뷰 체크리스트가 정한 위반은 범주와 무관하게 보고한다** —
-`related_rule`에 그 문서의 규칙 절 식별자(`cqrs R1` 등)를 적는다. 아래 5범주는 **문서 근거 없는
+**전달받은 문서의 `## 규칙`·리뷰 체크리스트가 정한 위반은 범주와 무관하게 보고한다**(단, §3에
+걸리는 것은 제외한다) — `related_rule`에 그 문서의 규칙 절 식별자(`cqrs R1` 등)를 적는다. 아래 5범주는 **문서 근거 없는
 자유 관측**에만 적용되는 필터다. severity·type은 어느 경로든 §5·§6이 정한다(문서가 심각도를
 권고하면 참고만 한다).
 
@@ -148,12 +148,12 @@ summary.md의 **분류(core/supporting/generic)와 스타일** 대비로만 판�
 [
   {
     "type": "violation",
-    "path": "backend/src/main/kotlin/com/acme/claim/application/ApproveClaimService.kt",
-    "line": 42,
+    "path": "backend/src/main/kotlin/com/acme/claim/application/port/out/LoadClaimPort.kt",
+    "line": 12,
     "severity": "warn",
-    "rationale": "승인 가능 여부 판정이 애플리케이션 서비스의 if 분기에 있다. Claim 애그리거트에 판정 메서드가 없어 업무 규칙이 도메인 밖에 산다.",
-    "related_rule": "semantic.domain-leak",
-    "related_invariant": "INV-CLAIM-003"
+    "rationale": "out 포트 시그니처가 어댑터 DTO인 ClaimJpaEntity를 반환한다. hexagonal.md R5 리뷰 체크리스트 1번 — 포트는 도메인 타입만 주고받아야 하며, 이것은 hex.domain-pure의 기계 검사가 보지 못하는 우회 누수다.",
+    "related_rule": "hexagonal R5",
+    "related_adr": "0003-claim-hexagonal.md"
   }
 ]
 ```
