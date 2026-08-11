@@ -271,6 +271,42 @@ def _check_module_layers(context, declaration, project, errors, arch_path):
             ))
 
 
+def _context_is_segment(project) -> bool:
+    """컨텍스트 이름이 패키지 세그먼트 자리에 들어가는가(§6).
+
+    기본 관례(`{기본 패키지}.{컨텍스트}.{레이어}..`)는 언제나 그렇고, 패키지 규약 표가 있으면
+    `{컨텍스트}` 치환을 쓰는 행이 하나라도 있을 때만 그렇다. 치환을 쓰지 않는 규약이면 컨텍스트
+    이름은 패키지에 전혀 나타나지 않으므로 이름의 모양이 패턴에 영향을 주지 않는다.
+    """
+    if not (project and project.package_conventions):
+        return True
+    return any("{컨텍스트}" in pattern for pattern in project.package_conventions.values())
+
+
+def _check_context_segment(context, project, errors, arch_path):
+    """컨텍스트 이름이 유효한 패키지 세그먼트인지 확인한다(§5.3 행 3 — 레이어 검사의 짝).
+
+    레이어만 검사하면 `order-mgmt` 같은 컨텍스트가 경고 없이 통과한다. 그 이름이 들어간 패턴은
+    선언 단계에서 멀쩡해 보이지만 강제 시점에 무너진다 — Konsist의 `Layer`는 세그먼트를 검증하므로
+    테스트가 실행되자마자 죽고, 패턴 매칭만 하는 도구에서는 0건을 매칭한 채 조용히 통과한다.
+    """
+    if RE_PACKAGE_SEGMENT.match(context.name) or not _context_is_segment(project):
+        return
+    if project and project.package_conventions:
+        cause = "패키지 규약의 '{컨텍스트}' 자리에 이 이름이 그대로 들어가므로"
+        fix = "이름을 바꾸거나 그 규약 행의 '{컨텍스트}'를 실제 세그먼트로 바꿔 적으세요"
+    else:
+        cause = "기본 관례에서는 컨텍스트 이름이 그대로 패키지 세그먼트가 되므로"
+        fix = "이름을 바꾸거나 '패키지 규약' 표로 실제 세그먼트를 명시 매핑하세요"
+    errors.append(LocatedError(
+        context.line,
+        f"컨텍스트 이름 '{context.name}'이(가) 유효한 패키지 세그먼트가 아닙니다. {cause}(§6) "
+        f"이 컨텍스트의 모든 패턴이 성립하지 않고, 그것으로 생성된 아키텍처 테스트는 실행 시점에 "
+        f"깨지거나(Konsist의 Layer는 세그먼트를 검증한다) 0건을 매칭한 채 통과합니다 — {fix}.",
+        arch_path,
+    ))
+
+
 def _check_convention_layers(project, contexts, declarations, errors, arch_path):
     """패키지 규약 표의 레이어 이름을 스타일 선언과 대조한다(§5.1 규칙 4, §5.3 행 1).
 
@@ -604,6 +640,7 @@ def resolve_document(arch_path) -> Resolution:
         declarations[context.name] = declaration
         project = projects_by_name.get(context.project)
 
+        _check_context_segment(context, project, result.errors, path_text)
         _check_module_layers(context, declaration, project, result.errors, path_text)
         _check_patterns(context, catalog, result.errors, path_text)
         excluded = _check_exceptions(context, declaration, result.errors, path_text)

@@ -115,6 +115,21 @@ SHARED_MODULE_TABLE = """
 | logging | support/logging | support |
 """
 
+# 컨텍스트 이름이 유효한 패키지 세그먼트가 아닌 문서 — 기본 관례에서는 컨텍스트도 세그먼트다(§6).
+HYPHEN_CONTEXT_ARCH = HEAD + """
+## 컨텍스트: order-mgmt
+- 분류: core
+- 스타일: custom/ports-lite
+- 모듈 구성: multi-module
+
+| 모듈 | 경로 | 레이어 |
+|---|---|---|
+| order-core | order/core | core |
+| order-edge | order/edge | edge |
+"""
+
+TEST_LOCATION_LINE = "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin"
+
 SHARED_ARCH = HEAD + SHARED_MODULE_TABLE + """
 ## 컨텍스트: claim
 - 분류: core
@@ -139,6 +154,13 @@ def line_of(text, needle):
 def with_label(text, after, label):
     """`after` 줄 바로 뒤에 한 덩어리를 끼워 넣는다."""
     return text.replace(after, f"{after}\n{label}", 1)
+
+
+def with_conventions(text, *rows):
+    """프로젝트 섹션 끝에 '### 패키지 규약' 표를 끼워 넣는다(행은 (레이어, 패턴) 쌍)."""
+    body = "".join(f"| {layer} | {pattern} |\n" for layer, pattern in rows)
+    return with_label(text, TEST_LOCATION_LINE,
+                      f"\n### 패키지 규약\n| 레이어 | 패턴 |\n|---|---|\n{body}")
 
 
 class ResolveTestCase(unittest.TestCase):
@@ -516,11 +538,39 @@ class TestCrossFileValidation(ResolveTestCase):
     def test_invalid_segment_not_flagged_with_convention_table(self):
         # 패키지 규약 표가 있으면 레이어 이름이 패키지 세그먼트가 되지 않는다.
         text = CUSTOM_ARCH.format(name="hyphen", layer_a="domain", layer_b="interface-adapter")
-        text = with_label(text, "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin",
-                          "\n### 패키지 규약\n| 레이어 | 패턴 |\n|---|---|\n"
-                          "| domain | com.acme.{컨텍스트}.domain.. |\n"
-                          "| interface-adapter | com.acme.{컨텍스트}.adapter.. |")
+        text = with_conventions(text,
+                                ("domain", "com.acme.{컨텍스트}.domain.."),
+                                ("interface-adapter", "com.acme.{컨텍스트}.adapter.."))
         self.assert_clean(self.resolve_text(text, {"hyphen": HYPHEN_STYLE}))
+
+    def test_invalid_segment_context_error(self):
+        # 기본 관례에서는 컨텍스트 이름도 그대로 세그먼트가 된다 — 레이어와 같은 계열의 오류다.
+        error = self.assert_one_error(
+            self.resolve_text(HYPHEN_CONTEXT_ARCH, {"ports-lite": PORTS_LITE}),
+            "유효한 패키지 세그먼트가 아닙니다",
+            line=line_of(HYPHEN_CONTEXT_ARCH, "## 컨텍스트: order-mgmt"))
+        self.assertIn("컨텍스트 이름 'order-mgmt'", error.message)
+
+    def test_invalid_segment_context_error_in_placeholder_convention(self):
+        # 규약 표가 있어도 `{컨텍스트}` 행이 있으면 이름이 그대로 세그먼트 자리에 들어간다.
+        text = with_conventions(HYPHEN_CONTEXT_ARCH,
+                                ("core", "com.acme.{컨텍스트}.core.."),
+                                ("edge", "com.acme.{컨텍스트}.edge.."))
+        error = self.assert_one_error(self.resolve_text(text, {"ports-lite": PORTS_LITE}),
+                                      "유효한 패키지 세그먼트가 아닙니다")
+        self.assertIn("컨텍스트 이름 'order-mgmt'", error.message)
+        self.assertIn("{컨텍스트}", error.message)   # 고칠 자리를 지목한다
+
+    def test_invalid_segment_context_not_flagged_without_placeholder(self):
+        # `{컨텍스트}` 없는 규약이면 컨텍스트 이름이 패키지에 나타나지 않는다 — 이름 모양은 무관하다.
+        text = with_conventions(HYPHEN_CONTEXT_ARCH,
+                                ("core", "com.acme.core.."), ("edge", "com.acme.edge.."))
+        self.assert_clean(self.resolve_text(text, {"ports-lite": PORTS_LITE}))
+
+    def test_valid_context_name_not_flagged(self):
+        # 대조군 — 같은 문서에서 이름만 합법 세그먼트로 바꾸면 통과한다.
+        text = HYPHEN_CONTEXT_ARCH.replace("## 컨텍스트: order-mgmt", "## 컨텍스트: order_mgmt")
+        self.assert_clean(self.resolve_text(text, {"ports-lite": PORTS_LITE}))
 
     def test_unknown_pattern_key_error(self):
         text = with_label(MINIMAL, "- 모듈 구성: multi-module", "- 패턴: nosuch")
