@@ -1,6 +1,6 @@
 ---
 summary: 리포지토리 인터페이스의 소유 위치와 애그리거트 단위 규칙, 도메인 서비스와 애플리케이션 서비스를 가르는 체크리스트, 서비스 체인 금지 규칙 채택 안내
-read_when: [apply, review]
+read_when: [model, apply, review]
 ---
 
 ## 개념

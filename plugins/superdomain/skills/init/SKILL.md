@@ -62,8 +62,9 @@ git rev-parse --show-toplevel
 3. 세 선택지를 제시하고 **사용자가 고르게 한다.**
    - 그대로 두고 종료 (기본값)
    - 처음부터 다시 작성 — 기존 내용은 사라진다
-   - 일부만 고치기 → init의 일이 아니다. 해당 스킬(review·sync)이 도착하기 전이라면 사용자가
-     직접 편집한 뒤 6단계의 파서 게이트만 실행하는 편이 안전하다고 안내하고 종료한다.
+   - 일부만 고치기 → init의 일이 아니다. 선언과 코드를 대조해 정정하는 `sync`가 도착하기
+     전이므로, 사용자가 직접 편집한 뒤 6단계의 파서 게이트만 실행하는 편이 안전하다고 안내하고
+     종료한다.
 
 ## 2. 거버넌스 후보 감지
 
@@ -143,11 +144,12 @@ ls "${CLAUDE_PLUGIN_ROOT}/profiles"
 2번 질문에서 영역을 하나도 못 고르거나 용어가 계속 흔들리면, 경계를 억지로 긋지 말고 이벤트
 스토밍을 먼저 권한다. 진행 규약의 정본은
 `${CLAUDE_PLUGIN_ROOT}/references/knowledge/strategic/event-storming.md`이고 세션은
-`/superarchitect:model`의 스토밍 모드가 진행한다 — **다만 그 스킬은 아직 제공되지 않고, 그
-문서는 draft(스텁)라 판정 근거가 될 수 없다.** 진행할 수 있는 것처럼 말하지 말고, 대신
-사용자에게 고르게 한다.
+`/superarchitect:model`의 스토밍 모드가 진행한다 — **이 스킬이 대신 진행하지 않는다.** 선택은
+사용자에게 맡긴다.
 
-- 도메인이 정리될 때까지 init을 여기서 중단한다(권장).
+- 도메인이 정리될 때까지 init을 여기서 중단하고 `/superarchitect:model`을 권한다(권장). 스토밍이
+  내는 것은 경계 **후보**이고, 그것을 컨텍스트 선언으로 바꾸는 것은 돌아온 이 스킬의 일이다
+  (`event-storming.md` R3 — 스토밍 세션은 `ARCHITECTURE.md`를 고치지 않는다).
 - 컨텍스트 하나로 시작하고, 경계가 드러나면 그때 나눈다. 이 선택은 근거 절에 기록한다.
 
 그린필드는 4단계에 관측할 코드가 없다. 바로 **5단계로 간다.**
@@ -456,6 +458,6 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
 - **템플릿에 없는 라벨·필드를 발명하는 것.** 표현할 수 없으면 그 사실을 말하고 자유 서술로 남긴다.
 - **스택 추측으로 거버넌스 대상을 제외하는 것.** 제외 근거는 프로파일 부재뿐이다.
 - **파생물을 직접 고치도록 유도하는 것.** 항상 SSOT를 고치고 파생물을 다시 만든다.
-- **아직 없는 스킬(scaffold·model·sync·adr·evolve·migrate·apply)을 있는 것처럼 안내하는 것.**
-  `fitness`와 `review`는 실재하므로 안내해도 된다.
+- **아직 없는 스킬(scaffold·sync·adr·evolve·migrate)을 있는 것처럼 안내하는 것.**
+  `fitness`·`review`·`model`·`apply`는 실재하므로 안내해도 된다.
 - **산출물을 하위 디렉터리에 만드는 것.** `ARCHITECTURE.md`와 `docs/architecture/`는 git 루트다.

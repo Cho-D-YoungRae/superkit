@@ -11,7 +11,7 @@
 | domain-classification | strategic | 컨텍스트를 core·supporting·generic으로 판정하는 4문항 체크리스트와 분류→스타일 기본 매핑(기본값은 순수 도메인 모델) | init, evolve |  |  |
 | domain-events | tactical | 도메인 이벤트의 발행 위치(애그리거트)와 시점(커밋 경계), 과거형 명명 규칙, 공개 이벤트를 관계 표 계약 칸에 등재하는 절차 | model, apply, review |  |  |
 | event-sourcing | patterns | 대부분의 컨텍스트에는 불필요하다 — 적용 판단 기준, 스냅샷·리플레이·스키마 진화 | apply, review, scaffold |  |  |
-| event-storming | strategic | 텍스트 채팅 기반 이벤트 스토밍 진행 규약 — 이벤트 과거형 나열부터 컨텍스트 경계·핫스팟 도출까지 | model, init |  | draft |
+| event-storming | strategic | 텍스트 채팅 기반 이벤트 스토밍 진행 규약 — 과거형 이벤트 나열부터 컨텍스트 경계·핫스팟까지 5단계의 촉진 질문·산출 형식과 결과 반영 규칙 | model, init |  |  |
 | hexagonal | styles | 포트와 어댑터 — domain·application을 안쪽에 두고 바깥과의 모든 상호작용을 포트로 뒤집는 스타일. core의 기본값이며 도메인은 순수하게 유지한다 | init, review, fitness, scaffold | hex.deps-inward, hex.domain-pure, hex.domain-no-framework, hex.ports-owned-inside |  |
 | layered-domain | styles | 도메인 레이어를 분리하고 인터페이스와 구현을 가르는 4레이어 스타일. supporting의 기본값이며 포트 전면 도입 없이 도메인 순수성만 지킨다 | init, review, fitness, scaffold | ld.layer-order, ld.domain-pure, ld.domain-no-framework, ld.infra-isolated |  |
 | layered-simple | styles | controller-service-repository 3레이어. JPA 엔티티를 도메인 엔티티로 직접 쓰는 것을 허용하는 유일한 프리셋이며 generic의 기본값이다 | init, review, fitness, scaffold | ls.layer-order, ls.controller-naming, ls.service-naming |  |
@@ -19,5 +19,5 @@
 | outbox | patterns | 트랜잭션적 이벤트 발행(outbox) 패턴 — 적용 시점, 릴레이 방식 비교, at-least-once와 멱등 소비 | apply, review, scaffold |  |  |
 | package-conventions | structure | 기본 패키지 관례({기본 패키지}.{컨텍스트}.{레이어}..)와 패키지 규약 표 작성법, 패키지 명명 규칙 | init, scaffold |  |  |
 | persistence | tactical | 순수 도메인 모델과 영속 엔티티 분리 전략 — 매핑 위치, 어댑터 봉쇄 규칙, lazy loading·양방향 연관 안티패턴, JPA 직접 사용이 정당한 조건 | apply, review, scaffold |  |  |
-| repositories-domain-services | tactical | 리포지토리 인터페이스의 소유 위치와 애그리거트 단위 규칙, 도메인 서비스와 애플리케이션 서비스를 가르는 체크리스트, 서비스 체인 금지 규칙 채택 안내 | apply, review |  |  |
+| repositories-domain-services | tactical | 리포지토리 인터페이스의 소유 위치와 애그리거트 단위 규칙, 도메인 서비스와 애플리케이션 서비스를 가르는 체크리스트, 서비스 체인 금지 규칙 채택 안내 | model, apply, review |  |  |
 | value-objects | tactical | 값 객체의 불변성·구조적 동등성 강제 방법, 원시 타입 강박 승격 기준, Kotlin data class와 value class 선택 기준 | model, apply, review |  |  |

@@ -147,6 +147,11 @@ exit 1이면 stderr의 `경로:라인: 메시지`를 그대로 보여주고 중�
 `${CLAUDE_PLUGIN_ROOT}/references/knowledge/styles/<이름>.md`, 커스텀은 대상 프로젝트의
 `docs/architecture/styles/<이름>.md`다.
 
+**갈림은 같은 JSON 안에서 이미 결정돼 있다.** `warnings[]`에 이 컨텍스트의 `layer == "domain"`
+공허 레이어 경고가 있으면 (가)이고, 없으면 (나)다 — 그 경고는 **스타일이 선언한 레이어**만
+훑어 나오므로 존재 자체가 "스타일에 domain이 있다"는 뜻이다. 문서를 해석해 판단하기 전에 이
+한 줄로 갈라진다.
+
 **(가) 스타일이 domain을 선언했다 — 실현만 비었다.** `warnings`의 공허 레이어 고지가 같은
 사실을 말한다. 아래 `all` 예외에 해당하지 않으면 중단하고 알린다: 모듈 표나 패키지 규약에
 domain 레이어를 등록하는 것은 사용자의 몫이고, 골격 생성은 `/superarchitect:scaffold`다.
@@ -166,10 +171,16 @@ domain 레이어를 등록하는 것은 사용자의 몫이고, 골격 생성은
 그대로 하면 문서를 깨뜨리는 지시가 된다. 실현의 공백이 아니라 **스타일 선택의 문제**이므로
 중단하고 그렇게 알린다.
 
-> `<컨텍스트>`의 스타일 `<이름>`에는 domain 레이어가 없습니다. 이 스타일에서 domain 문서는
-> 선택이고(`domain-doc-template.md` §1), 기록할 불변식이 쌓이면 문서를 늘리기 전에 스타일
-> 선택부터 다시 봅니다(`references/knowledge/styles/layered-simple.md`). 스타일 재검토는
-> `/superarchitect:init`, 그 결정을 남기는 것은 `/superarchitect:adr`입니다.
+> `<컨텍스트>`의 스타일 `<이름>`에는 domain 레이어가 없습니다. domain 레이어를 두지 않는
+> 스타일에서 domain 문서는 선택이고(`domain-doc-template.md` §1), 기록할 불변식이 쌓이면 문서를
+> 늘리기 전에 스타일 선택부터 다시 봅니다. 스타일 재검토는 `/superarchitect:init`, 그 결정을
+> 남기는 것은 `/superarchitect:adr`입니다.
+
+인용 안의 근거 문서는 **그 컨텍스트가 실제로 선언한 스타일**을 가리킨다 — 프리셋이면
+`references/knowledge/styles/<이름>.md`, 커스텀이면 대상 프로젝트의
+`docs/architecture/styles/<이름>.md`다. `layered-simple`을 하드코딩하지 않는다. **커스텀 스타일도
+domain 레이어를 선언했다면 (나)가 아니라 (가)이고, `domain-pure`를 포함하는 커스텀 스타일에서는
+domain 문서가 선택이 아니라 필수다**(정본 §1).
 
 파일 자리는 셋을 이어 만든다.
 
@@ -279,8 +290,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md
 그것은 이번 게이트의 실패가 아니다 — 이번 변경이 만든 것이 아니므로 고치지 않고, 줄었으면 그
 사실만 적는다. 비교는 필드 대 필드로 한다: 텍스트 줄 `경로:라인: [rule id] 메시지`가 스냅샷
 JSON 항목의 `path`·`line`·`rule_id`·`message`와 같은 값이다. `[0건 경고]`·`생략:`·읽지 못한
-소스·한계 푸터는 **JSON에 문면이 없으므로 이 텍스트 실행분에서** 그대로 승계한다 — "위반 없음"과
-"아무것도 검사하지 않음"은 다른 상태다.
+소스·한계 푸터는 **이 텍스트 실행분에서** 그대로 승계한다 — "위반 없음"과 "아무것도 검사하지
+않음"은 다른 상태다. **2-a의 스냅샷 JSON에 아예 없는 것은 `limitation` 한 줄뿐이고**
+(`zero_match[].message`·`skipped[]`·`unreadable[]`은 거기에도 있다), 나머지를 텍스트 쪽에서
+가져오는 것은 조립한 문면과 출력된 문면이 갈리지 않게 하려는 것이다.
 
 **생성된 fitness 테스트가 있으면 그것이 강제의 정본이다.** 프로젝트 섹션의 `아키텍처 테스트 위치`
 아래에 생성 헤더가 온전한 파일이 있고 `./gradlew`가 실재하면 함께 돌린다(review 2-a와 같은 규약).

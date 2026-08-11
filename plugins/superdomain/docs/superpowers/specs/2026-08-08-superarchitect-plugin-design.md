@@ -328,6 +328,12 @@ description: >
 - 이벤트 스토밍: 도메인이 넓거나 처음일 때. `references/knowledge/strategic/event-storming.md`의 텍스트 진행 규약을 따른다 — 도메인 이벤트를 과거형으로 나열 → 커맨드·액터 연결 → 애그리거트 후보로 묶기 → 컨텍스트 경계·핫스팟 표시. 결과는 domain 문서(흐름 mermaid 포함)와 ARCHITECTURE.md 컨텍스트 맵에 반영한다.
 - 미팅 정리: 회의록·대화 내용을 붙여넣으면 불변식 후보·결정·열린 질문으로 구조화한다.
 
+> **정정(2026-08-11, 구현 착지 반영)** — 스토밍 결과를 "ARCHITECTURE.md 컨텍스트 맵에 반영한다"는
+> **직접 쓰기가 아니다.** 컨텍스트 맵은 생성 구역이고 원본은 컨텍스트 선언과 관계 표이므로, 경계
+> 후보는 `/superarchitect:init`을 거쳐 선언된 뒤에야 맵에 나타난다. 스토밍 세션은
+> `ARCHITECTURE.md`를 고치지 않는다 — 정본은
+> `references/knowledge/strategic/event-storming.md` R3이다.
+
 1. 대상 컨텍스트의 `domain/<context>.md`를 로드한다(없으면 `domain-doc-template.md`로 생성). 기존 열린 질문이 있으면 그것부터 안건으로 올린다.
 2. 한 번에 하나씩 질문한다 — 불변식을 끌어내는 질문에 집중: "이 규칙은 ~한 경우에도 성립하나요?", "깨지면 어떤 비용이 발생하나요?", "누가/언제 이 결정을 내리나요?", 경계 사례·동시 변경·시점 문제. 답변은 즉시 `INV-<CONTEXT>-NNN` 불변식 후보(proposed)로 문서화한다.
 3. 불변식이 모이면 knowledge/tactical/ 문서를 기준으로 애그리거트 경계·VO·도메인 이벤트 후보를 제안하고 확인받는다.

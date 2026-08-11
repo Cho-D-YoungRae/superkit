@@ -102,10 +102,14 @@ read_when: [model, apply, review]
 - [ ] 상태를 바꾸는 public setter가 있는가? setter는 불변식을 우회하는 가장 흔한 경로다.
 - [ ] `proposed` 상태의 불변식을 이미 구현했는가? 확정 전에는 구현하지 않는다.
 
-> **구현 상태**: `INV-<CONTEXT>-NNN` ID와 `@Tag("INV-...")` 테스트를 대조하는
-> `scripts/check_invariants.py`, 그리고 불변식을 확정해 `docs/architecture/domain/<컨텍스트>.md`에
-> 기록하는 model 스킬은 **Phase 3에서 만들어진다 — 오늘은 둘 다 존재하지 않는다.** 그때까지 위
-> 체크리스트의 대조는 사람이 리뷰에서 수행한다.
+`scripts/check_invariants.py`가 이 체크리스트를 두 지점에서 거든다 — `docs/architecture/domain/`의
+`INV-<CONTEXT>-NNN`과 테스트의 `@Tag("INV-...")`를 대조해 **confirmed인데 태그가 없으면 위반**,
+**`proposed`인데 태그가 있으면 경고**(넷째 항목)를 낸다. 문서에 그 항목을 채우는 것은
+`/superarchitect:model`이고 구현·태깅은 `/superarchitect:apply`다.
+
+**나머지 셋은 기계가 판정하지 못한다.** 태그가 달렸다는 것은 그 테스트가 불변식을 실제로
+검증한다는 뜻도, 강제가 **루트 안**에 있다는 뜻도 아니기 때문이다. 그 대조는 리뷰의 의미론
+판정으로 남는다(`agents/arch-reviewer.md` C3).
 
 ### R5. 애그리거트는 도메인 레이어에 산다
 

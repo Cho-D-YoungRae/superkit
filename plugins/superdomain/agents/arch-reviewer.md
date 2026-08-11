@@ -4,11 +4,12 @@ description: >
   변경분의 아키텍처 의미론을 읽기 전용으로 검토하고 JSON 배열 하나만 반환한다 — 전달받은 문서의
   규칙 절 위반, 그리고 도메인 로직 누출·애그리거트 경계 침범·불변식과 검증 코드의 행위 정합성·분류
   대비 과잉·과소 설계·"제2의 방식" 도입이라는 자유 관측 5범주만 본다. `/superarchitect:review`가 결정적 검사
-  (check_imports·fitness 테스트)를 먼저 돌린 뒤 남은 의미론 검토를 위임할 때 사용한다 — summary.md
+  (check_imports·check_invariants·fitness 테스트)를 먼저 돌린 뒤 남은 의미론 검토를 위임할 때 사용한다 — summary.md
   내용, 검토 대상 파일/diff 목록, 선별된 지식 문서 경로 목록, 해당 컨텍스트 domain 문서를 갖춰
   전달할 때. 판정 근거는 전달받은 문서의 `## 규칙`·리뷰 체크리스트 섹션뿐이며 knowledge를 임의로
-  탐색하지 않는다. import 방향·레이어 순서·명명 규칙처럼 결정적으로 판정되는 것은 이 에이전트에
-  맡기지 않는다(check_imports·fitness의 몫). 아키텍처 테스트 생성(fitness), 문서-코드 대조(sync),
+  탐색하지 않는다. import 방향·레이어 순서·명명 규칙·불변식 태그의 존재처럼 결정적으로 판정되는
+  것은 이 에이전트에 맡기지 않는다(check_imports·check_invariants·fitness의 몫).
+  아키텍처 테스트 생성(fitness), 문서-코드 대조(sync),
   코드 수정·문서 편집에도 쓰지 않는다 — 파일을 쓰지 않고 제안만 한다.
 tools: Read, Grep, Glob
 ---
@@ -52,12 +53,14 @@ review 스킬이 아래 넷을 전달한다. 없는 것을 스스로 찾아 채�
 
 ## 3. 보고하지 않는 것 — 결정적 검사의 몫
 
-`check_imports.py`와 생성된 fitness 테스트(Konsist/ArchUnit)가 이미 보는 것은 **보고하지 않는다.**
-같은 위반이 두 경로로 두 번 올라오면 리포트를 믿을 수 없게 된다.
+`check_imports.py`·`check_invariants.py`와 생성된 fitness 테스트(Konsist/ArchUnit)가 이미 보는 것은
+**보고하지 않는다.** 같은 위반이 두 경로로 두 번 올라오면 리포트를 믿을 수 없게 된다.
 
 - 레이어 의존 방향(layer-order), 금지 import(forbid-import), `@Entity` 등 타입 봉쇄(confine-type),
   이름 접미사(naming-suffix), 같은 레이어 형제 참조(forbid-sibling-dependency)
 - 파생 규칙 3종: 관계 표에 없는 컨텍스트 간 참조, 앱이 포함하지 않은 컨텍스트 참조, 공용 모듈의 역참조
+- **confirmed 불변식에 대응 `@Tag("INV-...")` 테스트가 있는지**(`check_invariants.py`). 태그의
+  **존재**만 그쪽 몫이고, 그 테스트가 실제로 무엇을 단언하는지는 C3로 남는다
 - 용어 검증(superglossery가 설치돼 있으면 그쪽 몫), 문법·포매팅·테스트 커버리지·성능·보안 일반
 
 **의심되면 보고하지 않는다.** "결정적 검사가 이걸 잡았을까?" 싶은 항목은 잡혔다고 보고 넘긴다.
@@ -91,8 +94,9 @@ domain 문서의 **confirmed 불변식**만 대상이다(proposed는 아직 결�
   상태값 하나만 확인한다.
 
 불변식 서술을 그대로 인용하고 테스트가 무엇을 단언하는지 나란히 적는다. **대응 테스트 태그가 아예
-없는 것**은 존재 확인이라 결정적 검사의 몫이다 — `check_invariants.py`는 Phase 3 예정이라 아직
-없으므로(구현 상태), 전달받은 결정적 검사 목록에 없었다면 `missing`/`info`로 한 줄만 남긴다.
+없는 것은 보고하지 않는다** — 존재 확인은 `check_invariants.py`의 몫이고 §3이 정한 그대로다.
+예외는 하나뿐이다: 그 검사를 **돌리지 못했거나 `검사 불능`으로 끝났다고 전달받았을 때**만
+`missing`/`info`로 한 줄 남긴다. 그때도 존재 확인이 아니라 관측이다.
 
 ### C4. 과잉·과소 설계 (`semantic.design-fit`)
 
