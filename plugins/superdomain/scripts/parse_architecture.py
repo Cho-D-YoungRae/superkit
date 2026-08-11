@@ -11,6 +11,7 @@
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # 정규 값 집합 (Task 3의 검증이 참조한다. 이 태스크에서는 파싱에 사용하지 않는다.)
 CLASSIFICATIONS = {"core", "supporting", "generic"}
@@ -18,8 +19,26 @@ MODULE_LAYOUTS = {"multi-module", "single-module", "app-embedded"}
 SHARED_ROLES = {"shared-kernel", "infrastructure", "client", "support"}
 RELATION_TYPES = {"partnership", "customer-supplier", "conformist", "acl", "open-host", "published-language"}
 PRESET_STYLES = {"layered-simple", "layered-domain", "hexagonal", "clean"}
-KNOWN_PROFILES = {"kotlin-spring", "java-spring"}
+KNOWN_PROFILES = {"kotlin-spring", "java-spring"}   # profiles/를 읽을 수 없을 때의 폴백
 TEMPLATE_MARKER = "<!-- superarchitect:template v1 -->"
+
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _known_profiles() -> set:
+    """`프로파일`의 정규 값 = 플러그인 루트 `profiles/`의 하위 디렉터리 이름(§4 라벨 사전).
+
+    정본이 "디렉터리 목록"이라고 정한 것을 상수로 굳혀 두면 프로파일이 추가될 때 파서가
+    새 값을 거부한다. 목록을 읽지 못하거나(설치가 깨졌거나 다른 곳에서 import된 경우)
+    비어 있으면 `KNOWN_PROFILES`로 폴백해, 검증이 모든 프로파일을 거부하는 상태로
+    무너지지 않게 한다.
+    """
+    try:
+        names = {entry.name for entry in (PLUGIN_ROOT / "profiles").iterdir()
+                 if entry.is_dir() and not entry.name.startswith(".")}
+    except OSError:
+        return set(KNOWN_PROFILES)
+    return names or set(KNOWN_PROFILES)
 
 
 # 데이터클래스 (섹션·라벨·표 추출 결과의 계약 — 이후 모든 태스크가 이 형태를 소비한다)
@@ -396,12 +415,13 @@ def _validate_project(project: Project, context_names: set, errors: list) -> Non
                 f"프로젝트 '{project.name}': 필수 라벨 '{label}'이(가) 없습니다.",
             ))
 
-    if project.profile and project.profile not in KNOWN_PROFILES:
+    known_profiles = _known_profiles()
+    if project.profile and project.profile not in known_profiles:
         line = project.label_lines.get("프로파일", project.line)
         errors.append(ParseError(
             line,
             f"프로젝트 '{project.name}'의 프로파일 값 '{project.profile}'이(가) 올바르지 않습니다 "
-            f"(허용값: {sorted(KNOWN_PROFILES)}).",
+            f"(허용값: {sorted(known_profiles)}).",
         ))
 
     for shared_module in project.shared_modules:

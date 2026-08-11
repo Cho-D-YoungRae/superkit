@@ -1,7 +1,8 @@
-import sys, unittest
+import shutil, sys, tempfile, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import parse_architecture as pa
 from parse_architecture import parse_architecture, normalize
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -495,6 +496,38 @@ class TestNormalize(unittest.TestCase):
         as_tuples = [(p.project, p.context, p.layer, p.pattern) for p in pats]
         self.assertEqual(as_tuples, sorted(set(as_tuples)))
         self.assertEqual(len(as_tuples), len(set(as_tuples)))
+
+
+class TestDynamicProfiles(unittest.TestCase):
+    """`프로파일` 정규 값은 `profiles/` 하위 디렉터리 목록이다(§4 라벨 사전)."""
+
+    def _errors_for_profile(self, profile):
+        text = load("minimal.md").replace("- 프로파일: kotlin-spring", f"- 프로파일: {profile}")
+        _arch, errors = parse_architecture(text)
+        return [e for e in errors if "프로파일" in e.message]
+
+    def test_dynamic_profiles_accepts_new_dir(self):
+        # profiles/에 디렉터리를 추가하면 파서가 그 값을 즉시 허용해야 한다(하드코딩 드리프트 제거).
+        new_dir = Path(tempfile.mkdtemp(dir=pa.PLUGIN_ROOT / "profiles", prefix="tmp-profile-"))
+        self.addCleanup(shutil.rmtree, new_dir, True)
+        self.assertEqual(self._errors_for_profile("kotlin-spring"), [])
+        self.assertEqual(self._errors_for_profile(new_dir.name), [])
+        self.assertTrue(self._errors_for_profile("rust-axum"))
+
+    def test_known_profiles_are_the_real_directories(self):
+        self.assertEqual(pa._known_profiles(),
+                         {p.name for p in (pa.PLUGIN_ROOT / "profiles").iterdir() if p.is_dir()})
+
+    def test_falls_back_to_constant_when_directory_absent(self):
+        tmp = Path(tempfile.mkdtemp(dir=Path(__file__).resolve().parent, prefix="tmp"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        original = pa.PLUGIN_ROOT
+        pa.PLUGIN_ROOT = tmp                      # profiles/ 가 없는 루트
+        self.addCleanup(setattr, pa, "PLUGIN_ROOT", original)
+        self.assertEqual(pa._known_profiles(), pa.KNOWN_PROFILES)
+        self.assertEqual(self._errors_for_profile("java-spring"), [])
+        (tmp / "profiles").mkdir()                # 있지만 비어 있는 profiles/
+        self.assertEqual(pa._known_profiles(), pa.KNOWN_PROFILES)
 
 
 if __name__ == "__main__":
