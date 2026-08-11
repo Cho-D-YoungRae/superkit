@@ -45,7 +45,8 @@
   `{{.}}`)에 위 문자가 들어 있으면 같은 방식으로 공백 치환한다 — 하이픈은 안전하다.
 - **한 파일 안에서 함수 이름은 유일해야 한다**(같으면 Kotlin conflicting overloads로 컴파일이
   깨진다). 컨텍스트별 파일은 규칙 id가 유일 키라 자동으로 만족되지만, 프로젝트당 파일 하나에
-  모이는 파생 규칙은 그렇지 않다 — §6.2의 유일 키를 지킨다.
+  모이는 파생 규칙은 그렇지 않다 — §6.2의 유일 키를 지킨다. **파일 수준 val도 같은
+  규율이다**(재선언 충돌) — 규칙 인스턴스마다 생기는 val은 §3처럼 `{{ruleIdSafe}}`를 접미한다.
 
 ### 0.2 패턴 매칭 헬퍼
 
@@ -215,28 +216,29 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 의존을 추가하게 만든다. 이름 매칭은 단순명과 FQN을 모두 받는다 ✅(`annotation.representsType`).
 셀렉터를 변수로 빼 두 어서션이 공유하므로 **`Collection<String>` 오버로드**를 쓴다 ✅ — 나머지
 오버로드는 `(name: String, vararg names: String)`이라 `*배열` 스프레드로는 첫 인자 `name`을 채울
-수 없어 컴파일되지 않는다.
+수 없어 컴파일되지 않는다. 두 val 이름의 `{{ruleIdSafe}}` 접미는 §0.1의 유일성 규율이다 — 한
+컨텍스트에 confine-type 인스턴스가 둘 이상이면 고정 이름은 재선언 충돌로 컴파일이 깨진다.
 
 ```kotlin
-private val allowedPackages = listOf({{items:allowed}})
-private val entitySelector = listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity")
+private val `allowedPackages_{{ruleIdSafe}}` = listOf({{items:allowed}})
+private val `entitySelector_{{ruleIdSafe}}` = listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity")
 
 @Test   // 위반 A — 지정 범위 안에서만 선언
 fun `{{context}} - {{ruleIdSafe}} (선언)`() {
     Konsist.scopeFromProduction()
         .classes()
-        .withAnnotationNamed(entitySelector)
+        .withAnnotationNamed(`entitySelector_{{ruleIdSafe}}`)
         .assertTrue(additionalMessage = "규칙 {{ruleId}} — @Entity는 허용 범위 안에서만 선언한다") { klass ->
-            allowedPackages.any { klass.resideInPackage(it) }
+            `allowedPackages_{{ruleIdSafe}}`.any { klass.resideInPackage(it) }
         }
 }
 
 @Test   // 위반 B — 지정 범위 밖에서 참조 금지
 fun `{{context}} - {{ruleIdSafe}} (참조)`() {
     val scope = Konsist.scopeFromProduction()
-    val entityNames = scope.classes().withAnnotationNamed(entitySelector).mapNotNull { it.fullyQualifiedName }
+    val entityNames = scope.classes().withAnnotationNamed(`entitySelector_{{ruleIdSafe}}`).mapNotNull { it.fullyQualifiedName }
     scope.files
-        .withoutPackage(allowedPackages)
+        .withoutPackage(`allowedPackages_{{ruleIdSafe}}`)
         .assertFalse(additionalMessage = "규칙 {{ruleId}} — 격리 범위 밖에서 @Entity 타입 참조") { file ->
             entityNames.isNotEmpty() && file.hasImportWithName(entityNames)
         }
@@ -255,7 +257,7 @@ fun `{{context}} - {{ruleIdSafe}} (참조)`() {
 2. **스타 임포트를 놓친다** — `import com.acme...persistence.*`는 엔티티 FQN과 정확히 일치하지
    않는다. 보강하려면 위반 B의 조건에 다음을 OR로 더한다. 오탐(엔티티가 아닌 타입 때문에
    와일드카드를 쓴 경우)을 감수하는 선택이라 기본 템플릿에는 넣지 않았다 —
-   `|| file.hasImport { it.isWildcard && allowedPackages.any { p -> it.name.matchesPattern(p) } }` ✅
+   `` || file.hasImport { it.isWildcard && `allowedPackages_{{ruleIdSafe}}`.any { p -> it.name.matchesPattern(p) } } `` ✅
 3. 격리 대상이 0건이면 두 어서션 모두 진공 통과하며, 그 통과는 "JPA를 쓰지 않는 프로젝트"와
    "셀렉터가 아무것도 못 잡음"을 구분하지 못한다.
 
