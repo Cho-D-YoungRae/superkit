@@ -182,7 +182,12 @@ domain 레이어를 등록하는 것은 사용자의 몫이고, 골격 생성은
 
 > `<컨텍스트>`의 스타일 `<이름>`에는 domain 레이어가 없고 도메인 순수성 규칙
 > (`confine-type`)도 없습니다. 기록할 불변식이 쌓이면 문서를 늘리기 전에 스타일 선택부터 다시
-> 봅니다. 스타일 재검토는 `/superarchitect:init`, 그 결정을 남기는 것은 `/superarchitect:adr`입니다.
+> 봅니다(`<스타일 문서 경로>`). 스타일 재검토는 `/superarchitect:init`, 그 결정을 남기는 것은
+> `/superarchitect:adr`입니다.
+
+`<스타일 문서 경로>`는 **그 컨텍스트가 실제로 선언한 스타일**을 가리킨다 — 프리셋이면
+`${CLAUDE_PLUGIN_ROOT}/references/knowledge/styles/<이름>.md`, 커스텀이면 대상 프로젝트의
+`docs/architecture/styles/<이름>.md`다. `layered-simple`을 하드코딩하지 않는다.
 
 정본 §1이 domain 문서를 **선택**으로 명시한 스타일은 `layered-simple` 하나다. 그 밖의 스타일이
 여기 걸렸다면 "정본이 선택이라고 했다"고 인용하지 말고, **표에 없는 조합**이라는 사실 그대로
@@ -197,10 +202,6 @@ domain 레이어를 등록하는 것은 사용자의 몫이고, 골격 생성은
 
 여기서는 **스타일 재검토를 처방하지 않는다.** 부족한 것은 스타일 선택이 아니라 레이어 이름과
 도메인 코어의 대응이고, 그 대응을 정하는 것은 사용자다.
-
-두 인용의 근거 문서는 **그 컨텍스트가 실제로 선언한 스타일**을 가리킨다 — 프리셋이면
-`references/knowledge/styles/<이름>.md`, 커스텀이면 대상 프로젝트의
-`docs/architecture/styles/<이름>.md`다. `layered-simple`을 하드코딩하지 않는다.
 
 파일 자리는 셋을 이어 만든다.
 
