@@ -506,28 +506,82 @@ class TestDynamicProfiles(unittest.TestCase):
         _arch, errors = parse_architecture(text)
         return [e for e in errors if "프로파일" in e.message]
 
+    def _fake_root(self):
+        """PLUGIN_ROOT를 임시 루트로 갈아끼운다.
+
+        실제 `profiles/`에 디렉터리를 만들어 검사하면, 중단된 실행이 `profiles/tmp-*`를 남기고
+        그 이름이 곧 유효한 프로파일 값이 된다. 작업 트리를 건드리지 않는 쪽을 쓴다.
+        """
+        tmp = Path(tempfile.mkdtemp(dir=Path(__file__).resolve().parent, prefix="tmp"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        original = pa.PLUGIN_ROOT
+        pa.PLUGIN_ROOT = tmp
+        self.addCleanup(setattr, pa, "PLUGIN_ROOT", original)
+        return tmp
+
     def test_dynamic_profiles_accepts_new_dir(self):
         # profiles/에 디렉터리를 추가하면 파서가 그 값을 즉시 허용해야 한다(하드코딩 드리프트 제거).
-        new_dir = Path(tempfile.mkdtemp(dir=pa.PLUGIN_ROOT / "profiles", prefix="tmp-profile-"))
-        self.addCleanup(shutil.rmtree, new_dir, True)
+        root = self._fake_root()
+        (root / "profiles" / "kotlin-spring").mkdir(parents=True)
+        (root / "profiles" / "brand-new").mkdir()
+        self.assertEqual(pa._known_profiles(), {"kotlin-spring", "brand-new"})
         self.assertEqual(self._errors_for_profile("kotlin-spring"), [])
-        self.assertEqual(self._errors_for_profile(new_dir.name), [])
+        self.assertEqual(self._errors_for_profile("brand-new"), [])
+        # 목록에 없는 값은 여전히 거부된다 — 상수였다면 'brand-new'도 함께 거부됐을 것이다.
         self.assertTrue(self._errors_for_profile("rust-axum"))
+        self.assertTrue(self._errors_for_profile("java-spring"))
 
     def test_known_profiles_are_the_real_directories(self):
         self.assertEqual(pa._known_profiles(),
                          {p.name for p in (pa.PLUGIN_ROOT / "profiles").iterdir() if p.is_dir()})
 
     def test_falls_back_to_constant_when_directory_absent(self):
-        tmp = Path(tempfile.mkdtemp(dir=Path(__file__).resolve().parent, prefix="tmp"))
-        self.addCleanup(shutil.rmtree, tmp, True)
-        original = pa.PLUGIN_ROOT
-        pa.PLUGIN_ROOT = tmp                      # profiles/ 가 없는 루트
-        self.addCleanup(setattr, pa, "PLUGIN_ROOT", original)
+        root = self._fake_root()                  # profiles/ 가 없는 루트
         self.assertEqual(pa._known_profiles(), pa.KNOWN_PROFILES)
         self.assertEqual(self._errors_for_profile("java-spring"), [])
-        (tmp / "profiles").mkdir()                # 있지만 비어 있는 profiles/
+        (root / "profiles").mkdir()               # 있지만 비어 있는 profiles/
         self.assertEqual(pa._known_profiles(), pa.KNOWN_PROFILES)
+
+
+class TestDuplicateTableNames(unittest.TestCase):
+    """같은 프로젝트 안의 애플리케이션·공용 모듈 이름 중복은 파스 타임 오류다."""
+
+    HEAD = ("# 샘플 — Architecture\n<!-- superarchitect:template v1 -->\n\n"
+            "## 프로젝트: {name}\n- 경로: .\n- 프로파일: kotlin-spring\n"
+            "- 기본 패키지: com.acme\n- 아키텍처 테스트 위치: t\n")
+    APPS = ("\n### 애플리케이션\n| 이름 | 모듈 경로 | 포함 컨텍스트 |\n|---|---|---|\n"
+            "| {first} | app/one | all |\n| {second} | app/two | all |\n")
+    SHARED = ("\n### 공용 모듈\n| 모듈 | 경로 | 역할 |\n|---|---|---|\n"
+              "| {first} | support/one | support |\n| {second} | support/two | support |\n")
+
+    def _errors(self, text, needle):
+        _arch, errors = parse_architecture(text)
+        return [e for e in errors if needle in e.message]
+
+    def test_duplicate_application_name(self):
+        text = self.HEAD.format(name="backend") + self.APPS.format(first="api", second="api")
+        errors = self._errors(text, "중복")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("애플리케이션 이름 'api'", errors[0].message)
+        self.assertEqual(errors[0].line, 4)       # 프로젝트 섹션 헤딩
+
+    def test_duplicate_shared_module_name(self):
+        text = self.HEAD.format(name="backend") + self.SHARED.format(first="log", second="log")
+        errors = self._errors(text, "중복")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("공용 모듈 이름 'log'", errors[0].message)
+
+    def test_distinct_names_accepted(self):
+        text = (self.HEAD.format(name="backend")
+                + self.APPS.format(first="api", second="batch")
+                + self.SHARED.format(first="log", second="db"))
+        self.assertEqual(self._errors(text, "중복"), [])
+
+    def test_same_name_in_different_projects_is_fine(self):
+        # 중복 검사의 스코프는 프로젝트다 — 다른 프로젝트의 같은 이름은 충돌이 아니다.
+        text = (self.HEAD.format(name="backend") + self.APPS.format(first="api", second="batch")
+                + self.HEAD.format(name="frontend") + self.APPS.format(first="api", second="web"))
+        self.assertEqual(self._errors(text, "중복"), [])
 
 
 if __name__ == "__main__":

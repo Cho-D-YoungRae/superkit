@@ -342,11 +342,39 @@ class TestDerivedAppAndShared(ResolveTestCase):
         self.assertEqual(kernel.detail["role"], "shared-kernel")
         self.assertEqual(kernel.detail["domain_restricted_contexts"], [])
         self.assertEqual(infra.detail["path"], "infrastructure/db-core")
+        # renewal은 -ld.domain-pure 예외를 걸었으므로 domain-pure가 아니다(예외 적용 후 기준).
         self.assertEqual(infra.detail["domain_restricted_contexts"],
-                         ["brawlstars", "statistics", "operation", "renewal"])
+                         ["brawlstars", "statistics", "operation"])
         # 공용 모듈은 컨텍스트 코드와 앱 코드 양쪽에 의존할 수 없다(정본 §5.1 규칙 5).
         self.assertIn("com.imstargg.core.domain.brawlstars..", infra.detail["forbidden"])
         self.assertIn("com.imstargg.core.api..", infra.detail["forbidden"])
+
+    def test_exception_restores_domain_purity_when_removed(self):
+        # 대조군 — 예외 줄만 빼면 renewal이 다시 domain-pure가 된다(판정 기준이 예외임을 고정).
+        text = FULL.replace("- 규칙 예외: -ld.domain-pure (ADR-0007)\n", "")
+        resolution = self.assert_clean(self.resolve_text(text))
+        infra = self.derived_of(resolution, "shared-module-direction", "db-core")
+        self.assertEqual(infra.detail["domain_restricted_contexts"],
+                         ["brawlstars", "statistics", "operation", "renewal"])
+
+    def test_app_patterns_from_convention_rows(self):
+        # 패키지 규약의 `{앱}` 행은 앱 패키지의 선언 경로다 — 관측 없이도 앱↔앱을 만들 수 있다.
+        for subject in ("core-api", "core-worker"):
+            detail = self.derived_of(self.resolution, "app-confinement", subject).detail
+            self.assertEqual(detail["app_patterns"], {
+                "core-api": ["com.imstargg.core.api.."],
+                "core-batch": ["com.imstargg.core.batch.."],
+                "core-worker": ["com.imstargg.core.worker.."],
+                "core-admin": ["com.imstargg.core.admin.."],
+            })
+
+    def test_app_patterns_absent_without_app_rows(self):
+        # `{앱}` 행이 없으면 키 자체를 넣지 않는다 — 소비자는 관측으로 폴백한다(D2).
+        text = FULL.replace("| presentation | com.imstargg.{앱}.. |",
+                            "| presentation | com.imstargg.presentation.{컨텍스트}.. |")
+        resolution = self.assert_clean(self.resolve_text(text))
+        detail = self.derived_of(resolution, "app-confinement", "core-api").detail
+        self.assertNotIn("app_patterns", detail)
 
     def test_domain_restricted_needs_confine_type(self):
         # 'domain' 레이어는 있지만 confine-type이 없다 → domain-pure가 아니다(D3).
@@ -372,6 +400,60 @@ class TestDerivedAppAndShared(ResolveTestCase):
         resolution = self.assert_clean(self.resolve_text(text, {"pure-domain": style}))
         shared = self.derived_of(resolution, "shared-module-direction", "logging")
         self.assertEqual(shared.detail["domain_restricted_contexts"], ["claim"])
+
+
+class TestHollowLayerWarnings(ResolveTestCase):
+    """선언된 레이어에 실현 패턴이 0건이면 경고한다 — 오류가 아니고 exit에 영향도 없다."""
+
+    def test_warns_for_unrealized_layer(self):
+        # layered-domain은 4레이어를 선언하지만 규약 표는 3개만 실현한다 → infrastructure 공허.
+        resolution = self.assert_clean(resolve_document(FULL_PATH))
+        self.assertEqual({(w.context, w.layer) for w in resolution.warnings},
+                         {(name, "infrastructure")
+                          for name in ("brawlstars", "statistics", "operation", "renewal")})
+        by_context = {w.context: w for w in resolution.warnings}
+        self.assertEqual(by_context["brawlstars"].rules, ["ld.domain-pure", "ld.infra-isolated"])
+        self.assertIn("경고: 컨텍스트 'brawlstars'의 레이어 'infrastructure'는 스타일이 선언했으나 "
+                      "실현 패턴이 없습니다", by_context["brawlstars"].message)
+        self.assertIn("규칙 2건(ld.domain-pure, ld.infra-isolated)이 아무것도 검사하지 않습니다",
+                      by_context["brawlstars"].message)
+        # 예외로 빠진 규칙은 세지 않는다 — renewal은 -ld.domain-pure를 걸었다.
+        self.assertEqual(by_context["renewal"].rules, ["ld.infra-isolated"])
+        self.assertEqual(by_context["brawlstars"].line,
+                         line_of(FULL, "## 컨텍스트: brawlstars"))
+
+    def test_all_layer_realization_makes_every_style_layer_hollow(self):
+        text = MINIMAL.replace("- 모듈 구성: multi-module", "- 모듈 구성: single-module")
+        for layer in ("domain", "application", "adapter"):
+            text = text.replace(f"| {layer} |", "| all |")
+        resolution = self.assert_clean(self.resolve_text(text))
+        self.assertEqual([w.layer for w in resolution.warnings],
+                         ["domain", "application", "adapter"])
+        self.assertEqual({w.layer: w.rules for w in resolution.warnings}, {
+            "domain": ["hex.deps-inward", "hex.domain-no-framework"],
+            "application": ["hex.deps-inward", "hex.ports-owned-inside"],
+            "adapter": ["hex.deps-inward", "hex.domain-pure"],
+        })
+
+    def test_no_warning_when_layers_realized(self):
+        # 반증 — 모듈 표를 레이어별 행으로 나누면 경고가 사라진다.
+        self.assertEqual(self.assert_clean(self.resolve_text(MINIMAL)).warnings, [])
+
+    def test_warning_is_not_an_error(self):
+        text = MINIMAL.replace("| claim-adapter-in | claim/adapter-in | adapter |\n", "") \
+                      .replace("| claim-adapter-out | claim/adapter-out | adapter |\n", "")
+        resolution = self.resolve_text(text)
+        self.assertEqual([e.message for e in resolution.errors], [])   # exit 0을 유지한다
+        self.assertEqual([w.layer for w in resolution.warnings], ["adapter"])
+
+    def test_non_layer_params_do_not_count_as_references(self):
+        # suffixes=domain처럼 레이어를 받지 않는 키의 값은 레이어 참조가 아니다(§2.1).
+        style = ("## 선언\n\n- 레이어: core, edge\n\n| 규칙 id | primitive | 파라미터 |\n|---|---|---|\n"
+                 "| nm.naming | naming-suffix | scope=core; suffixes=edge |\n")
+        text = CUSTOM_ARCH.format(name="only-core", layer_a="core", layer_b="core")
+        resolution = self.assert_clean(self.resolve_text(text, {"only-core": style}))
+        self.assertEqual([(w.layer, w.rules) for w in resolution.warnings], [("edge", [])])
+        self.assertIn("참조하는 유효 규칙은 없습니다", resolution.warnings[0].message)
 
 
 class TestCrossFileValidation(ResolveTestCase):
@@ -464,8 +546,21 @@ class TestCli(ResolveTestCase):
     def test_cli_ok_line_format(self):
         result = self.run_cli(str(FULL_PATH))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(),
+        lines = result.stdout.strip().split("\n")
+        self.assertEqual(lines[-1],
                          "OK: 컨텍스트 4, 유효 규칙 27 (스타일 15, 파생 12, 예외 제외 1)")
+        # 경고는 OK 줄 앞에 나오고 exit 코드를 바꾸지 않는다.
+        self.assertEqual(len(lines), 5)
+        for line in lines[:-1]:
+            self.assertTrue(line.startswith(f"{FULL_PATH}:"), line)
+            self.assertIn("경고: 컨텍스트", line)
+
+    def test_cli_no_warning_lines_when_all_realized(self):
+        path = self.write(MINIMAL)
+        result = self.run_cli(str(path))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(),
+                         "OK: 컨텍스트 1, 유효 규칙 4 (스타일 4, 파생 0, 예외 제외 0)")
 
     def test_cli_error_exit_code(self):
         text = with_label(MINIMAL, "- 모듈 구성: multi-module",
@@ -491,13 +586,16 @@ class TestCli(ResolveTestCase):
         result = self.run_cli(str(FULL_PATH), "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
-        self.assertEqual(sorted(payload), ["derived", "effective", "projects"])
+        self.assertEqual(sorted(payload), ["derived", "effective", "projects", "warnings"])
         self.assertEqual(len(payload["effective"]), 15)
         self.assertEqual(len(payload["derived"]), 12)
         self.assertEqual(sorted(payload["effective"][0]),
                          ["context", "layer_patterns", "params", "primitive",
                           "project", "resolved", "rule_id"])
         self.assertEqual(sorted(payload["derived"][0]), ["detail", "kind", "project", "subject"])
+        self.assertEqual(len(payload["warnings"]), 4)
+        self.assertEqual(sorted(payload["warnings"][0]),
+                         ["context", "layer", "line", "message", "project", "rules"])
 
     def test_cli_json_projects_metadata(self):
         result = self.run_cli(str(FULL_PATH), "--json")

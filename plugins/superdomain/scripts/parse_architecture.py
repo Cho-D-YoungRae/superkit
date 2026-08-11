@@ -406,6 +406,25 @@ def _check_duplicate_names(items: list, kind: str, errors: list) -> None:
             first_seen[item.name] = item.line
 
 
+def _check_duplicate_table_names(names: list, kind: str, project: Project, errors: list) -> None:
+    """프로젝트 표의 이름 중복을 보고한다(스코프는 프로젝트 하나).
+
+    표 행에는 라인 번호가 없으므로 섹션 헤딩을 지목한다. 이 이름들은 뒤에서 생성물의
+    식별자(테스트 함수명 등)가 되므로, 중복은 조용한 덮어쓰기·충돌로 이어진다.
+    """
+    seen = set()
+    for name in names:
+        if not name:
+            continue
+        if name in seen:
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}'의 {kind} 이름 '{name}'이(가) 중복되었습니다.",
+            ))
+        else:
+            seen.add(name)
+
+
 def _validate_project(project: Project, context_names: set, errors: list) -> None:
     """프로젝트 하나의 필수 라벨·값 유효성·표 내용을 검사한다."""
     for label, field_name in REQUIRED_PROJECT_LABELS:
@@ -423,6 +442,11 @@ def _validate_project(project: Project, context_names: set, errors: list) -> Non
             f"프로젝트 '{project.name}'의 프로파일 값 '{project.profile}'이(가) 올바르지 않습니다 "
             f"(허용값: {sorted(known_profiles)}).",
         ))
+
+    _check_duplicate_table_names(
+        [application.name for application in project.applications], "애플리케이션", project, errors)
+    _check_duplicate_table_names(
+        [shared_module.name for shared_module in project.shared_modules], "공용 모듈", project, errors)
 
     for shared_module in project.shared_modules:
         if shared_module.role and shared_module.role not in SHARED_ROLES:

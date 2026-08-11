@@ -31,7 +31,7 @@ from pathlib import Path
 # parse_architecture.py가 이 저장소의 SSOT 파서다. 오류 타입·정규 값 집합을 재사용해
 # 세 파서의 동작과 오류 문체가 갈라지지 않게 한다.
 from parse_architecture import PRESET_STYLES, ParseError, normalize, parse_architecture
-from parse_style import GA_PARAMS, parse_style
+from parse_style import GA_PARAMS, NA_PARAMS, parse_style
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 PRESET_STYLE_DIR = PLUGIN_ROOT / "references" / "knowledge" / "styles"
@@ -94,6 +94,22 @@ class LocatedError(ParseError):
     path: str = ""
 
 
+@dataclass(frozen=True)
+class ResolveWarning:
+    """오류가 아닌 고지 — 해석은 성공했지만 그 규칙이 아무것도 검사하지 않는 상태.
+
+    해석을 막지 않으므로 오류가 아니고(exit 코드에 영향 없음), 그렇다고 침묵할 수도 없다 —
+    매칭 0건의 규칙은 리포트에서 '위반 없음'과 구분되지 않는다(어휘 §1, D4).
+    """
+
+    project: str
+    context: str
+    layer: str
+    rules: list     # 이 레이어를 참조하는 유효 규칙 id
+    line: int       # ARCHITECTURE.md의 컨텍스트 섹션 라인
+    message: str
+
+
 @dataclass
 class Resolution:
     """resolve_document()의 전체 산출. resolve()는 이 중 앞 세 개만 돌려주는 얇은 겉면이다."""
@@ -101,6 +117,7 @@ class Resolution:
     effective: list = field(default_factory=list)   # [EffectiveRule] — 컨텍스트 문서 순서
     derived: list = field(default_factory=list)     # [DerivedRule] — 프로젝트 문서 순서
     errors: list = field(default_factory=list)      # [LocatedError]
+    warnings: list = field(default_factory=list)    # [ResolveWarning] — 오류 아님, exit에 영향 없음
     excluded: list = field(default_factory=list)    # [(프로젝트, 컨텍스트, 규칙 id)] — 예외로 제외됨
     projects: list = field(default_factory=list)    # [{name, path, profile,
                                                     #   base_package, test_location}]
@@ -341,6 +358,44 @@ def _check_exceptions(context, declaration, errors, arch_path):
     return excluded
 
 
+def _references_layer(rule, layer) -> bool:
+    """유효 규칙이 그 레이어를 **레이어로서** 참조하는가(§2.1의 (가)·(나) 파라미터만 본다).
+
+    접미사·셀렉터처럼 레이어를 받지 않는 키의 값이 우연히 레이어 이름과 같아도 참조가 아니다.
+    """
+    for key, items in rule.params.items():
+        pair = (rule.primitive, key)
+        if (pair in GA_PARAMS or pair in NA_PARAMS) and layer in items:
+            return True
+    return False
+
+
+def _hollow_layer_warnings(context, declaration, layer_patterns, rules):
+    """스타일이 선언했지만 실현 패턴이 0건인 레이어를 고지한다(오류 아님).
+
+    레이어 이름과 실제 패키지가 어긋나는 실패 모드는 §2.1의 판별로도 §5.3의 대조로도 잡히지
+    않는다(템플릿 §7) — 이름은 정상이고 어긋난 곳은 이름과 실현 사이다. 그 규칙은 0건을
+    매칭한 채 통과하므로, 조용히 두지 않고 해석 단계에서 알린다.
+    """
+    warnings = []
+    for layer in declaration.layers:
+        if layer_patterns.get(layer):
+            continue
+        referencing = [rule.rule_id for rule in rules if _references_layer(rule, layer)]
+        head = (f"경고: 컨텍스트 '{context.name}'의 레이어 '{layer}'는 스타일이 선언했으나 "
+                f"실현 패턴이 없습니다")
+        if referencing:
+            message = (f"{head} — 이 레이어를 참조하는 규칙 {len(referencing)}건"
+                       f"({', '.join(referencing)})이 아무것도 검사하지 않습니다")
+        else:
+            message = f"{head} — 이 레이어를 참조하는 유효 규칙은 없습니다"
+        warnings.append(ResolveWarning(
+            project=context.project, context=context.name, layer=layer,
+            rules=referencing, line=context.line, message=message,
+        ))
+    return warnings
+
+
 def _resolve_params(rule, layers, layer_patterns) -> dict:
     """§2.1(가) 파라미터의 레이어 항목을 패키지 패턴으로 치환한다.
 
@@ -385,31 +440,62 @@ def _derive_context_isolation(project, contexts, index, partners):
     return rules
 
 
+def _app_convention_patterns(project, contexts):
+    """패키지 규약의 `{앱}` 행을 앱별로 전개한다 — 앱 패키지가 **선언**으로 존재하는 유일한 경로.
+
+    `{앱}` 행이 하나도 없으면 빈 dict다. 그때 앱 패키지는 관측으로만 알 수 있다(D2).
+    치환 규칙은 §6과 같다 — 앱 이름의 하이픈은 점으로 바꾸고(`core-api` → `core.api`),
+    같은 행에 `{컨텍스트}`가 함께 있으면 컨텍스트마다 하나씩 더 전개한다.
+    """
+    rows = [pattern for pattern in project.package_conventions.values() if "{앱}" in pattern]
+    if not rows:
+        return {}
+    table = {}
+    for application in project.applications:
+        patterns = set()
+        for row in rows:
+            expanded = row.replace("{앱}", application.name.replace("-", "."))
+            if "{컨텍스트}" in expanded:
+                patterns.update(expanded.replace("{컨텍스트}", context.name) for context in contexts)
+            else:
+                patterns.add(expanded)
+        table[application.name] = sorted(patterns)
+    return table
+
+
 def _derive_app_confinement(project, contexts, index):
     """애플리케이션 봉쇄 — 앱은 `포함 컨텍스트`의 코드만 참조하고, 컨텍스트 코드는 앱에
     의존할 수 없다(§5.1 규칙 5). 조립은 앱에서만 한다.
 
     detail: {"module_path": 프로젝트 경로 기준 모듈 경로,
              "forbidden": [미포함 컨텍스트 패턴],
-             "reverse_from": [모든 컨텍스트 패턴]}
+             "reverse_from": [모든 컨텍스트 패턴],
+             "app_patterns": {앱 이름: [패턴]}}   ← 선택 키
 
-    앱 자신의 패키지는 관측 대상이라 여기 없다(D2). 같은 이유로 컨텍스트 비분할 레이어('*')의
-    패턴도 양쪽에서 뺀다 — `{앱}` 전개로 생긴 그 패턴들은 대개 앱 자신의 패키지이고, 넣으면
-    앱이 자기 자신을 참조하지 못하게 된다.
+    `forbidden`·`reverse_from`에서는 컨텍스트 비분할 레이어('*')의 패턴을 뺀다 — `{앱}` 전개로
+    생긴 그 패턴들은 대개 앱 자신의 패키지이고, 넣으면 앱이 자기 자신을 참조하지 못하게 된다.
+
+    대신 그 패턴들을 `app_patterns`에 앱별로 갈라 담는다(패키지 규약에 `{앱}` 행이 있을 때만).
+    소비자는 이 표로 from-측(자기 앱)과 **앱 → 앱 금지**(다른 앱들)를 선언만으로 만들 수 있고,
+    키가 없으면 관측으로 폴백한다(D2).
     """
     every = sorted({pattern for context in contexts
                     for pattern in index.context_patterns(project.name, context.name)})
+    app_patterns = _app_convention_patterns(project, contexts)
     rules = []
     for application in project.applications:
         included = set(application.contexts)
         forbidden = [] if ALL in included else sorted(
             {pattern for context in contexts if context.name not in included
              for pattern in index.context_patterns(project.name, context.name)})
-        rules.append(DerivedRule(project.name, KIND_APP_CONFINEMENT, application.name, {
+        detail = {
             "module_path": application.module_path,
             "forbidden": forbidden,
             "reverse_from": every,
-        }))
+        }
+        if app_patterns:
+            detail["app_patterns"] = app_patterns
+        rules.append(DerivedRule(project.name, KIND_APP_CONFINEMENT, application.name, detail))
     return rules
 
 
@@ -454,10 +540,16 @@ def _relation_partners(contexts):
     return partners
 
 
-def _is_domain_pure(declaration) -> bool:
-    """D3 — 스타일 선언에 confine-type 인스턴스가 하나라도 있으면 그 컨텍스트는 domain-pure다."""
+def _is_domain_pure(declaration, excluded) -> bool:
+    """D3 — confine-type 인스턴스가 하나라도 **유효하면** 그 컨텍스트는 domain-pure다.
+
+    기준은 선언이 아니라 예외 적용 **후**의 유효 규칙이다. 규칙 예외로 순수성을 뺀 컨텍스트에
+    파생 제약을 걸면 근거 없는 금지가 되고, 파생 규칙은 예외 대상이 아니므로(D1) 그 금지를
+    해제할 레버도 없다.
+    """
     return declaration is not None and any(
-        rule.primitive == CONFINE_TYPE for rule in declaration.rules)
+        rule.primitive == CONFINE_TYPE for rule in declaration.rules
+        if rule.rule_id not in excluded)
 
 
 def resolve_document(arch_path) -> Resolution:
@@ -502,6 +594,7 @@ def resolve_document(arch_path) -> Resolution:
         contexts_by_project.setdefault(context.project, []).append(context)
 
     declarations = {}
+    exclusions = {}
     for context in architecture.contexts:
         declaration = styles.declaration_for(context)
         declarations[context.name] = declaration
@@ -510,15 +603,17 @@ def resolve_document(arch_path) -> Resolution:
         _check_module_layers(context, declaration, project, result.errors, path_text)
         _check_patterns(context, catalog, result.errors, path_text)
         excluded = _check_exceptions(context, declaration, result.errors, path_text)
+        exclusions[context.name] = excluded
         result.excluded.extend((context.project, context.name, rule_id) for rule_id in excluded)
 
         if declaration is None:
             continue
         layer_patterns = index.layer_patterns(context.project, context.name)
+        rules = []
         for rule in declaration.rules:
             if rule.rule_id in excluded:
                 continue
-            result.effective.append(EffectiveRule(
+            rules.append(EffectiveRule(
                 project=context.project,
                 context=context.name,
                 rule_id=rule.rule_id,
@@ -527,13 +622,16 @@ def resolve_document(arch_path) -> Resolution:
                 resolved=_resolve_params(rule, declaration.layers, layer_patterns),
                 layer_patterns=layer_patterns,
             ))
+        result.effective.extend(rules)
+        result.warnings.extend(_hollow_layer_warnings(context, declaration, layer_patterns, rules))
 
     for project in architecture.projects:
         contexts = contexts_by_project.get(project.name, [])
         _check_convention_layers(project, contexts, declarations, result.errors, path_text)
 
         domain_pure = {context.name for context in contexts
-                       if _is_domain_pure(declarations.get(context.name))
+                       if _is_domain_pure(declarations.get(context.name),
+                                          exclusions.get(context.name, []))
                        and DOMAIN_LAYER in declarations[context.name].layers}
         result.derived.extend(_derive_context_isolation(
             project, contexts, index, _relation_partners(contexts)))
@@ -559,6 +657,7 @@ def _json_payload(resolution) -> dict:
         "projects": resolution.projects,
         "effective": [asdict(rule) for rule in resolution.effective],
         "derived": [asdict(rule) for rule in resolution.derived],
+        "warnings": [asdict(warning) for warning in resolution.warnings],
     }
 
 
@@ -579,6 +678,9 @@ def main(argv) -> int:
     if as_json:
         print(json.dumps(_json_payload(resolution), ensure_ascii=False, indent=2))
         return 0
+
+    for warning in resolution.warnings:
+        print(f"{path}:{warning.line}: {warning.message}")
 
     style_count = len(resolution.effective)
     derived_count = len(resolution.derived)
