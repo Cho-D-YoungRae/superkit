@@ -148,12 +148,11 @@ summary.md의 **분류(core/supporting/generic)와 스타일** 대비로만 판�
 [
   {
     "type": "violation",
-    "path": "backend/src/main/kotlin/com/acme/claim/application/port/out/LoadClaimPort.kt",
-    "line": 12,
+    "path": "backend/src/main/kotlin/com/acme/claim/application/port/out/ClaimJpaPort.kt",
+    "line": 3,
     "severity": "warn",
-    "rationale": "out 포트 시그니처가 어댑터 DTO인 ClaimJpaEntity를 반환한다. hexagonal.md R5 리뷰 체크리스트 1번 — 포트는 도메인 타입만 주고받아야 하며, 이것은 hex.domain-pure의 기계 검사가 보지 못하는 우회 누수다.",
-    "related_rule": "hexagonal R5",
-    "related_adr": "0003-claim-hexagonal.md"
+    "rationale": "out 포트 이름이 ClaimJpaPort로, 어댑터 기술이 이름에 새어 있다. hexagonal R5 체크리스트 2번 — SaveClaimPort는 좋고 ClaimJpaPort는 어댑터가 이름으로 새어 나온 것이며, naming-suffix 검사(hex.ports-owned-inside)는 접미사만 보므로 이름에 새어든 기술 어휘를 보지 못한다.",
+    "related_rule": "hexagonal R5"
   }
 ]
 ```
