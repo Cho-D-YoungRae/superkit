@@ -121,16 +121,48 @@ RELATION_TABLE = """
 """
 
 # 애플리케이션 표는 있고 패키지 규약에 `{앱}` 행이 없다 — 앱 패키지를 관측으로만 알 수 있는 형태(D2).
-OBS_ARCH = HEAD + """
+OBS_APPS = """
 ### 애플리케이션
 | 이름 | 모듈 경로 | 포함 컨텍스트 |
 |---|---|---|
 | web | app/web | claim |
 | batch | app/batch | all |
+"""
 
+OBS_CLAIM = """
 ## 컨텍스트: claim
 - 분류: core
 - 스타일: custom/full
+- 모듈 구성: multi-module
+"""
+
+OBS_ARCH = HEAD + OBS_APPS + OBS_CLAIM + CLAIM_MODULES
+
+# 같은 형태 + 공용 모듈. `{앱}` 규약이 없으므로 앱 패키지가 star 패턴으로 존재하지 않는다 —
+# 공용 모듈 → 앱 참조를 잡으려면 앱 패키지를 관측해 to-측에 합류시켜야 한다.
+OBS_SHARED_ARCH = HEAD + OBS_APPS + """
+### 공용 모듈
+| 모듈 | 경로 | 역할 |
+|---|---|---|
+| logging | support/logging | support |
+""" + OBS_CLAIM + CLAIM_MODULES
+
+# confine-type의 allowed_package 분기 — 격리 범위를 레이어가 아니라 패키지 패턴으로 지정한다.
+STYLE_PKG = """# pkg
+
+## 선언
+
+- 레이어: domain, application, adapter
+
+| 규칙 id | primitive | 파라미터 |
+|---|---|---|
+| pk.domain-pure | confine-type | type=jpa-entity; allowed_package=com.acme.claim.adapter.persistence.. |
+"""
+
+PKG_ARCH = HEAD + """
+## 컨텍스트: claim
+- 분류: core
+- 스타일: custom/pkg
 - 모듈 구성: multi-module
 """ + CLAIM_MODULES
 
@@ -307,6 +339,18 @@ class TestPrimitives(CheckTestCase):
         self.clean_tree()
         self.assert_no_violation(self.check(), "af.domain-pure")
 
+    def test_confine_type_allowed_package_narrows_below_the_layer(self):
+        # allowed_package는 레이어가 아니라 패키지 패턴이다 — adapter 레이어 안이라도
+        # 지정 패키지 밖이면 위반이어야 allowed_layer 분기와 구분된다.
+        self.arch(PKG_ARCH, styles={"pkg": STYLE_PKG})
+        self.kt("claim/adapter", "com.acme.claim.adapter.persistence", "ClaimJpaEntity",
+                annotations=["Entity"], body="class ClaimJpaEntity")
+        self.assert_no_violation(self.check(), "pk.domain-pure")
+        self.kt("claim/adapter", "com.acme.claim.adapter", "OrphanRow",
+                annotations=["Entity"], body="class OrphanRow")
+        violation = self.assert_violation(self.check(), "pk.domain-pure", needle="OrphanRow")
+        self.assertIn("com.acme.claim.adapter.persistence..", violation.message)
+
     def test_naming_suffix(self):
         self.clean_tree()
         self.kt("claim/application", "com.acme.claim.application", "ClaimApi")
@@ -327,6 +371,25 @@ class TestPrimitives(CheckTestCase):
                  "class OuterService {\n    class Inner\n}\n")
         self.assert_no_violation(self.check(), "af.service-naming")
 
+    def test_naming_suffix_sees_fun_interface_and_annotation_class(self):
+        # SAM 포트는 `fun interface`가 관용이고, 그것이 naming-suffix가 겨냥하는 타입이다.
+        self.clean_tree()
+        self.src("claim/application/src/main/kotlin/com/acme/claim/application/Port.kt",
+                 "package com.acme.claim.application\n\nfun interface ClaimPort\n")
+        self.src("claim/application/src/main/kotlin/com/acme/claim/application/Mark.kt",
+                 "package com.acme.claim.application\n\nannotation class ClaimMarker\n")
+        messages = [v.message for v in self.of(self.check(), "af.service-naming")]
+        self.assertEqual(len(messages), 2, messages)
+        self.assertTrue(any("'ClaimPort'" in m for m in messages), messages)
+        self.assertTrue(any("'ClaimMarker'" in m for m in messages), messages)
+
+    def test_top_level_function_is_not_a_type(self):
+        # `fun`을 수식어에 넣어도 최상위 함수가 타입으로 잡히면 안 된다.
+        self.clean_tree()
+        self.src("claim/application/src/main/kotlin/com/acme/claim/application/Ext.kt",
+                 "package com.acme.claim.application\n\nfun claimOf(id: Long) = id\n")
+        self.assert_no_violation(self.check(), "af.service-naming")
+
     def test_naming_suffix_java_public_types(self):
         self.clean_tree()
         self.src("claim/application/src/main/java/com/acme/claim/application/ClaimApi.java",
@@ -341,6 +404,18 @@ class TestPrimitives(CheckTestCase):
         violation = self.assert_violation(self.check(), "af.no-service-chain",
                                           needle="PaymentService")
         self.assertTrue(violation.path.endswith("OrderService.kt"), violation.path)
+
+    def test_forbid_sibling_dependency_counts_fun_interface_as_own_type(self):
+        # own 집합이 `fun interface`를 놓치면 그 파일의 형제 의존이 통째로 사라진다.
+        self.clean_tree()
+        self.kt("claim/application", "com.acme.claim.application", "PaymentService")
+        self.src("claim/application/src/main/kotlin/com/acme/claim/application/OrderService.kt",
+                 "package com.acme.claim.application\n\n"
+                 "import com.acme.claim.application.PaymentService\n\n"
+                 "fun interface OrderService\n")
+        violation = self.assert_violation(self.check(), "af.no-service-chain",
+                                          needle="PaymentService")
+        self.assertIn("OrderService", violation.message)
 
     def test_forbid_sibling_dependency_ignores_other_suffix(self):
         self.clean_tree()
@@ -473,6 +548,31 @@ class TestObservationFallback(CheckTestCase):
         self.assertEqual(len(skipped), 1, report.skipped)
         self.assertIn("관측 0건", skipped[0].reason)
 
+    def test_shared_module_to_app_uses_observed_app_packages(self):
+        # `{앱}` 규약이 없으면 앱 패키지가 star 패턴으로 존재하지 않는다. 관측해서 to-측에
+        # 합류시키지 않으면 공용 모듈 → 앱 참조가 어떤 채널에도 나타나지 않는다.
+        self.arch(OBS_SHARED_ARCH)
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("app/web", "com.acme.web", "WebApp")
+        self.kt("app/batch", "com.acme.batch", "BatchApp")
+        self.kt("support/logging", "com.acme.logging", "WebLogger",
+                imports=["com.acme.web.WebApp"])
+        violation = self.assert_violation(self.check(), "derived.shared-module-direction",
+                                          needle="logging")
+        self.assertIn("com.acme.web.WebApp", violation.message)
+
+    def test_unobservable_app_leaves_shared_module_blind_spot_notice(self):
+        self.arch(OBS_SHARED_ARCH)
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("app/web", "com.acme.web", "WebApp")
+        self.kt("support/logging", "com.acme.logging", "Logger")
+        report = self.check()
+        notices = [s for s in report.skipped
+                   if s.rule_id == "derived.shared-module-direction" and "batch" in s.subject]
+        self.assertEqual(len(notices), 1, report.skipped)
+        self.assertIn("관측 0건", notices[0].reason)
+        self.assertIn("공용 모듈", notices[0].reason)
+
     def test_declared_app_patterns_need_no_observation(self):
         # `{앱}` 규약이 있으면 앱 모듈에 소스가 없어도 역참조 검사가 산다(선언 전개).
         self.app_tree()
@@ -496,6 +596,31 @@ class TestHonesty(CheckTestCase):
         lines = render(report)
         self.assertIn("[0건 경고] af.no-framework: from-측 매칭 파일 0건 — "
                       "레이어·패키지 불일치 가능성 (컨텍스트 claim)", lines)
+
+    def test_layer_order_warns_per_layer_not_per_rule(self):
+        # 레이어 하나만 파일이 있어도 나머지 레이어의 어긋남은 고지되어야 한다 —
+        # 규칙 단위로 묶으면 이 primitive에서만 침묵이 샌다.
+        self.arch(MONO_ARCH)
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        report = self.check()
+        self.assertEqual(sorted(w.subject for w in report.zero_match
+                                if w.rule_id == "af.deps-inward"),
+                         ["컨텍스트 claim의 'adapter' 레이어",
+                          "컨텍스트 claim의 'application' 레이어"])
+        self.assertIn("[0건 경고] af.deps-inward: from-측 매칭 파일 0건 — "
+                      "레이어·패키지 불일치 가능성 (컨텍스트 claim의 'adapter' 레이어)",
+                      render(report))
+
+    def test_hollow_layer_is_not_reported_as_zero_match(self):
+        # 실현 패턴 자체가 없는 레이어는 resolve의 공허 레이어 경고가 지목하는 다른 층위다.
+        self.arch(MONO_ARCH.replace("| claim-adapter | claim/adapter | adapter |\n", ""))
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("claim/application", "com.acme.claim.application", "ClaimService")
+        report = self.check()
+        self.assertEqual([w.subject for w in report.zero_match
+                          if w.rule_id == "af.deps-inward"], [])
+        self.assertTrue(any("adapter" in line and "실현 패턴이 없습니다" in line
+                            for line in report.inherited), report.inherited)
 
     def test_no_zero_match_warning_when_files_match(self):
         self.clean_tree()

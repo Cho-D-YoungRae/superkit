@@ -64,8 +64,13 @@ RE_ENTITY = re.compile(r"@(?:jakarta\.persistence\.|javax\.persistence\.)?Entity
 # 최상위 public 타입 — 어휘 §3.4. `^`(MULTILINE)에 붙여 두는 것이 '최상위' 판별 그 자체다:
 # 중첩 타입은 들여쓰여 있어 줄 첫 칸에서 시작하지 못한다. Kotlin의 가시성 키워드
 # `private`·`internal`은 대안에 없으므로 그 선언은 애초에 매칭되지 않는다.
+#
+# `fun`(fun interface)과 `annotation`(annotation class)이 수식어에 있어야 한다 — SAM 포트는
+# `fun interface`가 관용이고, 그것이 `hex.ports-owned-inside`가 겨냥하는 바로 그 타입이다.
+# 최상위 함수(`fun foo()`)는 뒤따르는 class/interface/object가 없어 매칭되지 않는다.
 RE_KOTLIN_TYPE = re.compile(
-    r"^(?:@\w+\s*)*(?:public\s+)?(?:(?:data|enum|sealed|abstract|open|value)\s+)*"
+    r"^(?:@\w+\s*)*(?:public\s+)?"
+    r"(?:(?:data|enum|sealed|abstract|open|value|fun|annotation)\s+)*"
     r"(?:class|interface|object)\s+(\w+)", re.M)
 RE_JAVA_TYPE = re.compile(
     r"^(?:@\w+\s*)*public\s+(?:(?:final|abstract|static|strictfp|sealed|non-sealed)\s+)*"
@@ -308,6 +313,11 @@ class _Checker:
                                             rule.layer_patterns.get(DOMAIN_LAYER, []))
         self.app_paths = {rule.subject: rule.detail["module_path"]
                           for rule in derived if rule.kind == KIND_APP_CONFINEMENT}
+        # `{앱}` 규약이 있으면 앱 패키지가 선언으로 존재한다 — 그때는 관측할 이유가 없다.
+        self.app_patterns_table = next(
+            (rule.detail["app_patterns"] for rule in derived
+             if rule.kind == KIND_APP_CONFINEMENT and rule.detail.get("app_patterns")), None)
+        self._app_code = None           # 공용 모듈의 to-측에 합류할 앱 패턴(한 번만 계산)
         self._dirs = {}                 # 모듈 상대경로 -> 정규화된 절대 경로(귀속 판정용)
 
     # -- 기록 ---------------------------------------------------------------
@@ -360,7 +370,13 @@ class _Checker:
         patterns = {layer: rule.layer_patterns.get(layer, []) for layer in layers}
         members = {layer: [s for s in self.sources if _file_in(s, patterns[layer])]
                    for layer in layers}
-        self._zero(rule.rule_id, subject, any(members[layer] for layer in layers))
+        # 0건 경고는 **레이어별**이다. 규칙 단위로 묶으면 레이어 하나만 파일이 있어도 침묵하는데,
+        # 어휘 §5·템플릿 §7이 지목한 실패 모드(레이어 이름과 실제 패키지의 어긋남)는 정확히 그
+        # 레이어 하나에서 일어난다. 실현 패턴이 아예 없는 레이어는 여기서 다루지 않는다 —
+        # 그건 resolve의 공허 레이어 경고가 이미 지목한 다른 층위다.
+        for layer in layers:
+            if patterns[layer]:
+                self._zero(rule.rule_id, f"{subject}의 '{layer}' 레이어", members[layer])
 
         for inner, layer in enumerate(layers):
             for source in members[layer]:
@@ -561,6 +577,35 @@ class _Checker:
                                   f"— {imported.text} (조립은 앱에서만 합니다)")
         return True
 
+    def _app_code_patterns(self) -> list:
+        """공용 모듈이 참조하면 안 되는 '앱 코드'의 패턴.
+
+        `{앱}` 규약이 있으면 그 전개형이 컨텍스트 비분할 레이어로서 이미
+        `detail["forbidden"]`에 들어 있다(§6). 규약이 없으면 앱 패키지는 선언되지 않으므로
+        여기서 관측한다(D2) — 관측하지 않으면 공용 모듈 → 앱 참조가 어떤 채널에도 나타나지
+        않는다. 정본이 금지하는 대상은 "앱·컨텍스트 코드" 둘 다이므로 앱 쪽만 빠질 수 없다.
+
+        프로젝트당 한 번만 계산한다. 공용 모듈이 여럿이어도 관측 0건 고지는 앱당 한 줄이다.
+        """
+        if self._app_code is not None:
+            return self._app_code
+        patterns, unobserved = [], []
+        if not self.app_patterns_table:
+            for name, module_path in self.app_paths.items():
+                observed = _observed_patterns(
+                    [s for s in self.sources if self._under(s, module_path)])
+                if observed:
+                    patterns.extend(observed)
+                else:
+                    unobserved.append(name)
+        for name in unobserved:
+            self._skip(derived_rule_id(KIND_SHARED_MODULE_DIRECTION), f"앱 {name}의 패키지",
+                       f"모듈 경로 '{self.app_paths[name]}' 아래 .kt/.java 소스 관측 0건 — "
+                       f"공용 모듈이 이 앱의 코드를 참조해도 검출하지 못합니다 "
+                       f"(패키지 규약에 '{{앱}}' 행을 두면 선언으로 알 수 있습니다)")
+        self._app_code = sorted(set(patterns))
+        return self._app_code
+
     def _shared_module(self, rule) -> bool:
         rule_id = derived_rule_id(rule.kind)
         detail = rule.detail
@@ -573,11 +618,12 @@ class _Checker:
                        f"패키지를 알 수 없어 검사하지 않았습니다")
             return False
 
+        forbidden = list(detail["forbidden"]) + self._app_code_patterns()
         for source in module_sources:
             for imported in source.imports:
                 if _import_in(imported, own):
                     continue
-                matched = _first_match(imported, detail["forbidden"])
+                matched = _first_match(imported, forbidden)
                 if matched:
                     self._violate(rule_id, source, imported.line,
                                   f"공용 모듈 '{rule.subject}'이(가) 앱·컨텍스트 코드 "
