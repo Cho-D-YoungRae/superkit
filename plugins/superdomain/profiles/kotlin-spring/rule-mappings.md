@@ -6,14 +6,14 @@
 
 | 하려는 일 | 읽을 곳 |
 |---|---|
-| 파일 헤더·배치·스코프·헬퍼 | [§0 공통](#0-공통) |
+| 파일 헤더·배치·스코프·import·헬퍼 | [§0 공통](#0-공통) |
 | 0건 매칭이 조용히 통과하는지 | [§0.3 0건 규율](#03-0건-규율) |
 | primitive 번역 | [§1](#1-layer-order)–[§5](#5-forbid-sibling-dependency) |
 | 파생 규칙 3종 | [§6](#6-파생-규칙-3종) |
 | 쓴 API가 검증됐는지 | [§9 검증 대장](#9-검증-대장) |
 
-**검증 표기** — `✅`는 Konsist v0.17.3 릴리스 소스 또는 공식 문서로 확인한 API,
-`⚠️ (미검증 — 첫 실행 시 확인)`은 확인하지 못한 API. 근거는 §9.
+**검증 표기** — `✅`는 소스·공식 문서로, `✅ 실측`은 실행으로 확인한 API. 확인하지 못한 API에는
+`⚠️ (미검증 — 첫 실행 시 확인)`을 남긴다(§9 기준 현재 없다).
 
 ---
 
@@ -37,6 +37,15 @@
 `Konsist.scopeFromProduction()`(= 프로젝트 − 테스트 소스)에서 출발한다 ✅ — 어휘가 대상으로 정의한
 것이 프로덕션 소스이고(§3.4), 생성물이 test 소스셋에 있어 자기 자신을 검사하지도 않는다. 아키텍처
 테스트 모듈이 소스를 `src/main`에 둔다면 이 전제가 깨진다.
+
+**import** — §9 검증 대장의 `api/…` 경로가 곧 패키지다(`api/architecture/Layer.kt` →
+`com.lemonappdev.konsist.api.architecture.Layer`). **아래 두 줄만 그 유도가 틀린다** ✅(실측 —
+틀리면 심볼 미해결이 연쇄해 파일 전체가 컴파일되지 않는다). 그대로 쓴다.
+
+```kotlin
+import com.lemonappdev.konsist.api.Konsist                                                 // api 루트다
+import com.lemonappdev.konsist.api.architecture.KoArchitectureCreator.assertArchitecture   // 멤버 확장이다
+```
 
 **테스트 함수 이름 규약** — Kotlin 백틱 식별자는 `. ; [ ] / < > : \`과 개행을 담지 못한다.
 
@@ -103,8 +112,9 @@ Konsist는 "그 의존이 반드시 존재해야 함". 어휘의 `strict`는 파
 
 **번역 규칙** — 레이어 `l0`(가장 안) … `ln`(가장 밖):
 
-- 모든 레이어에 `include()`. 등록되지 않은 레이어는 `dependsOnNothing()`의 검사 대상에서도 빠져
-  규칙이 조용히 빈다(레이어가 2개일 때 실제로 발생한다).
+- 모든 레이어에 `include()`. 등록되지 않은 레이어는 `dependsOnNothing()`의 검사 대상과 §0.3-1의 빈
+  레이어 검사에서 함께 빠져 규칙이 조용히 빈다 ✅(실측). **단 `include()`는 의존 선언을 전부 낸 뒤
+  마지막에 부른다** — 먼저 부르면 어서션이 실행되기도 전에 예외로 죽는다 ✅(실측, §9 마지막 행).
 - `l0.dependsOnNothing()`.
 - `i ≥ 1`인 `li`의 금지 집합: `strict=false`면 `{l(i+1)…ln}`, `strict=true`면
   `{l0…l(i-2)} ∪ {l(i+1)…ln}`(인접 `l(i-1)`만 허용). 비면 그 줄을 생략한다.
@@ -120,11 +130,11 @@ fun `{{context}} - {{ruleIdSafe}}`() {
             val application = setOf(Layer("hex.deps-inward:application", "com.acme.claim.application.."))
             val adapter = setOf(Layer("hex.deps-inward:adapter", "com.acme.claim.adapter.."))
 
-            domain.include(); application.include(); adapter.include()
-
             domain.dependsOnNothing()
             application.doesNotDependOn(adapter)
             // adapter는 가장 바깥이라 금지 집합이 비어 있다
+
+            domain.include(); application.include(); adapter.include()   // 반드시 마지막
         }
 }
 ```
@@ -170,9 +180,9 @@ fun `{{context}} - {{ruleIdSafe}}`() {
         .assertArchitecture(additionalMessage = "규칙 {{ruleId}} — 컨텍스트 {{context}}") {
             val from = setOf({{#resolved.from}}Layer("{{ruleId}}:from[{{i}}]", "{{.}}"), {{/resolved.from}})
             val to = setOf({{#resolved.to}}Layer("{{ruleId}}:to[{{i}}]", "{{.}}"), {{/resolved.to}})
-            from.include()
-            to.include()
             from.doesNotDependOn(to)
+            from.include()                 // §1과 같은 순서 제약 — include는 의존 선언 뒤
+            to.include()
         }
 }
 ```
@@ -309,18 +319,17 @@ fun `{{context}} - {{ruleIdSafe}}`() {
         .withNameEndingWith("{{suffix}}")
         .assertFalse(strict = true, additionalMessage = "규칙 {{ruleId}} — {{suffix}}끼리 의존 금지") { klass ->
             val referenced =
-                klass.constructors.flatMap { it.parameters }.map { it.type.sourceType } +   // ⚠️
-                    klass.properties().mapNotNull { it.type?.sourceType }                   // ⚠️
+                (klass.constructors.flatMap { it.parameters }.map { it.type.sourceType } +
+                    klass.properties().mapNotNull { it.type?.sourceType }).map { it.removeSuffix("?") }
             referenced.any { it != klass.name && it.endsWith("{{suffix}}") }
         }
 }
 ```
 
-⚠️ **(미검증 — 첫 실행 시 확인)**: 단일 선언에서의 `klass.constructors`,
-`KoConstructorDeclaration.parameters`, `klass.properties()`, `KoTypeDeclaration.sourceType`.
-`KoClassDeclaration`이 `KoConstructorProvider`를 구현한다는 것과 목록 확장
-`.classes().constructors.parameters`·`it.type.sourceType`이 공식 스니펫에 있다는 것까지만
-확인했다. 단수형 접근자의 정확한 이름과 널 허용 여부는 확인하지 못했다.
+단수 접근자 `klass.constructors`·`parameters`·`klass.properties()`·`type.sourceType`은 2026-08-11
+실행으로 확인했다 ✅ — 생성자 파라미터의 `type`은 non-null, 프로퍼티의 `type`은 nullable이다.
+**`sourceType`은 널 표시 `?`를 붙여 돌려준다**(`AlphaUseCase?`) ✅ — `removeSuffix("?")`가 없으면
+널 허용 프로퍼티의 형제 의존을 조용히 놓친다(실측: 2건 중 1건만 검출).
 
 **커버리지 한계**
 
@@ -458,6 +467,7 @@ single-module 레이아웃의 **보조** 검증 수단으로 쓸 수 있다(`@Ap
 ## 9. 검증 대장
 
 2026-08-11 확인. 소스는 `lemonappdev/konsist` 태그 `v0.17.3`, 문서는 `konsist-documentation` main.
+**`✅ 실측`은 gradle+Konsist 실행으로 확인한 행이다**(샘플 4종 · Konsist 0.17.3 · Gradle 9.7.0).
 
 | API | 상태 | 근거 |
 |---|---|---|
@@ -480,8 +490,8 @@ single-module 레이아웃의 **보조** 검증 수단으로 쓸 수 있다(`@Ap
 | `withPublicOrDefaultModifier()` | ✅ | `api/ext/list/modifierprovider/KoVisibilityModifierProviderListExt.kt` |
 | `fullyQualifiedName` | ✅ | `api/provider/KoFullyQualifiedNameProvider.kt` |
 | `KoClassDeclaration`이 `KoConstructorProvider` 구현 | ✅ | `api/declaration/KoClassDeclaration.kt` |
-| 단수 `klass.constructors`·`constructor.parameters`·`klass.properties()`·`type.sourceType` | ⚠️ (미검증 — 첫 실행 시 확인) | 목록 확장 형태만 공식 스니펫에서 확인 |
-| 같은 레이어에 `include()`와 다른 의존 선언을 함께 호출 | ⚠️ (미검증 — 첫 실행 시 확인) | 두 API 각각은 확인. 조합은 소스상 문제없어 보이나 실행으로 확인하지 않았다 |
+| 단수 `klass.constructors`·`constructor.parameters`·`klass.properties()`·`type.sourceType` | ✅ 실측 | 프리셋 4종이 `forbid-sibling-dependency`를 쓰지 않아 생성물에는 인스턴스가 없었다 — §5 템플릿을 프로브로 직접 실행해 확인. `sourceType`은 널 표시 `?`를 포함한다(§5) |
+| 같은 레이어에 `include()`와 다른 의존 선언을 함께 호출 — **순서 제약** | ✅ 실측 | `include()`가 먼저면 `KoInvalidAssertArchitectureConfigurationException`("already defined with a strict=null value")으로 어서션이 실행 전에 죽는다(스타일 3종 재현). 의존 선언 뒤로 옮기면 정상 판정하고 §0.3-1의 빈 레이어 검사도 그대로 걸린다 |
 
 ## 10. 관련 문서
 

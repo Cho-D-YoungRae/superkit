@@ -158,12 +158,11 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
 1. 첫 두 줄은 매핑 §0.1의 생성 헤더를 **글자 그대로**. 5단계가 이 두 줄로 수동 수정을 판정하므로
    한 글자도 바꾸지 않는다.
 2. `package <base_package>.architecture`
-3. **import 목록은 매핑에 없다.** 템플릿이 쓴 심볼(`Konsist`·`Layer`·`assertArchitecture`·
-   `assertTrue`/`assertFalse`·`withPackage` 등)의 패키지는 매핑 §9 검증 대장의 소스 경로에서
-   유도한다 — `api/architecture/Layer.kt` → `com.lemonappdev.konsist.api.architecture.Layer`.
-   확장 함수는 파일이 아니라 심볼을 import한다. 테스트 애노테이션은 그 프로젝트가 쓰는 프레임워크를
-   따른다(JUnit 5면 `org.junit.jupiter.api.Test`). **유도한 import는 컴파일로 확인된 적이 없다** —
-   리포트에 "첫 컴파일에서 확인"으로 적는다.
+3. **import는 매핑이 정한다.** 매핑의 「import」 절(kotlin-spring은 §0.1)이 **글자 그대로 쓰라고
+   못박은 줄은 그대로** 쓰고, 나머지 심볼만 그 절이 지시하는 방식으로 유도한다 — 유도 규칙을 스스로
+   만들지 않는다. 유도가 틀리면 심볼 미해결이 연쇄해 파일 전체가 컴파일되지 않는다(실측). 확장
+   함수는 파일이 아니라 심볼을 import한다. 테스트 애노테이션은 그 프로젝트가 쓰는 프레임워크를
+   따른다(JUnit 5면 `org.junit.jupiter.api.Test`).
 4. 파일 이름과 같은 이름의 클래스 하나에 `@Test` 함수를 담는다(`class ClaimArchitectureTest { … }`).
 5. 매핑 §0.2의 `matchesPattern` 헬퍼를 파일마다 한 번 넣는다.
 
