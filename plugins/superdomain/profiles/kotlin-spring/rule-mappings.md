@@ -38,8 +38,14 @@
 것이 프로덕션 소스이고(§3.4), 생성물이 test 소스셋에 있어 자기 자신을 검사하지도 않는다. 아키텍처
 테스트 모듈이 소스를 `src/main`에 둔다면 이 전제가 깨진다.
 
-**테스트 함수 이름에 규칙 id를 그대로 넣을 수 없다** — Kotlin 백틱 식별자는 `.`을 담지 못한다.
-`{{ruleIdSafe}}`(`.` → 공백)를 쓰고, 원본 id는 `additionalMessage`에 넣는다.
+**테스트 함수 이름 규약** — Kotlin 백틱 식별자는 `. ; [ ] / < > : \`과 개행을 담지 못한다.
+
+- 규칙 id는 그대로 넣을 수 없다. `{{ruleIdSafe}}`(`.` → 공백)를 쓰고 원본 id는
+  `additionalMessage`에 넣는다. 치환되는 다른 이름(`{{context}}`·`{{subject}}`, 파생 규칙의
+  `{{.}}`)에 위 문자가 들어 있으면 같은 방식으로 공백 치환한다 — 하이픈은 안전하다.
+- **한 파일 안에서 함수 이름은 유일해야 한다**(같으면 Kotlin conflicting overloads로 컴파일이
+  깨진다). 컨텍스트별 파일은 규칙 id가 유일 키라 자동으로 만족되지만, 프로젝트당 파일 하나에
+  모이는 파생 규칙은 그렇지 않다 — §6.2의 유일 키를 지킨다.
 
 ### 0.2 패턴 매칭 헬퍼
 
@@ -374,11 +380,22 @@ fun `<이름>`() {
 | `app-confinement` 정방향 | `{{subject}} - derived app-confinement` | 관측 패키지 | `{{items:detail.forbidden}}` — **비면 생성하지 않는다**(`포함 컨텍스트: all`) |
 | `app-confinement` 역방향 | `{{subject}} - derived app-confinement (역방향)` | `{{items:detail.reverse_from}}` | 관측 패키지 |
 | `shared-module-direction` 정방향 | `{{subject}} - derived shared-module-direction` | 관측 패키지 | `{{items:detail.forbidden}}` |
-| `shared-module-direction` 도메인 제한 | `{{.}} - derived shared-module-direction (domain)` | `{{.}}`의 domain 레이어 패턴 | 관측 패키지 |
+| `shared-module-direction` 도메인 제한 | `{{subject}} - derived shared-module-direction (domain {{.}})` | `{{.}}`의 domain 레이어 패턴 | 관측 패키지 |
 
 마지막 행은 `{{#detail.domain_restricted_contexts}}` 반복 블록 **안**이다. 따라서 그 행의 `{{.}}`는
 순회 중인 컨텍스트 이름이며, `profiles/README.md`가 정의한 `{{context}}`(= `EffectiveRule.context`,
 이 `DerivedRule`에는 존재하지 않는다)와 **다른 값이다.** 다른 네 행에는 반복 블록이 없다.
+
+**이 행의 테스트 이름에는 `{{subject}}`와 `{{.}}`가 둘 다 있어야 한다.** 파생 규칙은 프로젝트당
+파일 하나(`DerivedRulesTest.kt`)에 모이는데, resolve_rules는 shared-kernel이 아닌 **모든** 공용
+모듈에 같은 `domain_restricted_contexts`를 넣는다. 그런 모듈이 둘 이상이면(imstargg형의
+`db-core`·`brawlstars-client`·`logging`) 컨텍스트 이름만으로는 같은 파일에 이름이 같은 `fun`이
+여러 개 생겨 Kotlin conflicting overloads로 컴파일이 깨진다.
+
+**표의 다섯 이름이 한 파일 안에서 유일한 근거**: 앞 네 행은 `{{subject}}`(kind마다 컨텍스트명·앱명·
+모듈명) + kind 문자열 + 방향 접미사로 갈리고, 마지막 행만 `{{subject}}` 하나로는 갈리지 않아
+`{{.}}`가 필요하다. 즉 유일 키는 앞 네 행이 (subject, kind, 방향), 마지막 행이
+(공용 모듈, 컨텍스트)다. 새 kind를 추가할 때 이 표에 이름을 넣기 전에 유일 키부터 정한다.
 
 `additionalMessage`는 `"파생 <id> — <무엇이 왜 금지되는지>"` 형식으로 쓴다. 예: `"파생
 derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의존할 수 없다"`.
