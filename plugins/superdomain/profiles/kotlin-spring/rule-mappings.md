@@ -383,8 +383,6 @@ fun `<이름>`() {
 
 ### 6.2 kind별 대입
 
-| kind / 어서션 | 테스트 이름 | `<from>` | `<forbidden>` |
-|---|---|---|---|
 두 파생 목록을 먼저 정의한다(§3의 `allowed`와 같은 방식 — 표는 이름으로만 참조한다).
 
 - **`앱 패턴({{subject}})`** = `detail["app_patterns"][{{subject}}]`. 키가 없으면 `module_path`
