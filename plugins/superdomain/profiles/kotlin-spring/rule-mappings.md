@@ -339,17 +339,26 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 
 세 종류 모두 **라우트 B**로 생성한다. ① from·to 목록이 프로젝트의 모든 컨텍스트·앱·모듈에 걸쳐
 있어, 한 컨텍스트가 아직 비어 있으면 §0.3-1의 빈 레이어 예외가 프로젝트 전체 파생 테스트를 막는다.
-② 앱·공용 모듈의 관측 패키지는 0건일 수 있고 그때의 계약은 "생략 + 고지"인데, 라우트 A는 생략이
-아니라 예외가 된다.
+② 앱·공용 모듈을 관측 경로로 얻을 때 패키지가 0건일 수 있고 그때의 계약은 "생략 + 고지"인데,
+라우트 A는 생략이 아니라 예외가 된다.
 
-**관측 패키지(D2)** — 앱·공용 모듈의 패키지는 선언되지 않고 **관측된다.** fitness가 생성 시점에
-`module_path`·`path` 아래 소스의 `package` 선언을 읽어, 다른 항목의 접두가 되는 최소 집합만 남기고
-각 항목에 `..`를 붙여 리터럴로 굽는다. 바로 위에 출처 주석을 병기한다. **관측 0건이면 그 인스턴스를
-생성하지 않고 생성 리포트에 생략 사실을 고지한다**(침묵 금지).
+**앱·공용 모듈의 패키지를 얻는 두 경로 — 선언이 먼저, 관측이 폴백.**
+
+| 경로 | 조건 | 출처 |
+|---|---|---|
+| ① 선언 | `app-confinement`의 `detail["app_patterns"]` 키가 **있을 때**(패키지 규약에 `{앱}` 행이 있는 프로젝트) | `{앱 이름: [패턴]}` — 하이픈은 이미 점으로 치환돼 있고 `{컨텍스트}` 전개까지 끝나 있다. **모든 앱의 표가 각 인스턴스에 담긴다** |
+| ② 관측(D2) | `app_patterns` 키가 없을 때, 그리고 **공용 모듈은 언제나** | fitness가 `module_path`·`path` 아래 소스의 `package` 선언을 읽는다 |
+
+②는 다른 항목의 접두가 되는 최소 집합만 남기고 각 항목에 `..`를 붙여 리터럴로 굽고, 바로 위에 출처
+주석을 병기한다. **관측 0건이면 그 인스턴스를 생성하지 않고 생성 리포트에 생략 사실을
+고지한다**(침묵 금지). ①에는 이 생략 분기가 없다 — 선언이 곧 진실이므로 0건이 될 수 없다.
 
 ```kotlin
-// 관측: core/core-api (package 선언 1건)
+// 선언: 패키지 규약 {앱} 행 전개 (app_patterns)
 private val coreApiPackages = listOf("com.imstargg.core.api..")
+
+// 관측: infrastructure/db-core (package 선언 1건)
+private val dbCorePackages = listOf("com.imstargg.dbcore..")
 ```
 
 ### 6.1 공통 어서션 모양
@@ -376,15 +385,25 @@ fun `<이름>`() {
 
 | kind / 어서션 | 테스트 이름 | `<from>` | `<forbidden>` |
 |---|---|---|---|
+두 파생 목록을 먼저 정의한다(§3의 `allowed`와 같은 방식 — 표는 이름으로만 참조한다).
+
+- **`앱 패턴({{subject}})`** = `detail["app_patterns"][{{subject}}]`. 키가 없으면 `module_path`
+  관측 폴백.
+- **`타 앱 패턴`** = `detail["app_patterns"]`에서 `{{subject}}` 항목을 뺀 나머지 값들의 합집합.
+  키가 없으면 프로젝트의 다른 앱 `module_path`들을 관측해 합친다.
+
+| kind / 어서션 | 테스트 이름 | `<from>` | `<forbidden>` |
+|---|---|---|---|
 | `context-isolation` | `{{subject}} - derived context-isolation` | `{{items:detail.from}}` | `{{items:detail.to}}` |
-| `app-confinement` 정방향 | `{{subject}} - derived app-confinement` | 관측 패키지 | `{{items:detail.forbidden}}` — **비면 생성하지 않는다**(`포함 컨텍스트: all`) |
-| `app-confinement` 역방향 | `{{subject}} - derived app-confinement (역방향)` | `{{items:detail.reverse_from}}` | 관측 패키지 |
+| `app-confinement` 정방향 | `{{subject}} - derived app-confinement` | `앱 패턴({{subject}})` | `{{items:detail.forbidden}}` — **비면 생성하지 않는다**(`포함 컨텍스트: all`) |
+| `app-confinement` 역방향 | `{{subject}} - derived app-confinement (역방향)` | `{{items:detail.reverse_from}}` | `앱 패턴({{subject}})` |
+| `app-confinement` 앱 간 | `{{subject}} - derived app-confinement (앱 간)` | `앱 패턴({{subject}})` | `타 앱 패턴` — **비면 생성하지 않는다**(앱이 하나뿐인 프로젝트) |
 | `shared-module-direction` 정방향 | `{{subject}} - derived shared-module-direction` | 관측 패키지 | `{{items:detail.forbidden}}` |
 | `shared-module-direction` 도메인 제한 | `{{subject}} - derived shared-module-direction (domain {{.}})` | `{{.}}`의 domain 레이어 패턴 | 관측 패키지 |
 
 마지막 행은 `{{#detail.domain_restricted_contexts}}` 반복 블록 **안**이다. 따라서 그 행의 `{{.}}`는
 순회 중인 컨텍스트 이름이며, `profiles/README.md`가 정의한 `{{context}}`(= `EffectiveRule.context`,
-이 `DerivedRule`에는 존재하지 않는다)와 **다른 값이다.** 다른 네 행에는 반복 블록이 없다.
+이 `DerivedRule`에는 존재하지 않는다)와 **다른 값이다.** 다른 다섯 행에는 반복 블록이 없다.
 
 **이 행의 테스트 이름에는 `{{subject}}`와 `{{.}}`가 둘 다 있어야 한다.** 파생 규칙은 프로젝트당
 파일 하나(`DerivedRulesTest.kt`)에 모이는데, resolve_rules는 shared-kernel이 아닌 **모든** 공용
@@ -392,16 +411,21 @@ fun `<이름>`() {
 `db-core`·`brawlstars-client`·`logging`) 컨텍스트 이름만으로는 같은 파일에 이름이 같은 `fun`이
 여러 개 생겨 Kotlin conflicting overloads로 컴파일이 깨진다.
 
-**표의 다섯 이름이 한 파일 안에서 유일한 근거**: 앞 네 행은 `{{subject}}`(kind마다 컨텍스트명·앱명·
-모듈명) + kind 문자열 + 방향 접미사로 갈리고, 마지막 행만 `{{subject}}` 하나로는 갈리지 않아
-`{{.}}`가 필요하다. 즉 유일 키는 앞 네 행이 (subject, kind, 방향), 마지막 행이
-(공용 모듈, 컨텍스트)다. 새 kind를 추가할 때 이 표에 이름을 넣기 전에 유일 키부터 정한다.
+**표의 여섯 이름이 한 파일 안에서 유일한 근거**: 앞 다섯 행은 `{{subject}}`(kind마다 컨텍스트명·
+앱명·모듈명) + kind 문자열 + 방향 접미사(`(역방향)`·`(앱 간)`)로 갈리고, 마지막 행만
+`{{subject}}` 하나로는 갈리지 않아 `{{.}}`가 필요하다. 즉 유일 키는 앞 다섯 행이
+(subject, kind, 방향), 마지막 행이 (공용 모듈, 컨텍스트)다. 새 kind나 새 방향을 추가할 때 이 표에
+이름을 넣기 전에 유일 키부터 정한다.
 
 `additionalMessage`는 `"파생 <id> — <무엇이 왜 금지되는지>"` 형식으로 쓴다. 예: `"파생
 derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의존할 수 없다"`.
 
 - `context-isolation`의 `to`가 비면 resolve_rules가 인스턴스 자체를 보내지 않는다.
-- 앱 모듈 → 앱 모듈 의존 금지는 별도 규칙이 아니라 위 두 어서션에서 따라 나온다(정본 §3).
+- **앱 모듈 → 앱 모듈 의존 금지는 별도 어서션이 필요하다**(정본 §3, §5.1 규칙 5). 앞의 두
+  app-confinement 어서션에서 따라 나오지 않는다 — resolve_rules는 `forbidden`·`reverse_from`에서
+  컨텍스트 비분할 레이어(`'*'`) 패턴을 빼는데(앱이 자기 자신을 금지하는 것을 막기 위해)
+  app-embedded에서 **다른 앱의 패키지가 바로 그 패턴**이라, 두 목록 어디에도 타 앱 코드가 없다.
+  그래서 "앱 간" 행이 표에 있다.
 - 도메인 제한 행은 `detail["domain_restricted_contexts"]`(D3)의 컨텍스트마다 하나씩 만들고,
   `role`이 `shared-kernel`이면 그 목록이 비어 있어 하나도 생기지 않는다.
 
@@ -426,11 +450,10 @@ derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의�
 ## 8. Spring Modulith
 
 single-module 레이아웃의 **보조** 검증 수단으로 쓸 수 있다(`@ApplicationModule` +
-`ApplicationModules.of(App::class).verify()`, 순환 참조 검출과 모듈 문서 생성이 강점).
-**v1의 생성 대상은 Konsist뿐이며 superarchitect는 Modulith 설정을 만들지 않는다.** ① Modulith의
-경계는 애플리케이션 클래스 기준 패키지 트리에 묶여 있어 "컨텍스트 × 레이어 → 패키지 패턴"
-정규화(multi-module·app-embedded 포함)를 표현하지 못하고, ② 경계 선언이 소스 쪽에 생겨 SSOT가 둘로
-갈라진다. 이미 쓰는 프로젝트라면 그대로 두고 병행한다 — 두 검사는 겹칠 뿐 충돌하지 않는다.
+`ApplicationModules.of(App::class).verify()` — 순환 참조 검출과 모듈 문서 생성이 강점).
+**v1의 생성 대상은 Konsist뿐이며 superarchitect는 Modulith 설정을 만들지 않는다** — ① 경계가
+애플리케이션 클래스 기준 패키지 트리에 묶여 "컨텍스트 × 레이어 → 패키지 패턴" 정규화를 표현하지
+못하고, ② 경계 선언이 소스 쪽에 생겨 SSOT가 갈라진다. 이미 쓰는 프로젝트는 병행하면 된다.
 
 ## 9. 검증 대장
 

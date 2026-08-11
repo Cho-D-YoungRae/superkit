@@ -89,7 +89,7 @@ primitive마다 있는 스칼라 파라미터는 키 이름을 그대로 쓴다 
 스칼라 플레이스홀더는 그 목록의 유일한 항목을 뜻한다.
 `{{items:...}}`·`{{#...}}`의 `<필드>`도 같은 출처를 쓴다: `resolved.from`, `resolved.to`,
 `params.suffixes`, `layer_patterns.<레이어>`, `detail.forbidden`, `detail.reverse_from`,
-`detail.domain_restricted_contexts` 등. 위 표는 프로파일이 **공유하는 어휘**이고, 각 프로파일은
+`detail.app_patterns`, `detail.domain_restricted_contexts` 등. 위 표는 프로파일이 **공유하는 어휘**이고, 각 프로파일은
 필요한 것만 쓴다. 파생 목록(예: `confine-type`의 허용 범위)을 쓰는 템플릿은 그 목록이 어떻게
 만들어지는지를 자기 "입력" 줄에서 정의한다.
 
