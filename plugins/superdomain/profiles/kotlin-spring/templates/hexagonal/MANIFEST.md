@@ -1,0 +1,113 @@
+# hexagonal — kotlin-spring 골격 매니페스트
+
+스타일 선언의 정본은 `references/knowledge/styles/hexagonal.md`의 `## 선언`이고, 치환 변수의
+정본은 `profiles/README.md`의 「플레이스홀더 규약」이다. 이 파일은 **그 스타일의 골격이 어떤
+파일로 이루어지고 어디에 놓이는가**만 정한다.
+
+레이어는 셋이다 — `domain`, `application`, `adapter`(안 → 밖).
+
+## 이 골격이 통과해야 하는 규칙
+
+수용 기준은 하나다: **그대로 전개된 골격은 이 스타일의 유효 규칙에 대해 `check_imports` 클린이고
+fitness가 생성한 Konsist 테스트를 통과한다.** 골격의 모양은 대부분 그 기준에서 나온 것이다.
+
+| 규칙 id | 골격이 만족시키는 방식 |
+|---|---|
+| `hex.deps-inward` | 모듈 의존이 `adapter → application → domain` 한 방향뿐이다. 세 레이어 모두 파일이 1개 이상이다 — 빈 레이어는 위반이 아니라 **예외**로 죽는다(매핑 §0.3-1) |
+| `hex.domain-pure` | `@Entity`는 `adapter`의 `{{Context}}JpaEntity` 하나뿐이고, 그 타입을 import하는 파일이 adapter 밖에 없다(격리는 양방향) |
+| `hex.domain-no-framework` | `domain`의 파일에 `org.springframework..`·`jakarta.persistence..` import가 없다. `build.gradle.kts.domain`도 그 의존을 갖지 않는다 |
+| `hex.ports-owned-inside` | `application`의 최상위 public 타입이 `{{Context}}Port`·`Activate{{Context}}UseCase`·`DefaultActivate{{Context}}UseCase` 셋뿐 — 전부 `Port`·`UseCase`로 끝난다. 커맨드는 중첩 타입, 예외는 `domain`에 있다 |
+
+`strict = true`인 규칙(`hex.domain-no-framework`·`hex.ports-owned-inside`)은 **검사 대상 0건도
+실패**다. 레이어마다 파일을 최소 하나씩 두는 것이 골격의 요구 사항인 이유다.
+
+## 파일 목록
+
+| 템플릿 파일 | 레이어 | 전개 뒤 |
+|---|---|---|
+| `settings.gradle.kts.fragment` | — | 루트 `settings.gradle.kts`에 **추가**(덮어쓰기 아님) |
+| `build.gradle.kts.domain` | domain | 그 레이어 모듈의 `build.gradle.kts` |
+| `build.gradle.kts.application` | application | 〃 |
+| `build.gradle.kts.adapter` | adapter | 〃 |
+| `domain/{{Context}}.kt` | domain | 애그리거트 루트 + 식별자 VO + 상태 enum + 예외 |
+| `application/{{Context}}Port.kt` | application | out 포트 1 |
+| `application/{{Context}}UseCase.kt` | application | in 포트 + 구현 = 유스케이스 1 |
+| `adapter/{{Context}}PersistenceAdapter.kt` | adapter | out 어댑터 1 + JPA 엔티티 |
+| `test/{{Context}}Test.kt` | domain(테스트) | 도메인 단위 테스트 골격(`@Tag` 예시 주석 포함) |
+
+`test/`는 레이어가 아니라 **소스셋**을 뜻한다 — domain 레이어를 소유한 모듈의 `src/test/kotlin`에
+놓인다. 아키텍처 테스트(`{{Context}}ArchitectureTest.kt`)는 이 골격이 만들지 않는다. 그것은
+fitness의 생성물이고 배치 규약은 `rule-mappings.md` §0.1이 갖는다.
+
+## 레이아웃 3형 배치
+
+소스 파일의 `package` 줄은 세 형태 모두 `{{pkg:<레이어>}}`가 정하므로 **파일 내용은 바뀌지
+않는다.** 바뀌는 것은 파일이 놓이는 경로와 빌드 조각의 개수뿐이다.
+
+### multi-module — 레이어별 모듈
+
+```
+{{context}}/domain/src/main/kotlin/<{{pkg:domain}}의 . → />/{{Context}}.kt
+{{context}}/domain/src/test/kotlin/<{{pkg:domain}}의 . → />/{{Context}}Test.kt
+{{context}}/application/src/main/kotlin/<{{pkg:application}}의 . → />/{{Context}}Port.kt
+{{context}}/application/src/main/kotlin/<{{pkg:application}}의 . → />/{{Context}}UseCase.kt
+{{context}}/adapter/src/main/kotlin/<{{pkg:adapter}}의 . → />/{{Context}}PersistenceAdapter.kt
+```
+
+`build.gradle.kts.<레이어>` 셋을 각 모듈에 두고 settings 조각을 그대로 쓴다.
+
+### single-module — 단일 모듈 + 레이어 패키지
+
+모듈은 `{{context}}` 하나이고 세 레이어는 그 안의 패키지다. 경로에서 `{{context}}/<레이어>/`가
+`{{context}}/`로 줄어드는 것 말고는 같다.
+
+- settings 조각은 `include(":{{context}}")` **한 줄**로 줄인다.
+- `build.gradle.kts.<레이어>` 셋을 **하나로 합친다** — `dependencies` 블록은 합집합으로 두고,
+  같은 모듈을 가리키게 된 `project(":{{context}}:…")` 줄은 지운다.
+
+### app-embedded — 규약 패턴 위치에 레이어 패키지만
+
+모듈을 만들지 않는다. settings 조각과 빌드 조각을 **쓰지 않고**, 소스 파일만 각 레이어의 패키지
+위치에 놓는다.
+
+- 위치는 `### 패키지 규약` 표가 정한다. `{{pkg:<레이어>}}`가 그 표의 전개 결과이므로 템플릿을
+  고칠 일은 없다.
+- 어떤 모듈에 두는가: 패턴에 `{앱}`이 있으면 **앱마다 사본이 있는 레이어**라 각 앱 모듈에 하나씩
+  두고(`{{pkg:<레이어>}}`가 앱 수만큼 전개된다), 없으면 앱들이 함께 의존하는 **비실행 모듈**에
+  하나만 둔다(`module-composition.md`). hexagonal에서 `{앱}`이 붙는 레이어는 보통 `adapter`다.
+- 그 비실행 모듈의 경로는 선언 어디에도 없다 — 관측으로 찾고, 찾지 못하면 사용자에게 묻는다.
+- `test/`는 domain 패턴을 소유한 모듈의 `src/test/kotlin`에 둔다.
+
+## ARCHITECTURE.md 등록
+
+골격을 만든 뒤 컨텍스트 섹션의 모듈 표가 이 모양이 되어야 한다(app-embedded는 모듈 표 금지).
+
+```markdown
+| 모듈 | 경로 | 레이어 |
+|---|---|---|
+| {{context}}-domain | {{context}}/domain | domain |
+| {{context}}-application | {{context}}/application | application |
+| {{context}}-adapter | {{context}}/adapter | adapter |
+```
+
+single-module이어도 **행은 레이어마다 하나씩**이고 `모듈`·`경로`만 같은 값이 반복된다.
+행 하나로 줄이면서 레이어를 `all`로 적으면 세 레이어의 패턴이 모두 사라져
+`hex.*` 네 규칙이 전부 아무것도 검사하지 않는다(`resolve_rules`가 공허 레이어로 경고한다).
+
+## 치환
+
+변수의 뜻과 목록은 `profiles/README.md`의 「플레이스홀더 규약」이 정본이다. 이 골격이 쓰는 것은
+넷이다 — `{{context}}`, `{{Context}}`, `{{pkg:<레이어>}}`, 그리고 조각 파일 이름의 `<레이어>`.
+파일 이름과 디렉터리 이름에도 같은 치환을 적용한다(`{{Context}}Port.kt` → `ClaimPort.kt`).
+
+`{{basePackage}}`는 이 골격의 소스 템플릿에 직접 나타나지 않는다 — `{{pkg:<레이어>}}`가 이미
+정규화를 거친 값이기 때문이다. 패키지를 손으로 조립하지 않는다.
+
+## 수용 기준 확인
+
+전개한 프로젝트 루트에서 두 가지를 돌린다. 둘 다 통과해야 골격이 완성이다.
+
+```
+python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [0건 경고] 없음
+/superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
+```

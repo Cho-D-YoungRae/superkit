@@ -1,0 +1,10 @@
+// {{context}}:usecase — 인터랙터와 경계 인터페이스. domain만 안다.
+// **이 모듈에는 스프링 의존을 넣지 않는다** — cl.domain-no-framework의 from에 usecase가 있고,
+// 그것이 hexagonal 대신 clean을 고른 이유의 전부다. @Transactional은 framework의 데코레이터로 나간다.
+plugins {
+    kotlin("jvm")
+}
+
+dependencies {
+    implementation(project(":{{context}}:domain"))
+}
