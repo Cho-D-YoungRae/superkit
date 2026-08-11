@@ -421,7 +421,7 @@ fun `<이름>`() {
 | `app-confinement` 정방향 | `{{subject}} - derived app-confinement` | `앱 패턴({{subject}})` | `{{items:detail.forbidden}}` — **비면 생성하지 않는다**(`포함 컨텍스트: all`) |
 | `app-confinement` 역방향 | `{{subject}} - derived app-confinement (역방향)` | `{{items:detail.reverse_from}}` | `앱 패턴({{subject}})` |
 | `app-confinement` 앱 간 | `{{subject}} - derived app-confinement (앱 간)` | `앱 패턴({{subject}})` | `타 앱 패턴` — **비면 생성하지 않는다**(앱이 하나뿐인 프로젝트) |
-| `shared-module-direction` 정방향 | `{{subject}} - derived shared-module-direction` | 관측 패키지 | `{{items:detail.forbidden}}` |
+| `shared-module-direction` 정방향 | `{{subject}} - derived shared-module-direction` | 관측 패키지 | `{{items:detail.forbidden}}` **+ 앱 코드 합류**(아래 규칙) |
 | `shared-module-direction` 도메인 제한 | `{{subject}} - derived shared-module-direction (domain {{.}})` | `{{.}}`의 domain 레이어 패턴 | 관측 패키지 |
 
 마지막 행은 `{{#detail.domain_restricted_contexts}}` 반복 블록 **안**이다. 따라서 그 행의 `{{.}}`는
@@ -449,6 +449,13 @@ derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의�
   컨텍스트 비분할 레이어(`'*'`) 패턴을 빼는데(앱이 자기 자신을 금지하는 것을 막기 위해)
   app-embedded에서 **다른 앱의 패키지가 바로 그 패턴**이라, 두 목록 어디에도 타 앱 코드가 없다.
   그래서 "앱 간" 행이 표에 있다.
+- **공용 모듈 정방향의 앱 코드 합류**: `{앱}` 규약이 있으면 그 전개형이 비분할 레이어로서 이미
+  `detail.forbidden`에 있다. **없으면**(`app_patterns` 키 부재 + `### 애플리케이션` 표 존재) 앱
+  패키지가 선언 어디에도 없으므로, 앱마다 `app-confinement`의 `module_path`를 ②로 관측한 패턴을 이
+  `<forbidden>`에 합류시키고 `// 관측:`을 붙인다 — 빼면 "공용 모듈 → 앱" 금지가 어느 어서션에도
+  남지 않는다(정본의 금지 대상은 앱·컨텍스트 코드 **둘 다**). 관측 0건인 앱은 그 몫만 빠지므로 앱
+  이름과 함께 고지하되 인스턴스는 만든다 — ②의 생략 분기는 공용 모듈 자기 패키지 몫이다. 대칭
+  구현은 `check_imports`의 `_app_code_patterns`.
 - 도메인 제한 행은 `detail["domain_restricted_contexts"]`(D3)의 컨텍스트마다 하나씩 만들고,
   `role`이 `shared-kernel`이면 그 목록이 비어 있어 하나도 생기지 않는다.
 
