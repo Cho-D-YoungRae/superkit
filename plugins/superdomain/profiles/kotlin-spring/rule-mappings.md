@@ -10,10 +10,10 @@
 | 0건 매칭이 조용히 통과하는지 | [§0.3 0건 규율](#03-0건-규율) |
 | primitive 번역 | [§1](#1-layer-order)–[§5](#5-forbid-sibling-dependency) |
 | 파생 규칙 3종 | [§6](#6-파생-규칙-3종) |
-| 쓴 API가 검증됐는지 | [§9 검증 대장](#9-검증-대장) |
+| 쓴 API가 검증됐는지 | [§9](#9-검증-대장) → `api-verification.md` |
 
 **검증 표기** — `✅`는 소스·공식 문서로, `✅ 실측`은 실행으로 확인한 API. 확인하지 못한 API에는
-`⚠️ (미검증 — 첫 실행 시 확인)`을 남긴다(§9 기준 현재 없다).
+`⚠️ (미검증 — 첫 실행 시 확인)`을 남긴다(대장 기준 현재 없다). 대장은 §9.
 
 ---
 
@@ -38,14 +38,28 @@
 것이 프로덕션 소스이고(§3.4), 생성물이 test 소스셋에 있어 자기 자신을 검사하지도 않는다. 아키텍처
 테스트 모듈이 소스를 `src/main`에 둔다면 이 전제가 깨진다.
 
-**import** — §9 검증 대장의 `api/…` 경로가 곧 패키지다(`api/architecture/Layer.kt` →
-`com.lemonappdev.konsist.api.architecture.Layer`). **아래 두 줄만 그 유도가 틀린다** ✅(실측 —
-틀리면 심볼 미해결이 연쇄해 파일 전체가 컴파일되지 않는다). 그대로 쓴다.
+**import 목록(정본)** — 생성 파일은 **이 블록을 그대로 복사**하고 쓰지 않은 줄만 뺀다. 대장의 소스
+경로에서 **유도하지 않는다** — `Konsist`는 `api` 루트에 있고 `assertArchitecture`는 최상위 함수가
+아니라 `object KoArchitectureCreator`의 멤버 확장이라, 유도하면 그 두 줄이 틀리고 심볼 미해결이
+연쇄해 파일 전체가 컴파일되지 않는다 ✅(실측 — 유도형 오류 32건, 아래 블록 0건).
 
 ```kotlin
-import com.lemonappdev.konsist.api.Konsist                                                 // api 루트다
-import com.lemonappdev.konsist.api.architecture.KoArchitectureCreator.assertArchitecture   // 멤버 확장이다
+import com.lemonappdev.konsist.api.Konsist
+import com.lemonappdev.konsist.api.architecture.KoArchitectureCreator.assertArchitecture   // §1·§2A
+import com.lemonappdev.konsist.api.architecture.Layer                                      // §1·§2A
+import com.lemonappdev.konsist.api.ext.list.modifierprovider.withPublicOrDefaultModifier   // §4
+import com.lemonappdev.konsist.api.ext.list.withAnnotationNamed                            // §3
+import com.lemonappdev.konsist.api.ext.list.withNameEndingWith                             // §5
+import com.lemonappdev.konsist.api.ext.list.withPackage                                    // §2B·§4·§5·§6
+import com.lemonappdev.konsist.api.ext.list.withoutPackage                                 // §3
+import com.lemonappdev.konsist.api.verify.assertFalse
+import com.lemonappdev.konsist.api.verify.assertTrue
+import org.junit.jupiter.api.Test
 ```
+
+`include`·`dependsOnNothing`·`doesNotDependOn`은 `LayerDependencies` 수신자의, `resideInPackage`·
+`hasImportWithName`·`hasNameEndingWith`·`fullyQualifiedName`·`imports`·`classes()`·`files`·
+`classesAndInterfacesAndObjects()`는 각 선언·스코프의 멤버라 **import가 없다.**
 
 **테스트 함수 이름 규약** — Kotlin 백틱 식별자는 `. ; [ ] / < > : \`과 개행을 담지 못한다.
 
@@ -114,7 +128,7 @@ Konsist는 "그 의존이 반드시 존재해야 함". 어휘의 `strict`는 파
 
 - 모든 레이어에 `include()`. 등록되지 않은 레이어는 `dependsOnNothing()`의 검사 대상과 §0.3-1의 빈
   레이어 검사에서 함께 빠져 규칙이 조용히 빈다 ✅(실측). **단 `include()`는 의존 선언을 전부 낸 뒤
-  마지막에 부른다** — 먼저 부르면 어서션이 실행되기도 전에 예외로 죽는다 ✅(실측, §9 마지막 행).
+  마지막에 부른다** — 먼저 부르면 어서션이 실행되기도 전에 예외로 죽는다 ✅(실측, 대장 마지막 행).
 - `l0.dependsOnNothing()`.
 - `i ≥ 1`인 `li`의 금지 집합: `strict=false`면 `{l(i+1)…ln}`, `strict=true`면
   `{l0…l(i-2)} ∪ {l(i+1)…ln}`(인접 `l(i-1)`만 허용). 비면 그 줄을 생략한다.
@@ -466,35 +480,12 @@ single-module 레이아웃의 **보조** 검증 수단으로 쓸 수 있다(`@Ap
 
 ## 9. 검증 대장
 
-2026-08-11 확인. 소스는 `lemonappdev/konsist` 태그 `v0.17.3`, 문서는 `konsist-documentation` main.
-**`✅ 실측`은 gradle+Konsist 실행으로 확인한 행이다**(샘플 4종 · Konsist 0.17.3 · Gradle 9.7.0).
-
-| API | 상태 | 근거 |
-|---|---|---|
-| `Konsist.scopeFromProject()` / `scopeFromProduction()` / `scopeFromModule()` | ✅ | `api/container/KoScope.kt`, `writing-tests/koscope.md` |
-| `KoScope.assertArchitecture(additionalMessage, testName) { }` | ✅ | `api/architecture/KoArchitectureAssertion.kt` |
-| `Layer(name, rootPackage)`와 rootPackage 검증 규칙 | ✅ | `api/architecture/Layer.kt` |
-| `dependsOn(vararg, strict)`·`dependsOnNothing()`·`doesNotDependOn(...)`·`include()`와 각 `Collection<Layer>` 버전 | ✅ | `api/architecture/LayerDependencies.kt` |
-| `strict = false`인 `dependsOn`은 아무 실패도 만들지 않음 | ✅ | `core/verify/KoArchitectureAssert.kt` `getFailedDependsOnLayers` |
-| 빈 레이어 → `KoPreconditionFailedException` | ✅ | `core/architecture/LayerDependenciesCore.kt` `checkLayersWithoutFiles` |
-| 레이어 의존 판정이 import 기반 | ✅ | `core/verify/KoArchitectureAssert.kt` `Layer.isDependentOn` |
-| `assertTrue`/`assertFalse(strict, additionalMessage, testName) { }`와 빈 목록 처리 | ✅ | `api/verify/KoDeclarationAndProviderAssert.kt` |
-| `classes`/`interfaces`/`objects`/`classesAndInterfacesAndObjects(includeNested, includeLocal)` — 기본 `true` | ✅ | `api/container/KoScope.kt` |
-| `withPackage`/`withoutPackage`(vararg·Collection) | ✅ | `api/ext/list/KoHasPackageProviderListExt.kt`, `…/KoResideInPackageProviderListExt.kt` |
-| `KoFileDeclaration`이 `KoHasPackageProvider`·`KoImportProvider` 구현 | ✅ | `api/declaration/KoFileDeclaration.kt` |
-| `resideInPackage(name)`/`resideOutsidePackage(name)` (**단수형**) | ✅ | `api/provider/KoResideInPackageProvider.kt` |
-| `hasImportWithName(name, vararg)`·`(Collection)` — 정확 일치, 빈 컬렉션이면 `hasImports()` | ✅ | `core/provider/KoImportProviderCore.kt` |
-| `hasImport(predicate)`·`imports`·`KoImportDeclaration.name`·`isWildcard` | ✅ | `api/provider/KoImportProvider.kt`, `api/declaration/KoImportDeclaration.kt`(`KoIsWildcardProvider`) |
-| `hasNameEndingWith`·`withNameEndingWith` | ✅ | `api/provider/KoNameProvider.kt`, `api/ext/list/KoNameProviderListExt.kt` |
-| `withAnnotationNamed(name, vararg)`·**`(names: Collection<String>)`** — 단순명·FQN 모두 매칭 | ✅ | `api/ext/list/KoAnnotationProviderListExt.kt` L36·L47, `core/provider/KoAnnotationProviderCore.kt`(`representsType`) |
-| `withPublicOrDefaultModifier()` | ✅ | `api/ext/list/modifierprovider/KoVisibilityModifierProviderListExt.kt` |
-| `fullyQualifiedName` | ✅ | `api/provider/KoFullyQualifiedNameProvider.kt` |
-| `KoClassDeclaration`이 `KoConstructorProvider` 구현 | ✅ | `api/declaration/KoClassDeclaration.kt` |
-| 단수 `klass.constructors`·`constructor.parameters`·`klass.properties()`·`type.sourceType` | ✅ 실측 | 프리셋 4종이 `forbid-sibling-dependency`를 쓰지 않아 생성물에는 인스턴스가 없었다 — §5 템플릿을 프로브로 직접 실행해 확인. `sourceType`은 널 표시 `?`를 포함한다(§5) |
-| 같은 레이어에 `include()`와 다른 의존 선언을 함께 호출 — **순서 제약** | ✅ 실측 | `include()`가 먼저면 `KoInvalidAssertArchitectureConfigurationException`("already defined with a strict=null value")으로 어서션이 실행 전에 죽는다(스타일 3종 재현). 의존 선언 뒤로 옮기면 정상 판정하고 §0.3-1의 빈 레이어 검사도 그대로 걸린다 |
+검증 대장은 `api-verification.md`다 — 이 문서가 쓰는 Konsist API와 그 근거가 거기 있다.
+**새 API를 쓸 때는 그 파일에 행을 추가한 뒤에만 템플릿에 넣는다.**
 
 ## 10. 관련 문서
 
+- `profiles/kotlin-spring/api-verification.md` — 검증 대장(§9)
 - `references/governance/rule-vocabulary.md` — 어휘 정본
 - `references/governance/architecture-template.md` — 정규화(§6)·파생 규칙(§5.1 규칙 5)의 정본
 - `profiles/README.md` — 프로파일 계약과 플레이스홀더 규약
