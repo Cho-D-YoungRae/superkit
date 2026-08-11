@@ -383,6 +383,12 @@ domain 문서에 표현됐지만 코드에 없는 것을 찾아 구현하는 스
 
 `agents/arch-reviewer.md`. 읽기 전용 도구(Read, Grep, Glob)만 허용. 입력으로 summary.md 내용, 검토 대상 파일/diff 목록, review 스킬이 선별한 지식 문서 경로 목록, 해당 컨텍스트의 `domain/<context>.md`를 받는다. 지시 사항: 전달받은 지식 문서의 "규칙"·"리뷰 체크리스트" 섹션을 판정 기준으로 삼고 그 외 knowledge를 임의 탐색하지 말 것, 결정적 검사로 잡히는 항목은 보고하지 말 것(중복 방지), 의미론 5범주(도메인 로직 누출 / 애그리거트 경계 / 불변식 행위 정합성 — 태그만 달린 빈 테스트, 불변식 의미와 다른 검증 / 과잉·과소 설계 / 제2의 방식 도입)만 검토, 불확실하면 severity=info. 출력은 JSON 배열: `[{type: violation|missing|drift|discussion, path, line?, severity, rationale, related_rule?, related_invariant?, related_adr?}]`.
 
+> **정정(2026-08-11, 구현 착지 반영)** — "5범주만 검토"는 **의미론 판정의 범위**이지 보고 가능한
+> 항목의 전부가 아니다. 전달받은 지식 문서의 "규칙" 절을 위반한 코드는 5범주 중 어디에도 들지
+> 않더라도 **정규 보고 경로**를 갖는다(`related_rule`에 그 규칙 id를 담아 보고한다). 문서를
+> 판정 기준으로 전달하면서 그 문서의 규칙 위반을 보고할 길을 막으면 전달 자체가 무의미해지기
+> 때문이다. 이 해석은 `agents/arch-reviewer.md`에 이미 반영되어 있다.
+
 ## 10. 언어 프로파일 (kotlin-spring, java-spring)
 
 두 프로파일은 같은 rule primitive 어휘를 각자의 도구로 구현한다: kotlin-spring은 Konsist(0.17.3, `com.lemonappdev:konsist`), java-spring은 ArchUnit(1.4.1, `com.tngtech.archunit:archunit`). 매핑 단위는 스타일이 아니라 primitive다 — 그래서 프리셋이든 커스텀 스타일이든 어휘 조합이기만 하면 fitness 생성이 자동으로 가능하다. 어휘의 의미 정본은 `governance/rule-vocabulary.md`, 프로파일은 그것을 코드로 번역할 뿐이다. `profiles/README.md`에 프로파일 계약(rule-mappings.md 형식, templates 디렉토리 규약, examples 규약)을 문서화해, 제3의 프로파일 추가가 "계약 구현"이 되게 한다.
@@ -407,6 +413,12 @@ class ClaimArchitectureTest {
     }
 }
 ```
+
+> **정정(2026-08-11, 구현 착지 반영)** — 위 예시는 설명용이며 **강제력이 없다.** Konsist의
+> `dependsOn(...)`은 비-strict 기본값이라 "그 의존이 있어도 된다"만 뜻하고 아무것도 검사하지
+> 않는다. 실제 매핑의 정본은 `profiles/kotlin-spring/rule-mappings.md`이며, 생성 코드는
+> `doesNotDependOn`과 `strict = true` 조합을 쓴다(0건 매칭을 침묵이 아니라 실패로 만들기
+> 위해서다). `{앱}` 치환 규칙과 마찬가지로 스펙 본문이 아니라 매핑 문서가 이긴다.
 
 - `java-spring/rule-mappings.md`: 동일 primitive → ArchUnit 매핑(`ArchRuleDefinition`, `layeredArchitecture()` API). 같은 선언에서 Java 프로젝트용 아키텍처 테스트를 생성한다.
 - baseline 연동: java-spring은 ArchUnit의 `FreezingArchRule`로 기존 위반 동결을 구현한다(정확히 이 용도의 내장 기능, ViolationStore 경로는 `archunit.properties`로 지정). kotlin-spring은 Konsist에 동등 기능이 없으므로, 생성된 테스트가 baseline.jsonl을 읽어 알려진 위반을 warn(리포트만)으로 강등하는 로직을 포함시킨다.

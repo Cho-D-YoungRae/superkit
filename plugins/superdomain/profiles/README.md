@@ -12,15 +12,12 @@ primitive다 — 프로파일은 `hexagonal`이라는 스타일을 모르고, `l
 
 | 프로파일 | 도구 | 상태 |
 |---|---|---|
-| `kotlin-spring` | Konsist 0.17.3 (`com.lemonappdev:konsist`) | `rule-mappings.md` 있음 (Phase 2) |
+| `kotlin-spring` | Konsist 0.17.3 (`com.lemonappdev:konsist`) | `rule-mappings.md` 있음 |
 | `java-spring` | ArchUnit 1.4.1 (`com.tngtech.archunit:archunit`) | 빈 디렉터리 — 아래 구현 상태 |
 
-> **구현 상태 — 이 계약의 소비자는 아직 도착 중이다.** 매핑을 읽어 테스트를 만드는 `fitness`
-> 스킬과, 템플릿이 소비하는 `EffectiveRule`·`DerivedRule`을 내는 `scripts/resolve_rules.py`는
-> 이 계약과 같은 Phase 2에서 함께 도착한다. 셋이 모두 들어오기 전에는 매핑을 읽는 코드가 없다.
-> **파서의 `profiles/` 디렉터리 동적 인식**(아래 "디렉터리 구조"와 "④ 추가 절차 1")도 그 작업에
-> 포함되어 있다 — 착지 전까지 `parse_architecture.py`는 상수 목록만 알므로 그 두 문단은 미래형으로
-> 읽는다.
+이 계약의 소비자는 모두 도착했다: 매핑을 읽어 테스트를 만드는 `fitness` 스킬, 템플릿이 소비하는
+`EffectiveRule`·`DerivedRule`을 내는 `scripts/resolve_rules.py`, 그리고 `profiles/` 디렉터리를
+동적으로 읽는 `parse_architecture.py`.
 
 > **구현 상태 — `java-spring`은 Phase 6이다.** `profiles/java-spring/`에는 아직
 > `rule-mappings.md`가 없다. Java 프로젝트를 선언할 수는 있지만 fitness는 매핑 부재를 그대로

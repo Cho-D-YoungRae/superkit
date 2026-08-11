@@ -19,9 +19,9 @@ claude --plugin-dir /path/to/superarchitect
 스킬은 `/superarchitect:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
 `plugin.json`·훅·에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
 
-## Phase 1 현재 상태
+## 현재 상태 (Phase 2까지)
 
-이 플러그인은 Phase 1(골격과 두뇌)까지 구현되어 있다. **없는 것을 있는 것처럼 쓰지 않는 것이 이
+이 플러그인은 Phase 2(강제)까지 구현되어 있다. **없는 것을 있는 것처럼 쓰지 않는 것이 이
 플러그인의 제1 원칙이므로, 아래 경계를 그대로 지킨다.**
 
 ### 지금 있는 것
@@ -29,28 +29,40 @@ claude --plugin-dir /path/to/superarchitect
 | 산출물 | 위치 | 하는 일 |
 |---|---|---|
 | `/superarchitect:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·스타일·모듈 구성·관계를 확정하고 `ARCHITECTURE.md`와 파생물(`docs/architecture/summary.md`, ADR)을 만든다 |
+| `/superarchitect:fitness` | `skills/fitness/` | 유효 규칙을 프로파일의 `rule-mappings.md`로 번역해 Konsist 아키텍처 테스트를 생성·갱신한다. 생성까지가 몫이고 실행은 대상 프로젝트의 빌드가 한다 |
+| `/superarchitect:review` | `skills/review/` | 변경을 결정적 검사로 먼저 거른 뒤 의미론 판단만 `arch-reviewer`에 위임하고, 결과를 `review-log.jsonl`에 append한다 |
+| `arch-reviewer` 에이전트 | `agents/arch-reviewer.md` | 읽기 전용. 전달받은 지식 문서의 규칙 절과 자유 관측 5범주로만 판정한다 |
 | SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/architecture/summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
-| 결정 템플릿 파서 | `scripts/parse_architecture.py` | `ARCHITECTURE.md`의 필수 결정 누락·비정규 값·깨진 참조를 라인 번호와 함께 보고한다. 통과하면 `OK: 프로젝트 N, 컨텍스트 M` |
+| 결정 템플릿 파서 | `scripts/parse_architecture.py` | `ARCHITECTURE.md`의 필수 결정 누락·비정규 값·깨진 참조를 라인 번호와 함께 보고한다 |
+| 스타일 선언 파서 | `scripts/parse_style.py` | 스타일 문서의 `## 선언` 절을 읽어 레이어 목록과 규칙 인스턴스를 만든다. 규칙 어휘 §2·§2.1의 시행자다 |
+| 유효 규칙 해석기 | `scripts/resolve_rules.py` | 두 파서를 조인해 `스타일 선언 − 규칙 예외 + 파생 규칙 3종`을 낸다. **`ARCHITECTURE.md`를 검증하는 가장 넓은 게이트** |
+| 정적 import 검사기 | `scripts/check_imports.py` | 유효 규칙으로 `.kt`/`.java` 소스를 걸어 위반을 찾는다. fitness 테스트의 앞단에서 빠르게 도는 근사다 |
 | 인덱스 생성기 | `scripts/build_index.py` | `references/knowledge/`를 스캔해 `references/INDEX.md`를 다시 만든다 |
 | 거버넌스 문서 5종 | `references/governance/` | 결정 템플릿·규칙 어휘·ADR·진화 신호·지식 문서 표준의 정본 |
-| 지식 문서 18종 | `references/knowledge/` | 성숙 9 / draft 9. INDEX를 거쳐 필요한 것만 선별해 읽는다 |
+| `kotlin-spring` 프로파일 | `profiles/kotlin-spring/rule-mappings.md` | primitive 5종 + 파생 3종 → Konsist 코드 번역의 정본 |
+| 지식 문서 18종 | `references/knowledge/` | 성숙 17 / draft 1. INDEX를 거쳐 필요한 것만 선별해 읽는다 |
 | `study` 스킬 | `.claude/skills/study/` | 이 저장소 전용. 지식 베이스를 키운다(아래 참조) |
 
-파서 실행:
+검증 실행 — `resolve_rules.py`가 가장 넓게 본다(`parse_architecture.py`의 검사를 포함하면서 스타일
+문서까지 읽는다).
 
 ```bash
-python3 scripts/parse_architecture.py ARCHITECTURE.md   # 인자를 생략해도 같다
+python3 scripts/resolve_rules.py ARCHITECTURE.md   # 0=OK, 1=해석 오류, 2=사용법 오류
+python3 scripts/check_imports.py ARCHITECTURE.md   # 0=위반 없음, 1=위반, 2=해석 불가
 ```
+
+**두 스크립트의 exit 의미가 다르다.** `check_imports.py`의 1은 정상 판정 결과(위반 발견)이고,
+`resolve_rules.py`의 1은 해석 실패다. CI에서 같게 다루지 않는다.
 
 ### 아직 없는 것
 
-- **나머지 스킬 아홉 개** — `scaffold`, `review`, `fitness`, `adr`, `sync`, `evolve`, `migrate`,
-  `model`, `apply`. 지금 노출되는 스킬은 `init` 하나뿐이다.
-- **fitness 테스트 생성** — 선언에서 Konsist·ArchUnit 규칙을 만들어 강제하는 부분이 Phase 2다.
-  그래서 `profiles/kotlin-spring/`·`profiles/java-spring/`은 아직 빈 디렉터리이고,
-  `rule-mappings.md`(primitive → 도구 번역)도 없다.
-- 따라서 **오늘 반복 가능한 결정적 검증은 파서 실행 하나뿐이다.** `baseline.jsonl`,
-  `review-log.jsonl` 같은 파이프라인 산출물은 존재하지 않는다.
+- **나머지 스킬 일곱 개** — `scaffold`, `adr`, `sync`, `evolve`, `migrate`, `model`, `apply`.
+  지금 노출되는 스킬은 `init`·`fitness`·`review` 셋이다.
+- **`java-spring` 프로파일**(Phase 6) — `profiles/java-spring/`은 빈 디렉터리다. Java 프로젝트를
+  선언할 수는 있지만 fitness는 매핑 부재를 알리고 생성하지 않는다.
+- **`baseline.jsonl`과 진화 신호 수집**(Phase 5) — `이행`을 선언해도 baseline은 동결되지 않으므로
+  생성된 테스트는 기존 위반도 전부 blocker로 다룬다. `collect_signals.py`·`evolve`도 없다.
+- **`templates/`**(Phase 4) — scaffold가 쓸 골격은 어느 프로파일에도 없다.
 
 거버넌스 문서 안에서 "아직 시행되지 않는 조항"은 각 문서의 구현 상태 블록에 모아 두었다
 (`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). 문서가 요구하는데
@@ -63,7 +75,7 @@ python3 scripts/parse_architecture.py ARCHITECTURE.md   # 인자를 생략해도
 python3 -m unittest discover -s tests
 ```
 
-63개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
+221개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
 의존하므로 설치할 것이 없다(PyYAML도 쓰지 않는다. frontmatter는 제한 문법 자체 파서로 읽는다).
 
 ## 지식 추가 절차
@@ -100,14 +112,17 @@ python3 -m unittest discover -s tests
 ```
 .claude-plugin/plugin.json   플러그인 매니페스트
 .claude/skills/study/        이 저장소 전용 스킬 (배포되지 않음)
-skills/init/SKILL.md         /superarchitect:init
-agents/                      Phase 2의 arch-reviewer 자리 (비어 있음)
+skills/init|fitness|review/  /superarchitect:<스킬명>
+agents/arch-reviewer.md      review가 의미론 판단만 위임하는 읽기 전용 에이전트
 hooks/hooks.json             SessionStart 훅 등록
 scripts/
   parse_architecture.py      ARCHITECTURE.md 파서 — 결정 템플릿의 유일한 해석기
+  parse_style.py             스타일 선언 파서 — 규칙 어휘의 시행자
+  resolve_rules.py           유효 규칙 해석기 — 두 파서를 조인하는 최상층
+  check_imports.py           정적 import 검사기 — 해석 결과의 첫 소비자
   build_index.py             references/INDEX.md 생성기
   session_summary.sh         SessionStart 훅 본체
-profiles/                    kotlin-spring, java-spring (Phase 2·6에서 채워진다)
+profiles/                    kotlin-spring (있음), java-spring (Phase 6)
 references/
   INDEX.md                   생성물 — 직접 고치지 말고 build_index.py를 다시 돌린다
   governance/                결정 템플릿·규칙 어휘·ADR·진화 신호·문서 표준의 정본

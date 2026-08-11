@@ -1,19 +1,23 @@
 """유효 규칙 해석기 — 해석 파이프라인의 최상층.
 
+**exit 계약: 0 = 해석 성공, 1 = 해석 오류(결정 문서 또는 스타일 문서), 2 = 사용법 오류.**
+`check_imports.py`와 의미가 다르다 — 저쪽의 1은 "위반 발견"이고 2가 "해석 불가"다.
+이 스크립트는 위반을 판정하지 않으므로 1을 그 뜻으로 쓰지 않는다.
+
 `parse_architecture.py`(결정 문서의 SSOT 파서)와 `parse_style.py`(스타일 선언 파서)를
 조인해, 컨텍스트마다 **실제로 강제되는 규칙 집합**을 만든다.
 
     유효 규칙 = 스타일이 선언한 규칙 − `규칙 예외` + 파생 규칙 3종
 
-소비자는 둘이다. `check_imports.py`는 이 결과로 소스를 검사하고, fitness 스킬은
-프로파일의 `rule-mappings.md`로 번역해 Konsist/ArchUnit 테스트를 만든다. 두 소비자가
-결정 문서·스타일 문서·정규화 규칙을 각자 다시 해석하지 않게 하는 것이 이 모듈의 존재
-이유다 — 해석이 두 곳에 있으면 두 결과가 갈라진다.
+소비자는 둘이다. `check_imports.py`는 `resolve_document()`의 결과로 소스를 검사하고,
+fitness 스킬은 같은 결과를 프로파일의 `rule-mappings.md`로 번역해 Konsist/ArchUnit
+테스트를 만든다. 두 소비자가 결정 문서·스타일 문서·정규화 규칙을 각자 다시 해석하지
+않게 하는 것이 이 모듈의 존재 이유다 — 해석이 두 곳에 있으면 두 결과가 갈라진다.
 
 정본과의 대응:
 
 - 파생 규칙 3종의 의미 → `architecture-template.md` §5.1 규칙 5
-- 교차 파일 검증 8종 → `architecture-template.md` §5.3(이번에 구현되는 행들)
+- 교차 파일 검증 8종 → `architecture-template.md` §5.1 규칙 4·5·6, §4 라벨 사전, §6
 - 정규화(컨텍스트 × 레이어 → 패키지 패턴) → `architecture-template.md` §6
 - 레이어 이름 해석 (가)/(나) → `rule-vocabulary.md` §2.1
 
