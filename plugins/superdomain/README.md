@@ -65,9 +65,12 @@ python3 scripts/check_imports.py ARCHITECTURE.md   # 0=위반 없음, 1=위반, 
 - **`templates/`**(Phase 4) — scaffold가 쓸 골격은 어느 프로파일에도 없다.
 
 거버넌스 문서 안에서 "아직 시행되지 않는 조항"은 각 문서의 구현 상태 블록에 모아 두었다
-(`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). 문서가 요구하는데
-기계가 확인하지 않는 항목의 공통 실패 모드는 오류가 아니라 **침묵**이므로, 그 목록을 지우는 것은
-구현이 도착했을 때뿐이다.
+(`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). Phase 2에서 그 목록은
+두 항목으로 줄었고, 둘 다 **침묵하지 않는다** — 마커 버전 상향은 문서 거부로, baseline 부재는
+과잉 차단(기존 부채도 blocker)으로 드러난다. 반대로 규칙이 아무것도 검사하지 않는 **침묵**은
+이제 도구가 담당한다: `resolve_rules`의 공허 레이어 경고와 `check_imports`의 레이어별 `[0건 경고]`가
+"위반 없음"과 "검사한 파일 0개"를 갈라 준다. 어느 쪽이든 그 목록을 지우는 것은 구현이 도착했을
+때뿐이다.
 
 ## 테스트
 

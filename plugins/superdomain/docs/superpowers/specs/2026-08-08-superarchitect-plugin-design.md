@@ -416,9 +416,15 @@ class ClaimArchitectureTest {
 
 > **정정(2026-08-11, 구현 착지 반영)** — 위 예시는 설명용이며 **강제력이 없다.** Konsist의
 > `dependsOn(...)`은 비-strict 기본값이라 "그 의존이 있어도 된다"만 뜻하고 아무것도 검사하지
-> 않는다. 실제 매핑의 정본은 `profiles/kotlin-spring/rule-mappings.md`이며, 생성 코드는
-> `doesNotDependOn`과 `strict = true` 조합을 쓴다(0건 매칭을 침묵이 아니라 실패로 만들기
-> 위해서다). `{앱}` 치환 규칙과 마찬가지로 스펙 본문이 아니라 매핑 문서가 이긴다.
+> 않는다 — `application.dependsOn(domain)`만 나열한 테스트는 application이 adapter를 참조해도
+> 통과한다. 실제 매핑의 정본은 `profiles/kotlin-spring/rule-mappings.md`이며, 거기서 방향 금지는
+> `dependsOnNothing()`과 `doesNotDependOn()`으로만 표현한다(매핑 §1 layer-order 번역 규칙). 0건 매칭의
+> 침묵은 라우트마다 다르게 막는다: 선언 어서션을 쓰는 라우트(`forbid-import` 라우트 B,
+> `naming-suffix`, `forbid-sibling-dependency`, 파생 3종)는 `strict = true`로 0건을 실패로
+> 바꾸고, `assertArchitecture` 기반의 `layer-order`·`forbid-import` 라우트 A는 그 인자가 없어
+> 조용히 빌 수 있으므로 `resolve_rules`의 공허 레이어 경고와 `check_imports`의 레이어별
+> `[0건 경고]`가 바깥에서 감시한다. `{앱}` 치환 규칙과 마찬가지로 스펙 본문이 아니라 매핑 문서가
+> 이긴다.
 
 - `java-spring/rule-mappings.md`: 동일 primitive → ArchUnit 매핑(`ArchRuleDefinition`, `layeredArchitecture()` API). 같은 선언에서 Java 프로젝트용 아키텍처 테스트를 생성한다.
 - baseline 연동: java-spring은 ArchUnit의 `FreezingArchRule`로 기존 위반 동결을 구현한다(정확히 이 용도의 내장 기능, ViolationStore 경로는 `archunit.properties`로 지정). kotlin-spring은 Konsist에 동등 기능이 없으므로, 생성된 테스트가 baseline.jsonl을 읽어 알려진 위반을 warn(리포트만)으로 강등하는 로직을 포함시킨다.
