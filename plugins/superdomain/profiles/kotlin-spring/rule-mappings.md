@@ -203,20 +203,23 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 
 | 셀렉터 | Konsist 필터 |
 |---|---|
-| `jpa-entity` | `.withAnnotationNamed("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity")` ✅ |
+| `jpa-entity` | `.withAnnotationNamed(listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity"))` ✅ |
 
 이름 기반을 쓰는 이유: `withAnnotationOf(Entity::class)`는 아키텍처 테스트 모듈에 JPA 컴파일
 의존을 추가하게 만든다. 이름 매칭은 단순명과 FQN을 모두 받는다 ✅(`annotation.representsType`).
+셀렉터를 변수로 빼 두 어서션이 공유하므로 **`Collection<String>` 오버로드**를 쓴다 ✅ — 나머지
+오버로드는 `(name: String, vararg names: String)`이라 `*배열` 스프레드로는 첫 인자 `name`을 채울
+수 없어 컴파일되지 않는다.
 
 ```kotlin
 private val allowedPackages = listOf({{items:allowed}})
-private val entitySelector = arrayOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity")
+private val entitySelector = listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity")
 
 @Test   // 위반 A — 지정 범위 안에서만 선언
 fun `{{context}} - {{ruleIdSafe}} (선언)`() {
     Konsist.scopeFromProduction()
         .classes()
-        .withAnnotationNamed(*entitySelector)
+        .withAnnotationNamed(entitySelector)
         .assertTrue(additionalMessage = "규칙 {{ruleId}} — @Entity는 허용 범위 안에서만 선언한다") { klass ->
             allowedPackages.any { klass.resideInPackage(it) }
         }
@@ -225,7 +228,7 @@ fun `{{context}} - {{ruleIdSafe}} (선언)`() {
 @Test   // 위반 B — 지정 범위 밖에서 참조 금지
 fun `{{context}} - {{ruleIdSafe}} (참조)`() {
     val scope = Konsist.scopeFromProduction()
-    val entityNames = scope.classes().withAnnotationNamed(*entitySelector).mapNotNull { it.fullyQualifiedName }
+    val entityNames = scope.classes().withAnnotationNamed(entitySelector).mapNotNull { it.fullyQualifiedName }
     scope.files
         .withoutPackage(allowedPackages)
         .assertFalse(additionalMessage = "규칙 {{ruleId}} — 격리 범위 밖에서 @Entity 타입 참조") { file ->
@@ -371,7 +374,11 @@ fun `<이름>`() {
 | `app-confinement` 정방향 | `{{subject}} - derived app-confinement` | 관측 패키지 | `{{items:detail.forbidden}}` — **비면 생성하지 않는다**(`포함 컨텍스트: all`) |
 | `app-confinement` 역방향 | `{{subject}} - derived app-confinement (역방향)` | `{{items:detail.reverse_from}}` | 관측 패키지 |
 | `shared-module-direction` 정방향 | `{{subject}} - derived shared-module-direction` | 관측 패키지 | `{{items:detail.forbidden}}` |
-| `shared-module-direction` 도메인 제한 | `{{context}} - derived shared-module-direction (domain)` | 해당 컨텍스트의 domain 레이어 패턴 | 관측 패키지 |
+| `shared-module-direction` 도메인 제한 | `{{.}} - derived shared-module-direction (domain)` | `{{.}}`의 domain 레이어 패턴 | 관측 패키지 |
+
+마지막 행은 `{{#detail.domain_restricted_contexts}}` 반복 블록 **안**이다. 따라서 그 행의 `{{.}}`는
+순회 중인 컨텍스트 이름이며, `profiles/README.md`가 정의한 `{{context}}`(= `EffectiveRule.context`,
+이 `DerivedRule`에는 존재하지 않는다)와 **다른 값이다.** 다른 네 행에는 반복 블록이 없다.
 
 `additionalMessage`는 `"파생 <id> — <무엇이 왜 금지되는지>"` 형식으로 쓴다. 예: `"파생
 derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의존할 수 없다"`.
@@ -381,8 +388,8 @@ derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의�
 - 도메인 제한 행은 `detail["domain_restricted_contexts"]`(D3)의 컨텍스트마다 하나씩 만들고,
   `role`이 `shared-kernel`이면 그 목록이 비어 있어 하나도 생기지 않는다.
 
-> **도메인 제한 행의 domain 레이어 패턴은 `detail`에 없다.** 같은 프로젝트·그 컨텍스트의
-> `EffectiveRule.layer_patterns["domain"]`에서 가져온다. 그 컨텍스트에 유효 규칙이 하나도 없어
+> **도메인 제한 행의 domain 레이어 패턴은 `detail`에 없다.** 같은 프로젝트에서 `context == {{.}}`인
+> `EffectiveRule`을 찾아 그 `layer_patterns["domain"]`에서 가져온다. 그 컨텍스트에 유효 규칙이 하나도 없어
 > `EffectiveRule`이 없으면 패턴을 얻을 수 없으므로 **그 항목을 생략하고 고지한다.**
 
 ---
@@ -429,7 +436,7 @@ single-module 레이아웃의 **보조** 검증 수단으로 쓸 수 있다(`@Ap
 | `hasImportWithName(name, vararg)`·`(Collection)` — 정확 일치, 빈 컬렉션이면 `hasImports()` | ✅ | `core/provider/KoImportProviderCore.kt` |
 | `hasImport(predicate)`·`imports`·`KoImportDeclaration.name`·`isWildcard` | ✅ | `api/provider/KoImportProvider.kt`, `api/declaration/KoImportDeclaration.kt`(`KoIsWildcardProvider`) |
 | `hasNameEndingWith`·`withNameEndingWith` | ✅ | `api/provider/KoNameProvider.kt`, `api/ext/list/KoNameProviderListExt.kt` |
-| `withAnnotationNamed(name, vararg)` — 단순명·FQN 모두 매칭 | ✅ | `api/ext/list/KoAnnotationProviderListExt.kt`, `core/provider/KoAnnotationProviderCore.kt`(`representsType`) |
+| `withAnnotationNamed(name, vararg)`·**`(names: Collection<String>)`** — 단순명·FQN 모두 매칭 | ✅ | `api/ext/list/KoAnnotationProviderListExt.kt` L36·L47, `core/provider/KoAnnotationProviderCore.kt`(`representsType`) |
 | `withPublicOrDefaultModifier()` | ✅ | `api/ext/list/modifierprovider/KoVisibilityModifierProviderListExt.kt` |
 | `fullyQualifiedName` | ✅ | `api/provider/KoFullyQualifiedNameProvider.kt` |
 | `KoClassDeclaration`이 `KoConstructorProvider` 구현 | ✅ | `api/declaration/KoClassDeclaration.kt` |
