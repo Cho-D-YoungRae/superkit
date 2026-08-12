@@ -101,7 +101,7 @@ final이 아니라 CGLIB이 그대로 상속한다. 다만 `Transactional{{Conte
 |---|---|
 | 주석 | **버리지 않는다 — 위치와 무관하게 전부 보존한다.** 조각 머리의 주석은 레이어 순서대로 파일 맨 위에 모으고, 블록 안(`plugins`·`dependencies`)과 블록 뒤의 근거 주석은 그 항목을 따라 옮긴다. "이 의존을 여기 더하면 어느 규칙이 잡는다"·"이 옵션이 빠지면 첫 요청에서 깨진다"는 근거가 사라지면 나중에 아무나 더하고 아무나 지운다 |
 | `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다 |
-| `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`api` > `implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
+| `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
 | `project(":{{context}}:…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |
 | `tasks.test { useJUnitPlatform() }` | 파일 전체에 **한 번**만 |
 | `tasks.withType<JavaCompile> { … "-parameters" }` | 파일 전체에 **한 번**만. 합친 모듈에는 컨트롤러가 함께 들어오므로 이 블록은 **반드시 남는다** |
