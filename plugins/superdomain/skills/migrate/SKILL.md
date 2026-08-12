@@ -107,6 +107,15 @@ cat -n docs/architecture/baseline.jsonl
 부재), `zero_match[]`(from-측 0건), `unreadable[]`, `inherited[]`(공허 레이어 승계 경고). 대상 규칙이
 여기 걸려 있으면 그 실행은 **아무 말도 하지 않은 것**이다.
 
+**다섯째 갈래는 그 JSON 밖에 있다 — `규칙 예외`로 꺼진 규칙.** baseline 항목의 `rule`이
+`resolve_rules --json`의 `effective[]`·`derived[]` **어디에도 없으면** 그 규칙은 이번 실행에
+아예 존재하지 않았다. 규칙 자체가 사라진 것이라 skip도 zero-match도 아니고, **네 필드가 전부 빈
+채로 항목만 미매칭으로 남는다** — 형식만 보면 6-a를 통과하는 것처럼 보이는 착시다. 그 항목은
+**미판정이므로 축소하지 않고 사용자에게 고지한다**(무엇이 규칙을 껐는지 — `규칙 예외` 선언인지
+스타일 변경인지 — 와 함께). `check_imports --json`의 `checked`는 **건수뿐이라 규칙 이름을 주지
+않으므로** 이 대조는 resolve 쪽에서만 성립한다. 예외가 살아 있는 동안에는 이행으로도 지울 근거를
+만들 수 없으니, 예외의 사유·기한을 함께 적어 그 사실을 분명히 한다.
+
 `violations[]`(= baseline이 덮지 않는 신규 위반)가 이미 차 있으면 그 사실을 먼저 보고한다. 이행보다
 신규 위반이 급하고, 6-a의 "새 위반 0" 판정에도 출발 스냅샷이 필요하다.
 
@@ -247,6 +256,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
   1단계 스냅샷과 대조해 **이번에 생긴 것**만 센다.
 - 대상 규칙이 `skipped[]`·`zero_match[]`에 있거나 대상 경로가 `unreadable[]`에 있으면 **그 실행은
   판정하지 않았다.** "없다"가 "해소"가 아니라 "안 봤다"인 경우다 — 사유를 보고하고 멈춘다.
+  대상 규칙이 `resolve_rules`의 `effective[]`·`derived[]`에 없을 때도 같다(1단계 다섯째 갈래).
 
 ### 6-b. 축소 — 전체 재작성 (append 아님)
 
@@ -263,6 +273,12 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
 - `note`를 쓴다면 값 안에 `"rule"`·`"path"` 꼴 문자열을 넣지 않는다. 생성 테스트의 로더가 정규식으로
   읽어 오독한다(`rule-mappings.md` §7 한계 ⑤).
 - **남길 줄이 하나도 없으면 빈 파일을 쓰지 않는다.** 그대로 7단계로 간다.
+- **건수를 인용한 파생물이 여기서 낡는다.** `docs/architecture/summary.md`의 「전역 핵심 규칙」이
+  동결 시점 건수를 문장에 박아 두었으면 축소한 지금 그 문장은 거짓이고, 이 파일은 SessionStart
+  훅이 통째로 주입하는 유일한 산출물이라 낡은 숫자가 매 세션 사실로 읽힌다(init 7-a). 불변 4에
+  따라 이 스킬이 고치지 않는다 — **`grep -n baseline docs/architecture/summary.md`로 확인해
+  걸리면 새 건수와 함께 8단계 4항에 고지하고 `/superarchitect:sync`를 권한다**(자유 서술이라
+  sync도 기계 대조는 하지 않고 사용자 확인으로 넘긴다: sync 3-e).
 
 ### 6-c. 제거 후 — 보호가 걷힌 상태에서 다시 본다
 
@@ -351,7 +367,8 @@ git rm docs/architecture/baseline.jsonl     # 커밋 전이면 rm
 3. **게이트 결과** — 5-c 컴파일, 6-a 부재 확인과 새 위반 0 판정, 6-c 제거 후 실행, 6-d gradle
    (`--rerun-tasks` 여부 포함). 돌리지 못한 것은 그 사실과 확인 못 한 범위를 적는다.
 4. **baseline 전후** — 항목 수와 `demoted` 건수를 각각, 지운 항목 목록, 남은 항목 수. 승계할 고지는
-   `check_imports` 푸터의 한계 줄과 `collect_signals`의 `notices` 마지막 두 줄이다.
+   `check_imports` 푸터의 한계 줄과 `collect_signals`의 `notices` 마지막 두 줄이다. **건수를
+   인용한 파생물이 낡았으면 그 사실과 `sync` 권유도 여기 적는다**(6-b).
 5. **남은 클러스터 후보** — **목록까지만.** 순서·방법·범위를 적으면 빅뱅 계획이다.
 6. **커밋은 사용자가 한다.** 명령만 제안한다.
 
