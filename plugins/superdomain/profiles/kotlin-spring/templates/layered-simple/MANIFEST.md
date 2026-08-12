@@ -134,7 +134,8 @@ python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [
 /superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
 ```
 
-**확인한 레이아웃 — multi-module**(Phase 6 T4 재실측: `:{{context}}-application` 컴파일 성공,
-전 모듈 `classes testClasses` BUILD SUCCESSFUL) **와 single-module**(Phase 4). 순서가 이랬던 것이
+**확인한 레이아웃 — multi-module**(Phase 6 T4 재실측: application 모듈 컴파일 성공,
+전 모듈 `classes testClasses` BUILD SUCCESSFUL — 당시 모듈 경로는 colon형이었고, 접두형 개편 후의
+실측은 e2e의 `clean`·`layered-domain`이 담당) **와 single-module**(Phase 4). 순서가 이랬던 것이
 문제였다 — single-module만 밟았을 때 위 `api` vs `implementation`이 보이지 않아, 골격을
 multi-module로 전개하는 순간 컴파일에서 깨졌다. **multi-module을 반드시 포함해서 확인한다.**
