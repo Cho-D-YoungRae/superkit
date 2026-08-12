@@ -389,11 +389,20 @@ def _change_signals(commits, attributor) -> tuple:
 # 항목 ④ — review-log.jsonl
 # ---------------------------------------------------------------------------
 
-def _jsonl(root, relpath, broken) -> list:
+def _read_lines(root, relpath, broken) -> list:
+    """파일의 줄 목록. 읽지 못하면 그 사실을 `broken`에 담고 빈 목록을 준다 — 침묵하지 않는다."""
+    try:
+        return (root / relpath).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as error:
+        broken.append(f"{relpath}:0: 파일을 읽지 못했습니다({error.strerror or error}) — "
+                      f"집계에서 제외합니다.")
+        return []
+
+
+def _jsonl(relpath, lines, broken) -> list:
     """(줄 번호, 객체) 목록. 읽지 못한 줄은 `broken`에 `경로:라인: `로 담고 건너뛴다."""
     entries = []
-    text = (root / relpath).read_text(encoding="utf-8", errors="replace")
-    for number, raw in enumerate(text.splitlines(), 1):
+    for number, raw in enumerate(lines, 1):
         if not raw.strip():
             continue
         try:
@@ -414,7 +423,7 @@ def _review_log(root, attributor, window) -> ReviewLog:
     if not (root / REVIEW_LOG).is_file():
         return log
     log.present = True
-    entries = _jsonl(root, REVIEW_LOG, log.broken)
+    entries = _jsonl(REVIEW_LOG, _read_lines(root, REVIEW_LOG, log.broken), log.broken)
 
     grouped = {}
     for number, entry in entries:
@@ -467,10 +476,9 @@ def _baseline(root) -> Baseline:
     if not path.is_file():
         return baseline
     baseline.present = True
-    entries = _jsonl(root, BASELINE, baseline.broken)
-    baseline.lines = sum(1 for line in
-                         path.read_text(encoding="utf-8", errors="replace").splitlines()
-                         if line.strip())
+    lines = _read_lines(root, BASELINE, baseline.broken)
+    entries = _jsonl(BASELINE, lines, baseline.broken)
+    baseline.lines = sum(1 for line in lines if line.strip())
     counts = {}
     for _, entry in entries:
         rule = str(entry["rule"])

@@ -356,6 +356,23 @@ class ReviewLogTest(SignalsTestCase):
         self.assertEqual(len(broken), 1)
         self.assertIn("rule", broken[0])
 
+    @unittest.skipIf(getattr(os, "geteuid", lambda: 1)() == 0, "root는 권한 거부를 겪지 않는다")
+    def test_unreadable_file_is_announced_not_raised(self):
+        """읽지 못한 입력은 예외로 터지지 않고 고지로 남는다 — 침묵도 중단도 아니다."""
+        self.base()
+        path = self.write("docs/architecture/review-log.jsonl",
+                          review_line("a.one", "x.kt") + "\n")
+        self.commit("log")
+        path.chmod(0o000)
+        try:
+            signals = self.collect()
+        finally:
+            path.chmod(0o644)
+
+        self.assertTrue(signals.review_log.present)
+        self.assertEqual(signals.review_log.rules, [])
+        self.assertTrue(any("읽지 못했습니다" in note for note in signals.notices))
+
     def test_missing_review_log_is_announced(self):
         self.base()
         signals = self.collect()
