@@ -19,6 +19,69 @@ claude --plugin-dir /path/to/superarchitect
 스킬은 `/superarchitect:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
 `plugin.json`·훅·에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
 
+## 워크플로
+
+스킬 열 개 중 아홉은 루프 셋으로 묶인다 — 선언을 코드로 내리는 **구조 루프**, 선언과 현실이
+어긋난 뒤를 다루는 **유지 루프**, 업무 규칙을 불변식으로 굳히는 **도메인 루프**. 남은 `adr`은
+루프에 속하지 않고 결정이 나오는 자리마다 끼어든다. 사각 노드가 스킬이고, 원통은 SSOT 문서,
+육각형은 스킬이 통과해야 하는 결정적 검사다.
+
+```mermaid
+flowchart TB
+    ssot[("ARCHITECTURE.md — 구조 SSOT")]
+    dom[("domain/*.md — 도메인 SSOT")]
+    gate{{"구조 게이트<br/>생성된 아키텍처 테스트 · check_imports.py"}}
+
+    subgraph L1["① 구조 루프 — 선언을 코드로"]
+      direction LR
+      init --> scaffold --> fitness --> review
+    end
+    subgraph L2["② 유지 루프 — 어긋난 뒤를 다룬다"]
+      direction LR
+      sync
+      evolve -->|이행 정체| migrate
+    end
+    subgraph L3["③ 도메인 루프 — 업무 규칙을 불변식으로"]
+      direction LR
+      model --> apply
+    end
+
+    init -->|생성| ssot
+    scaffold -->|등록| ssot
+    ssot -->|resolve_rules.py 유효 규칙| fitness
+    fitness -->|생성| gate
+    gate --> review
+    ssot -->|선언 ↔ 디스크 대조| sync
+    sync -->|드리프트| scaffold
+    review -->|review-log.jsonl · collect_signals.py| evolve
+    evolve -->|경계 재획정| init
+    migrate <-->|해소 실측 후 baseline.jsonl 축소| gate
+    model --> dom
+    dom -->|check_invariants.py 미구현 confirmed| apply
+    apply -->|@Tag 테스트| dom
+    adr -.-> ssot
+    adr -.-> fitness
+```
+
+**이 그림은 이해용이다.** 구조적 사실을 검증하는 것은 다이어그램이 아니라 fitness가 생성한
+테스트(Konsist/ArchUnit)와 결정적 스크립트다. 같은 선언에서 이해용(그림)과 검증용(테스트)이 각각
+나오므로 둘은 어긋날 수 없고, 어긋났다면 믿을 것은 테스트다.
+
+## 언제 어느 스킬을 부르는가
+
+위가 순서라면 이쪽은 계기다 — 상황에서 스킬을 찾는다.
+
+- **아직 `ARCHITECTURE.md`가 없다** → `init`. 다른 스킬이 SSOT 부재를 발견해도 여기로 보낸다.
+- **선언은 했는데 디스크에 코드가 없다, 새 컨텍스트·새 백엔드 프로젝트를 올린다** → `scaffold`.
+- **스타일 선언·규칙 예외·모듈 표·패키지 규약을 고쳤다** → `fitness`. 선언과 테스트가 갈라진다.
+- **PR·커밋 전에 이 변경이 경계를 넘었는지 본다** → `review`.
+- **업무 규칙이 흐릿해 코드로 옮기기 전에 정리한다** → `model`(인터뷰·이벤트 스토밍·미팅 정리).
+- **`confirmed` 불변식에 대응하는 테스트 태그가 없다고 나왔다** → `apply`.
+- **오랜만에 열어 선언이 사실인지 모르겠다, 리팩터링·ADR 대체 뒤 문서가 따라왔는지 본다** → `sync`.
+- **분기·릴리스 회고 자리, 또는 같은 지적이 리뷰마다 반복된다** → `evolve`.
+- **`이행` 라벨이 있고 baseline을 실제로 줄인다** → `migrate`.
+- **되돌리는 비용이 큰 선택을 방금 확정했다, `- 규칙 예외:` 괄호가 가리킬 문서가 없다** → `adr`.
+
 ## 현재 상태 (Phase 6까지)
 
 이 플러그인은 Phase 6(프로파일 확장 — java-spring)까지 구현되어 있다 — **스킬 열 개가 전원
@@ -84,6 +147,20 @@ python3 scripts/collect_signals.py ARCHITECTURE.md    # 0=산출, 1=산출 불�
 `check_invariants`의 `검사 불능`이 "위반 없음"과 "검사한 것이 0개"를 갈라 준다. 그리고 `이행`을
 선언한 프로젝트에서는 baseline 래칫이 기존 부채와 신규 위반을 가른다 — 동결은 init, 소비는
 `check_imports`와 생성된 테스트, 축소는 migrate뿐이다.
+
+## 문서 예시는 어디에 있나
+
+이 저장소는 플러그인이지 거버넌스 대상 프로젝트가 아니라서 루트에 `ARCHITECTURE.md`가 없다.
+예시는 정본 안에 있고, 그대로 복사해 파서를 통과하는 블록이 스켈레톤이다.
+
+| 보려는 것 | 위치 |
+|---|---|
+| `ARCHITECTURE.md` 한 벌 | `references/governance/architecture-template.md` §2 — 프로젝트 하나·컨텍스트 둘이 든 완본 |
+| 멀티 애플리케이션·app-embedded 형태 | 같은 문서 §3 — 앱 넷과 `{앱}` 패키지 규약이 든 검증 사례 |
+| 스타일 선언(`## 선언` 절) | 같은 문서 §7 |
+| `docs/architecture/domain/<컨텍스트>.md` | `references/governance/domain-doc-template.md` §3 |
+| 규칙이 실제로 무엇을 잡는가 | `profiles/<프로파일>/examples/{good,bad}/` |
+| 골격이 함의하는 모듈 표 | `profiles/<프로파일>/templates/<스타일>/MANIFEST.md`의 「ARCHITECTURE.md 등록」 |
 
 ## 테스트
 
