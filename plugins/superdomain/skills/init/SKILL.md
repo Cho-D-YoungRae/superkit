@@ -5,8 +5,11 @@ description: >
   컨텍스트별 아키텍처 스타일 결정을 거쳐 루트 ARCHITECTURE.md(결정 템플릿 + 본문)와 파생물
   (summary, ADR)을 생성. 사용자가 "아키텍처 초기화", "아키텍처 셋업", "architecture init",
   "/superarchitect:init"을 요청할 때, 새 프로젝트에 아키텍처 기준을 잡아달라고 할 때, 또는 다른
-  superarchitect 스킬이 ARCHITECTURE.md 부재를 발견했을 때 반드시 사용. 이미 초기화된 프로젝트의
-  일상적 검토·수정에는 사용하지 않는다(review/sync 사용). 선언된 구조를 실제 코드 골격으로
+  superarchitect 스킬이 ARCHITECTURE.md 부재를 발견했을 때, 그리고 `/superarchitect:evolve`가
+  컨텍스트 병합·분리처럼 경계를 다시 긋는 제안을 넘겨 왔을 때 반드시 사용. 이미 초기화된
+  프로젝트의 일상적 검토는 `/superarchitect:review`, 선언과 코드의 드리프트를 대조해 정정하는
+  일은 `/superarchitect:sync`, 동결된 부채를 점진 이행하는 일은 `/superarchitect:migrate`다.
+  선언된 구조를 실제 코드 골격으로
   찍어내는 일은 `/superarchitect:scaffold`이고, 이 초기화에서 내린 결정을 그 뒤에 별도 기록물로
   남기는 일은 `/superarchitect:adr`이다 — 초기화가 만드는 ADR은 7단계에서 함께 나온다.
 ---
@@ -64,9 +67,9 @@ git rev-parse --show-toplevel
 3. 세 선택지를 제시하고 **사용자가 고르게 한다.**
    - 그대로 두고 종료 (기본값)
    - 처음부터 다시 작성 — 기존 내용은 사라진다
-   - 일부만 고치기 → init의 일이 아니다. 선언과 코드를 대조해 정정하는 `sync`가 도착하기
-     전이므로, 사용자가 직접 편집한 뒤 6단계의 파서 게이트만 실행하는 편이 안전하다고 안내하고
-     종료한다.
+   - 일부만 고치기 → init의 일이 아니다. 선언이 현실과 어긋난 것이면 대조해 정정하는
+     `/superarchitect:sync`로 보내고, 표기만 손보는 편집이면 사용자가 직접 고친 뒤 6단계의 파서
+     게이트만 실행해도 된다. 어느 쪽인지 안내하고 종료한다.
 
 ## 2. 거버넌스 후보 감지
 
@@ -487,6 +490,6 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
 - **템플릿에 없는 라벨·필드를 발명하는 것.** 표현할 수 없으면 그 사실을 말하고 자유 서술로 남긴다.
 - **스택 추측으로 거버넌스 대상을 제외하는 것.** 제외 근거는 프로파일 부재뿐이다.
 - **파생물을 직접 고치도록 유도하는 것.** 항상 SSOT를 고치고 파생물을 다시 만든다.
-- **아직 없는 스킬(sync·evolve·migrate)을 있는 것처럼 안내하는 것.**
-  `fitness`·`review`·`model`·`apply`·`scaffold`·`adr`는 실재하므로 안내해도 된다.
+- **실재하지 않는 스킬·스크립트를 안내하는 것.** `skills/` 아래 이름과 `scripts/`의 파일명은
+  기억이 아니라 확인으로 댄다.
 - **산출물을 하위 디렉터리에 만드는 것.** `ARCHITECTURE.md`와 `docs/architecture/`는 git 루트다.
