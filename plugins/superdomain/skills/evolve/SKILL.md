@@ -9,8 +9,9 @@ description: >
   낡았는지 봐줘", "리뷰 로그 분석", "반복 위반 정리", "이 분류가 지금도 맞나", "이행이 멈춘 것
   같다", "evolve", "architecture evolution", "/superarchitect:evolve"를 요청할 때, 분기·릴리스
   회고처럼 구조를 되돌아보는 자리에서, 또는 같은 지적이 리뷰마다 반복된다고 느낄 때 사용한다.
-  자동으로 고치는 일은 없다 — 사용자가 수락한 제안만 반영되고, `ARCHITECTURE.md`·domain
-  문서·파생물·코드·테스트는 이 스킬이 고치지 않는다. 방금 만든 변경을 검토하는 일에는 쓰지
+  무단 적용은 없다 — 반영되는 것은 사용자가 수락한 제안뿐이고, 수락된 것은 선언 편집부터 파서
+  게이트·파생물 재생성까지 끝낸 뒤 fitness 갱신을 권한다. domain 문서·코드·생성된 테스트는
+  고치지 않는다. 방금 만든 변경을 검토하는 일에는 쓰지
   않고(`/superarchitect:review`), 선언과 코드의 불일치를 대조하는 일은
   `/superarchitect:sync`, baseline을 실제로 줄이는 이행 작업은 `/superarchitect:migrate`,
   이미 내려진 결정 하나를 기록하는 일은 `/superarchitect:adr`이다.
@@ -23,11 +24,12 @@ description: >
 관측을 선언과 결합하고, 정본의 규칙을 적용하고, 사용자가 뒤집을 수 있는 형태로 제안한다.
 그래서 불변이 셋이다.
 
-1. **자동 적용은 없다. 확정은 사용자의 것이다**(정본: `skills/init/SKILL.md` 불변 1). 이것은
+1. **무단 적용은 없다. 확정은 사용자의 것이다**(정본: `skills/init/SKILL.md` 불변 1). 이것은
    판단을 아끼라는 뜻이 **아니다** — 관측 수치를 근거로 "이 컨텍스트는 core일 가능성이 큽니다"
    까지 **적극적으로 제안**하는 것이 이 스킬의 일이고, 금지되는 것은 확인 없는 **반영** 하나다.
    "다 적용해 주세요"는 진행 속도의 요청이지 일괄 수락 권한이 아니다(`skills/model/SKILL.md`
-   7-a와 같은 관례) — 제안을 하나씩 제시하고 처분을 하나씩 받는다.
+   7-a와 같은 관례) — 제안을 하나씩 제시하고 처분을 하나씩 받는다. **수락받은 뒤에는 끝까지
+   반영한다**(9단계) — 확정 게이트와 완결 책임은 다른 것이다.
 2. **임계값과 해석 규칙을 이 문서에 복제하지 않는다.** 정본은 `evolution-signals.md` 하나이고,
    여기에 사본이 생기는 순간 둘은 갈라지며 갈라진 사실을 아무도 모른다. 이 문서는 **언제 그
    문서를 읽고 무엇에 적용할지**만 정한다. 리포트에 쓰는 문구도 정본의 「제안 문구」 블록을
@@ -45,10 +47,15 @@ description: >
 
 ## 이 스킬이 쓰는 파일
 
-`docs/architecture/decisions/NNNN-slug.md`(`proposed` ADR 초안)와, 컨벤션 승격을 사용자가
-수락했을 때의 `docs/architecture/conventions/<key>.md` **둘뿐이다.** `ARCHITECTURE.md`·domain
-문서·파생물·코드·테스트는 **읽기만 한다** — 고칠 곳은 정확히 제시하고 편집은 사용자가 한다
-(9단계). 강제 장치가 자기가 강제할 선언을 고치기 시작하면 이 플러그인은 아무것도 보장하지 못한다.
+**수락된 제안이 지목한 것만** 쓴다: `docs/architecture/decisions/NNNN-slug.md`(`proposed` ADR
+초안), `docs/architecture/conventions/<key>.md`(컨벤션 승격), 그리고 `ARCHITECTURE.md`의 해당
+라벨·표와 그 편집이 낡게 만든 파생물(`summary.md`·생성 구역). 선언을 고쳤으면 **파서 게이트와
+파생물 재생성까지 이 스킬이 끝낸다**(9단계) — 반쯤 반영하고 끊으면 선언과 파생물이 갈라진 상태가
+산출물이 된다.
+
+**domain 문서·코드·생성된 테스트는 읽기만 한다.** 경계를 다시 긋는 변경(컨텍스트 신설·병합·분리)도
+이 스킬의 편집 범위 밖이다 — 분류·스타일·모듈 구성을 새로 정하는 인터뷰가 필요하고 그 정본은
+`init`이다(9-a).
 
 ---
 
@@ -179,8 +186,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" ARCHITECTURE.md --sin
 않는다).
 
 ```bash
+python3 -c "import datetime;print((datetime.date.today()-datetime.timedelta(days=<정본 §4가 정한 비교 구간의 일수>)).isoformat())"
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
-git worktree add --detach <임시 경로> "$(git rev-list -1 --before=<정본이 정한 비교 시점> HEAD)"
+git worktree add --detach <임시 경로> "$(git rev-list -1 --before=<위 출력> HEAD)"
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" <임시 경로>/ARCHITECTURE.md --json
 git worktree remove <임시 경로>
 ```
@@ -272,15 +280,16 @@ git worktree remove <임시 경로>
 - **`- 관련:`에는 실재하는 이름만.** 컨텍스트·규칙 id는 3단계에서 읽은 선언에서, ADR 번호는
   방금 관측한 목록에서. 없으면 줄째로 생략한다.
 
-## 9. 수락 후 반영 — 어디까지가 이 스킬인가
+## 9. 수락 후 반영 — 확정된 것은 끝까지 맡는다
 
-처분은 제안 단위로 받는다. 수락된 것만 아래로 간다.
+처분은 제안 단위로 받는다. **아무것도 수락되지 않았으면 아무 파일도 쓰지 않고 리포트로 끝낸다.**
 
-| 수락된 제안 | 반영 | 누가 |
+| 수락한 제안 | 반영 | 누가 |
 |---|---|---|
-| 모든 제안의 ADR 초안 | `decisions/NNNN-slug.md`(`proposed`) | **이 스킬** |
+| 수락한 제안의 ADR 초안 | `decisions/NNNN-slug.md`(`proposed`) | **이 스킬**(8단계) |
+| 분류·스타일·이행·규칙 예외 라벨, 관계 표 행 | `ARCHITECTURE.md`의 그 줄·그 표 → 파생물 | **이 스킬**(9-a → 9-b) |
 | 컨벤션 승격(신호 5) | `docs/architecture/conventions/<key>.md` 초안 | **이 스킬** |
-| 분류·스타일·이행·규칙 예외·관계 표 변경 | `ARCHITECTURE.md`의 해당 라벨·표 | **사용자** — 선언 인터뷰는 `/superarchitect:init` |
+| 컨텍스트 신설·병합·분리 — 경계를 다시 긋는 것 | 경계·분류·스타일·모듈 구성 인터뷰 | **`/superarchitect:init`**(골격은 `scaffold`) |
 | 도메인 모델 재편(용어·추상화·애그리거트) | `docs/architecture/domain/<context>.md` | **`/superarchitect:model` 세션** |
 | baseline 축소 | 코드 이행 | **`/superarchitect:migrate`** — 축소는 이 경로로만 |
 
@@ -289,20 +298,46 @@ git worktree remove <임시 경로>
   `${CLAUDE_PLUGIN_ROOT}/references/governance/knowledge-doc-template.md` 표준을 따르고, 정본이
   요구하는 두 절(「적용 기준」·「규칙」 체크리스트)을 반드시 채운다. **내용은 `notes`에 실재하는
   지적에서만 뽑는다** — 있어 보이는 규칙을 덧붙이면 그 문서가 다음 리뷰의 판정 근거가 된다.
-  초안이므로 확정은 사용자이고, 채우지 못한 자리는 열린 질문으로 남긴다.
+  초안이므로 확정은 사용자이고, 채우지 못한 자리는 열린 질문으로 남긴다. 이 문서와 ADR은 SSOT가
+  아니므로 9-b의 재생성 대상이 아니다.
 - **도메인 재편 제안은 domain 문서를 건드리지 않는다.** 그 문서의 「열린 질문」 절 출처 값은
   `model`·`review`·`apply` 셋뿐이므로(`governance/domain-doc-template.md` §5) evolve가 append할
   자리가 없다. 관측과 제안을 리포트에 남기고 다음 모델링 세션의 안건으로 넘긴다.
-- **선언 편집은 파일·줄 번호·바뀔 값을 정확히 제시한다.** 편집한 뒤에는 두 가지가 반드시
-  따라온다고 알린다.
 
-  ```bash
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_architecture.py" ARCHITECTURE.md
-  ```
+### 9-a. 선언 편집 — 확정받은 값만
 
-  그리고 **파생물이 낡았다** — `summary.md`와 생성 구역은 선언에서 다시 만들어야 하고, 유효
-  규칙이 바뀌었으면 생성된 테스트는 여전히 옛 규칙을 검사한다(`/superarchitect:fitness`).
-  분류가 바뀌면 기본 스타일도 함께 바뀌므로 스타일 이행 여부까지 이어서 정해야 한다.
+- **편집 전에 원문과 변경안을 나란히 보여주고 확정을 받는다.** 표의 한 줄이어도 그렇다. 파일·줄
+  번호·바뀔 값을 그대로 제시한다.
+- **바꾸는 것은 수락된 제안이 지목한 값뿐이다.** 게이트를 통과시킬 목적으로 다른 결정 값을
+  건드리지 않는다(경계의 정본은 `skills/init/SKILL.md` 6단계 「고쳐도 되는 것과 안 되는 것」).
+  같은 오류가 두 번 반복되면 멈추고 파서 출력 원문을 보여주며 묻는다.
+- **경계를 다시 긋는 제안은 여기서 편집하지 않는다.** 신호 3의 병합·분리, 신호 1이 컨텍스트
+  분할로 이어지는 경우가 그렇다 — 분류·스타일·모듈 구성을 새로 정해야 하므로 무엇을 넘기는지
+  명시하고 `init`으로 보낸다. **넘긴 항목은 9-b에서 재생성하지 않는다** — 그쪽이 자기 절차로
+  게이트와 파생물까지 끝낸다. 두 스킬이 같은 구역을 두 번 쓰면 안 된다.
+
+### 9-b. 게이트 → 파생물 재생성 → 게이트
+
+`ARCHITECTURE.md`를 한 글자라도 고쳤으면 돌린다.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_architecture.py" ARCHITECTURE.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
+```
+
+- 앞은 결정 템플릿 검증(필수 결정 누락·비정규 값)이고, 뒤는 **유효 규칙 수가 의도한 만큼만
+  변했는지** 확인이다. 이 스킬의 편집은 분류·스타일·규칙 예외를 건드리므로 규칙 수는 대개
+  변하는 것이 정상이고, **그 차이가 곧 fitness 갱신 범위**다. 의도한 적 없는 변화가 보이면
+  라벨이나 표 구조를 잘못 건드린 것이다.
+- 이어서 파생물을 재생성한다. 관례의 정본은 `skills/init/SKILL.md` 7-a·7-b이고 여기서 다시
+  정하지 않는다 — `summary.md`는 30줄 이하, 생성 구역은 **여는 마커가 이미 있으면 그 쌍 사이만
+  교체**, 짝이 없는 마커는 갱신하지 않고 오류로 보고.
+- **재생성은 파생물의 손 편집을 지운다.** 쓰기 전에 diff를 보여주고 확정을 받는다.
+- 생성 구역은 `ARCHITECTURE.md` 안이다 — 고쳤으면 **게이트를 한 번 더** 돌린다. 컨텍스트·유효
+  규칙 수가 직전 실행과 같아야 하고, **이 실행의 `OK:` 출력이 이 스킬의 완료 조건이다.**
+- 마지막으로 **`/superarchitect:fitness`를 권한다** — 유효 규칙이 바뀌었는데 생성된 테스트는
+  여전히 옛 규칙을 검사한다. 분류가 바뀌면 기본 스타일도 함께 바뀌므로 스타일 이행 여부까지
+  이어서 정한다(그 이행 자체는 `migrate`다).
 
 ## 10. 마무리 보고
 
@@ -311,16 +346,17 @@ git worktree remove <임시 경로>
 2. **신호별 결과** — 산출된 제안, 그리고 **미산출 신호와 사유**(오탐 방지 조건·입력 부재·사용자
    거절). 이 줄을 빼면 리포트가 클린으로 읽힌다.
 3. **제안별 처분** — 수락 / 기각 / 보류. 기각한 것은 사유를 함께 적는다(다음 실행이 읽는다).
-4. **쓴 파일** — ADR 경로와 채번 근거(관측된 최대 번호 → 새 번호), conventions 경로. 그 밖에 쓴
-   파일은 없다.
-5. **사용자에게 남은 일** — 선언 편집 목록(파일·줄·값), 이어서 돌릴 것(파서 게이트, 파생물 재생성,
-   `/superarchitect:fitness`, `/superarchitect:migrate`), `proposed` ADR의 승인 경로
-   (`/superarchitect:adr`).
-6. **커밋은 사용자가 한다.** 명령만 제안한다.
+4. **쓴 파일** — ADR 경로와 채번 근거(관측된 최대 번호 → 새 번호), conventions 경로,
+   `ARCHITECTURE.md`의 어느 줄·표, `summary.md`·생성 구역. 9-b 마지막 게이트의 `OK:` 줄을 그대로
+   인용한다. 아무것도 쓰지 않았으면 그렇게 적는다.
+5. **넘긴 것과 남은 일** — `init`(경계 재설정)·`model`(도메인 재편)·`migrate`(baseline 축소)로
+   넘긴 항목과 권하는 명령, `/superarchitect:fitness` 갱신 권유(무엇이 바뀌어 필요한지 한 줄),
+   `proposed` ADR의 승인 경로(`/superarchitect:adr`).
+6. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
 
    ```bash
-   git add docs/architecture/decisions/ docs/architecture/conventions/
-   git commit -m "docs: evolve 제안 ADR 초안 <요지>"
+   git add ARCHITECTURE.md docs/architecture/summary.md docs/architecture/decisions/
+   git commit -m "docs: evolve 제안 반영 <요지>"
    ```
 
 ---
@@ -336,8 +372,9 @@ git worktree remove <임시 경로>
 - **미산출 신호를 조용히 빼는 것.** "판정하지 않음"과 "신호 없음"은 다르다.
 - **관측 없이 ADR 번호·규칙 id·컨텍스트 이름·지적 문구를 적는 것.** 선택지를 그대로 대안 표로
   옮기는 것, 기각 이유를 그럴듯하게 채우는 것도 날조다.
-- **`ARCHITECTURE.md`·domain 문서·파생물·코드·테스트·생성된 테스트를 고치는 것.** 이 스킬은
-  ADR 초안과 conventions 초안까지다.
+- **확정 없이 `ARCHITECTURE.md`를 고치는 것**, 수락 범위 밖의 값을 게이트 통과를 위해 바꾸는 것,
+  경계를 다시 긋는 편집을 인터뷰 없이 하는 것. domain 문서·코드·생성된 테스트는 아예 고치지 않는다.
+- **선언을 고쳐 놓고 게이트·파생물 재생성 없이 끝내는 것.** 완료 조건은 마지막 게이트의 `OK:`다.
 - **domain 문서의 「열린 질문」에 evolve 출처로 append하는 것.** 출처 값은 셋뿐이다.
 - **확인 없이 반영하는 것, 제안을 일괄 수락으로 처리하는 것.** "다 적용해줘"는 속도의 요청이다.
 - **`proposed` ADR을 `accepted`로 올리는 것**, 확인 없이 초안 파일을 쌓는 것, 번호를 재사용하거나
