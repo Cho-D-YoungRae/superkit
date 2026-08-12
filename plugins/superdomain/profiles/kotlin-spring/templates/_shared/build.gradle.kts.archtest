@@ -1,0 +1,27 @@
+// 아키텍처 테스트 모듈 — 스타일이 정하는 것이 하나도 없으므로 프리셋 4종이 이 조각 하나를 공유한다.
+// 이 모듈에는 프로덕션 소스가 없다. `src/test`만 갖고, fitness가 생성하는 규칙 테스트가 거기 산다
+// (배치 규약의 정본은 rule-mappings.md §0.1). 소스를 `src/main`에 두면 scopeFromProduction()이
+// 자기 자신을 검사 대상으로 잡는다 — 같은 문서가 그 전제를 명시한다.
+// 골격이 만드는 것은 이 스크립트까지이고 **테스트 파일은 만들지 않는다** — 함께 만들면 생성물의
+// 정본이 둘이 된다(profiles/README.md ②).
+// 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
+plugins {
+    kotlin("jvm")
+}
+
+dependencies {
+    // Konsist는 스프링 BOM이 관리하지 않는다. 대상 프로젝트의 버전 카탈로그나 루트 plugins 규약에
+    // 좌표를 등록해야 하며(없으면 구성 단계에서 죽는다 — scaffold 3단계 「버전 규약」), 검증된
+    // 버전은 fitness 4단계가 안내한다. 여기에 숫자를 박지 않는 이유는 계약 ② 「파일 구성」이다.
+    testImplementation("com.lemonappdev:konsist")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Gradle 8+에서는 런처를 테스트 런타임에 명시해야 한다(실측 — 없으면 "Failed to
+    // load JUnit Platform"으로 죽는다). spring-boot-starter-test를 쓰면 이미 들어 있다.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // 프로덕션 모듈을 의존하지 않는다 — Konsist는 클래스패스가 아니라 **소스 트리**를 읽는다
+    // (실측: 의존 0인 이 모듈에서 다른 모듈의 규칙 테스트 12건이 모두 판정된다). 의존을 더하면
+    // 이 모듈이 컨텍스트 코드를 참조하는 셈이 되고, 그 자체가 파생 규칙의 검사 대상이 된다.
+}
+
+tasks.test { useJUnitPlatform() }

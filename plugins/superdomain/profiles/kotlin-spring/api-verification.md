@@ -11,14 +11,14 @@
 |---|---|---|
 | `Konsist.scopeFromProject()` / `scopeFromProduction()` / `scopeFromModule()` | ✅ | `api/container/KoScope.kt`, `writing-tests/koscope.md` |
 | `KoScope.assertArchitecture(additionalMessage, testName) { }` | ✅ | `api/architecture/KoArchitectureAssertion.kt` |
-| `Layer(name, rootPackage)`와 rootPackage 검증 규칙 | ✅ | `api/architecture/Layer.kt` |
+| `Layer(name, rootPackage)`와 rootPackage 검증 규칙 — `..`로 끝나야 하고 각 세그먼트가 `^[a-z][a-zA-Z0-9_]*$`여야 하며 아니면 생성자가 `IllegalArgumentException`을 던진다 | ✅ | `api/architecture/Layer.kt` |
 | `dependsOn(vararg, strict)`·`dependsOnNothing()`·`doesNotDependOn(...)`·`include()`와 각 `Collection<Layer>` 버전 | ✅ | `api/architecture/LayerDependencies.kt` |
 | `strict = false`인 `dependsOn`은 아무 실패도 만들지 않음 | ✅ | `core/verify/KoArchitectureAssert.kt` `getFailedDependsOnLayers` |
 | 빈 레이어 → `KoPreconditionFailedException` | ✅ | `core/architecture/LayerDependenciesCore.kt` `checkLayersWithoutFiles` |
 | 레이어 의존 판정이 import 기반 | ✅ | `core/verify/KoArchitectureAssert.kt` `Layer.isDependentOn` |
 | `assertTrue`/`assertFalse(strict, additionalMessage, testName) { }`와 빈 목록 처리 | ✅ | `api/verify/KoDeclarationAndProviderAssert.kt` |
 | `classes`/`interfaces`/`objects`/`classesAndInterfacesAndObjects(includeNested, includeLocal)` — 기본 `true` | ✅ | `api/container/KoScope.kt` |
-| `withPackage`/`withoutPackage`(vararg·Collection) | ✅ | `api/ext/list/KoHasPackageProviderListExt.kt`, `…/KoResideInPackageProviderListExt.kt` |
+| `withPackage`/`withoutPackage`(vararg·Collection) — **파일 목록과 타입 선언 목록 양쪽**에 걸리고 `..`를 해석한다 | ✅ 실측 | `api/ext/list/KoHasPackageProviderListExt.kt`(`KoFileDeclaration`), `…/KoResideInPackageProviderListExt.kt`(클래스·인터페이스·오브젝트 선언). `classes().withPackage(...)` 수신은 §3 컨텍스트 범위 필터로 2026-08-12 실행 확인(컨텍스트 2개 샘플 12/12, 위반 주입 시 정확히 그 컨텍스트만 실패) |
 | `KoFileDeclaration`이 `KoHasPackageProvider`·`KoImportProvider` 구현 | ✅ | `api/declaration/KoFileDeclaration.kt` |
 | `resideInPackage(name)`/`resideOutsidePackage(name)` (**단수형**) | ✅ | `api/provider/KoResideInPackageProvider.kt` |
 | `hasImportWithName(name, vararg)`·`(Collection)` — 정확 일치, 빈 컬렉션이면 `hasImports()` | ✅ | `core/provider/KoImportProviderCore.kt` |

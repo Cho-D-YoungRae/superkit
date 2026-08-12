@@ -158,9 +158,8 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 `Collection<Layer>`용 `include()`·`dependsOnNothing()`·`doesNotDependOn(Set<Layer>)`가 모두
 있으므로 ✅ 항목 수와 무관하게 같은 모양이 된다. 금지 집합의 합집합은 집합 덧셈(`adapter + web`).
 
-**`Layer`의 rootPackage 제약** ✅ — `..`로 끝나야 하고 각 세그먼트가 `^[a-z][a-zA-Z0-9_]*$`여야
-하며, 아니면 생성자가 `IllegalArgumentException`을 던진다. 정규화 산출 패턴은 언제나 `..`로
-끝나므로(정본 §6) 레이어 이름이 유효한 패키지 세그먼트이면 자동으로 만족된다.
+**`Layer`의 rootPackage 제약** ✅(대장 14행 — 위반이면 생성자가 던진다). 정규화 산출 패턴은 언제나
+`..`로 끝나므로(정본 §6) 레이어 이름이 유효한 패키지 세그먼트이면 자동으로 만족된다.
 
 **커버리지 한계** — Konsist의 레이어 판정도 **import 기반**이다 ✅(`Layer.isDependentOn`이
 `files.flatMap { it.imports }`를 본다). import 없는 참조(같은 패키지 안의 참조, FQN 인라인 사용,
@@ -216,8 +215,7 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 }
 ```
 
-`withPackage`는 `List<KoHasPackageProvider>`용 확장이고 `KoFileDeclaration`이 그것을 구현한다 ✅.
-패턴의 `..`는 이 확장이 직접 해석한다.
+`withPackage`는 파일 목록과 타입 선언 목록 모두에 걸리고 패턴의 `..`를 직접 해석한다 ✅(대장 21행).
 
 **주의** — `hasImportWithName(...)`은 **정확 문자열 일치**이며 `..`를 해석하지 않는다 ✅(소스:
 `names.any { it == import.name }`). 공식 문서의 `hasImport("usecase..")` 예시는 0.17.3 API와 맞지
@@ -236,33 +234,35 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 |---|---|
 | `jpa-entity` | `.withAnnotationNamed(listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity"))` ✅ |
 
-이름 기반을 쓰는 이유: `withAnnotationOf(Entity::class)`는 아키텍처 테스트 모듈에 JPA 컴파일
-의존을 추가하게 만든다. 이름 매칭은 단순명과 FQN을 모두 받는다 ✅(`annotation.representsType`).
-셀렉터를 변수로 빼 두 어서션이 공유하므로 **`Collection<String>` 오버로드**를 쓴다 ✅ — 나머지
-오버로드는 `(name: String, vararg names: String)`이라 `*배열` 스프레드로는 첫 인자 `name`을 채울
-수 없어 컴파일되지 않는다. 두 val 이름의 `{{ruleIdSafe}}` 접미는 §0.1의 유일성 규율이다 — 한
-컨텍스트에 confine-type 인스턴스가 둘 이상이면 고정 이름은 재선언 충돌로 컴파일이 깨진다.
+**수집도 검사도 그 컨텍스트 범위 안에서 한다** — `contextScope` = `layer_patterns` 값 전체의 합집합.
+`allowed_layer`가 §2.1(나)에 따라 **그 컨텍스트의** 레이어라, 전역 셀렉터는 `domain-pure`를 가진 두
+컨텍스트가 서로의 `@Entity`를 위반으로 잡게 만든다 ✅ 실측(2건 실패 → 좁힌 뒤 12/12). 교차 컨텍스트
+참조는 `derived.context-isolation`(§6)의 몫이다 — `check_imports`의 `_scope_of`가 같은 필터다.
+
+이름 기반 셀렉터를 쓰는 이유: `withAnnotationOf(Entity::class)`는 테스트 모듈에 JPA 컴파일 의존을
+만든다(대장 27행). 두 어서션이 공유하는 변수라 **`Collection<String>` 오버로드**를 쓴다 ✅ — vararg
+쪽은 `*배열`로 첫 인자를 채울 수 없다. 세 val 이름의 `{{ruleIdSafe}}` 접미는 §0.1의 유일성 규율이다.
 
 ```kotlin
+private val `contextScope_{{ruleIdSafe}}` = listOf({{items:contextScope}})
 private val `allowedPackages_{{ruleIdSafe}}` = listOf({{items:allowed}})
 private val `entitySelector_{{ruleIdSafe}}` = listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity")
 
-@Test   // 위반 A — 지정 범위 안에서만 선언
+@Test   // 위반 A — 이 컨텍스트 안에서, 지정 범위 안에서만 선언
 fun `{{context}} - {{ruleIdSafe}} (선언)`() {
-    Konsist.scopeFromProduction()
-        .classes()
+    Konsist.scopeFromProduction().classes().withPackage(`contextScope_{{ruleIdSafe}}`)
         .withAnnotationNamed(`entitySelector_{{ruleIdSafe}}`)
         .assertTrue(additionalMessage = "규칙 {{ruleId}} — @Entity는 허용 범위 안에서만 선언한다") { klass ->
             `allowedPackages_{{ruleIdSafe}}`.any { klass.resideInPackage(it) }
         }
 }
 
-@Test   // 위반 B — 지정 범위 밖에서 참조 금지
+@Test   // 위반 B — 이 컨텍스트 안에서, 지정 범위 밖에서 참조 금지
 fun `{{context}} - {{ruleIdSafe}} (참조)`() {
     val scope = Konsist.scopeFromProduction()
-    val entityNames = scope.classes().withAnnotationNamed(`entitySelector_{{ruleIdSafe}}`).mapNotNull { it.fullyQualifiedName }
-    scope.files
-        .withoutPackage(`allowedPackages_{{ruleIdSafe}}`)
+    val entityNames = scope.classes().withPackage(`contextScope_{{ruleIdSafe}}`)
+        .withAnnotationNamed(`entitySelector_{{ruleIdSafe}}`).mapNotNull { it.fullyQualifiedName }
+    scope.files.withPackage(`contextScope_{{ruleIdSafe}}`).withoutPackage(`allowedPackages_{{ruleIdSafe}}`)
         .assertFalse(additionalMessage = "규칙 {{ruleId}} — 격리 범위 밖에서 @Entity 타입 참조") { file ->
             entityNames.isNotEmpty() && file.hasImportWithName(entityNames)
         }
@@ -284,6 +284,8 @@ fun `{{context}} - {{ruleIdSafe}} (참조)`() {
    `` || file.hasImport { it.isWildcard && `allowedPackages_{{ruleIdSafe}}`.any { p -> it.name.matchesPattern(p) } } `` ✅
 3. 격리 대상이 0건이면 두 어서션 모두 진공 통과하며, 그 통과는 "JPA를 쓰지 않는 프로젝트"와
    "셀렉터가 아무것도 못 잡음"을 구분하지 못한다.
+4. 컨텍스트 범위 밖(어느 레이어 패턴에도 들지 않는 패키지)의 `@Entity`는 이 규칙이 보지 않는다 —
+   그건 규약 레이어 검증과 review의 몫이다.
 
 위반 B는 어휘가 이 primitive의 진짜 가치라고 말한 부분이다(§3.3 주의). 1·2가 남아 있으므로
 **완전 검사가 아니며**, 나머지는 review가 본다.
