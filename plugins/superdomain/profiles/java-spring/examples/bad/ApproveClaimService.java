@@ -1,5 +1,7 @@
 // 나쁜 예 2/2 — hexagonal, application. 한 파일이 규칙 셋을 동시에 위반한다.
 // 아래 세 메시지는 모두 **실측 채록**이다(줄바꿈은 읽기 위해 넣었고 원문은 각각 한 줄이다).
+// 채록의 줄 번호(`ApproveClaimService.java:13`)는 **이 주석을 뺀 실행 트리** 기준이라 이 파일의
+// 줄 번호와 맞지 않는다 — 돌린 트리에는 설명 주석이 없었다.
 //   hex.ports-owned-inside :
 //     java.lang.AssertionError: Architecture Violation [Priority: MEDIUM] - Rule 'classes that
 //     com.acme.claim.application.. and are top level classes and are public should have simple

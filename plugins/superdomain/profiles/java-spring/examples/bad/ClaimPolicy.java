@@ -1,4 +1,6 @@
 // 나쁜 예 1/2 — hexagonal, domain. 위반 규칙: hex.domain-no-framework
+// 채록의 줄 번호(`ClaimPolicy.java:4`)는 **이 주석을 뺀 실행 트리** 기준이라 이 파일의 줄 번호와
+// 맞지 않는다 — 돌린 트리에는 설명 주석이 없었다.
 //   ArchUnit 실패 메시지 첫 줄(실측 — 아래 줄바꿈은 읽기 위해 넣은 것이고 원문은 한 줄이다):
 //     java.lang.AssertionError: Architecture Violation [Priority: MEDIUM] - Rule 'no classes that
 //     com.acme.claim.domain.. should depend on classes that org.springframework..,
