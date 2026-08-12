@@ -50,7 +50,7 @@ import com.lemonappdev.konsist.api.architecture.Layer                           
 import com.lemonappdev.konsist.api.ext.list.modifierprovider.withPublicOrDefaultModifier   // §4
 import com.lemonappdev.konsist.api.ext.list.withAnnotationNamed                            // §3
 import com.lemonappdev.konsist.api.ext.list.withNameEndingWith                             // §5
-import com.lemonappdev.konsist.api.ext.list.withPackage                                    // §2B·§4·§5·§6
+import com.lemonappdev.konsist.api.ext.list.withPackage                                    // §2B·§3·§4·§5·§6
 import com.lemonappdev.konsist.api.ext.list.withoutPackage                                 // §3
 import com.lemonappdev.konsist.api.verify.assertFalse
 import com.lemonappdev.konsist.api.verify.assertTrue

@@ -36,7 +36,7 @@ profiles/<이름>/
 │   ├── build.gradle.kts.<레이어>
 │   ├── <레이어>/*.kt
 │   └── test/*.kt
-├── templates/_shared/        # 스타일과 무관한 조각. 앱 실행 모듈이 여기 산다
+├── templates/_shared/        # 스타일과 무관한 조각. 앱 실행·아키텍처 테스트 모듈이 여기 산다
 └── examples/{good,bad}/      # 선택 — 좋은 예 발췌 1, 나쁜 예 1~2
 ```
 

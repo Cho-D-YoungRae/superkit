@@ -45,7 +45,7 @@ claude --plugin-dir /path/to/superarchitect
 | 인덱스 생성기 | `scripts/build_index.py` | `references/knowledge/`를 스캔해 `references/INDEX.md`를 다시 만든다 |
 | 거버넌스 문서 6종 | `references/governance/` | 결정 템플릿·규칙 어휘·ADR·진화 신호·지식 문서 표준·도메인 문서 표준의 정본 |
 | `kotlin-spring` 프로파일 | `profiles/kotlin-spring/rule-mappings.md` | primitive 5종 + 파생 3종 → Konsist 코드 번역의 정본 |
-| 프리셋 골격 템플릿 4종 | `profiles/kotlin-spring/templates/` | scaffold가 전개하는 골격. 스타일마다 `MANIFEST.md`가 파일 목록·레이아웃 3형 배치·병합 규칙을 정한다. 앱 실행 모듈 조각은 스타일과 무관해 `_shared/`에 하나 |
+| 프리셋 골격 템플릿 4종 | `profiles/kotlin-spring/templates/` | scaffold가 전개하는 골격. 스타일마다 `MANIFEST.md`가 파일 목록·레이아웃 3형 배치·병합 규칙을 정한다. 앱 실행·아키텍처 테스트 모듈 조각은 스타일과 무관해 `_shared/`에 함께 둔다 |
 | 규칙 예제 | `profiles/kotlin-spring/examples/` | good 3 / bad 2. 나쁜 예는 걸리는 규칙 id와 도구가 실제로 낸 실패 메시지 첫 줄을 주석에 적는다 |
 | 지식 문서 18종 | `references/knowledge/` | 전부 성숙(draft 0). INDEX를 거쳐 필요한 것만 선별해 읽는다 |
 | `study` 스킬 | `.claude/skills/study/` | 이 저장소 전용. 지식 베이스를 키운다(아래 참조) |
