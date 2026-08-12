@@ -3,13 +3,13 @@ name: fitness
 description: >
   선언된 아키텍처를 실행 가능한 테스트로 굳힌다 — ARCHITECTURE.md와 스타일 선언에서 해석한 유효
   규칙(스타일 유래 규칙 − 규칙 예외 + 파생 규칙 3종)을 프로파일의 rule-mappings.md로 번역해
-  컨텍스트별 Konsist 아키텍처 테스트 파일을 생성·갱신하고, 파생 규칙은 프로젝트당 한 파일로 모은다.
+  컨텍스트별 아키텍처 테스트 파일을 생성·갱신하고(도구는 프로파일이 정한다 — kotlin-spring은
+  Konsist, java-spring은 ArchUnit), 파생 규칙은 프로젝트당 한 파일로 모은다.
   사용자가 "아키텍처 테스트 생성", "아키텍처 테스트 갱신", "피트니스", "피트니스 함수", "fitness",
-  "architecture test", "/superarchitect:fitness"를 요청할 때, 스타일 선언·규칙 예외·컨텍스트·모듈
-  표·패키지 규약을 고친 직후(그 순간 선언과 테스트가 갈라진다), 새 컨텍스트를 등록한 뒤, 또는
-  아키텍처 규칙을 CI에서 결정적으로 강제하고 싶을 때 사용한다. 프로파일이 `java-spring`이면
-  ArchUnit 매핑이 아직 없어 그 사실을 알리고 중단하므로, "ArchUnit 테스트"를 요청받았을 때도 이
-  스킬로 판정한다. 이미 있는 코드의 위반을 찾아 검토·보고하는 일에는 쓰지 않는다
+  "architecture test", "Konsist 테스트", "ArchUnit 테스트", "/superarchitect:fitness"를 요청할 때,
+  스타일 선언·규칙 예외·컨텍스트·모듈 표·패키지 규약을 고친 직후(그 순간 선언과 테스트가
+  갈라진다), 새 컨텍스트를 등록한 뒤, 또는 아키텍처 규칙을 CI에서 결정적으로 강제하고 싶을 때
+  사용한다. 이미 있는 코드의 위반을 찾아 검토·보고하는 일에는 쓰지 않는다
   (`/superarchitect:review`가 결정적 검사와 의미론 리뷰를 맡는다).
   컨텍스트·분류·스타일·관계 선언 자체를 정하거나 바꾸는 일에도 쓰지 않는다 — 이 스킬은
   SSOT(ARCHITECTURE.md·스타일 선언)를 읽기만 하고 절대 고치지 않으며, 선언을 세우는 것은
@@ -104,8 +104,9 @@ ls "${CLAUDE_PLUGIN_ROOT}/profiles/<프로파일>/rule-mappings.md"
 > `<프로젝트>`의 프로파일 `<이름>`에는 아직 `rule-mappings.md`가 없습니다. 번역 사전 없이
 > 테스트를 지어내지 않습니다.
 
-> **구현 상태 — `java-spring` 매핑은 Phase 6이다.** 그때까지 이 프로파일의 프로젝트는 생성
-> 대상이 아니다. 선언은 유효하고, 도착하면 같은 절차가 그대로 돈다.
+**v1이 싣고 나온 두 프로파일에는 둘 다 매핑이 있다**(`kotlin-spring`·`java-spring`). 이 갈래는
+프로파일 디렉터리를 새로 만들고 계약(`profiles/README.md` ④)을 아직 구현하지 않았을 때 걸린다 —
+`ls`의 결과가 진실이고, 위 목록을 외워 두지 않는다.
 
 대상이 그 프로젝트뿐이면 전체를 중단한다. 매핑이 있는 다른 프로젝트가 남아 있으면 건너뛴 사실을
 리포트에 적고 나머지를 진행한다.
@@ -127,7 +128,8 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
 ```
 
 모듈 하나의 패키지가 필요하면 경로만 `<프로젝트 경로>/<module_path>`로 바꾼다. 테스트 소스를 빼는
-이유는 매핑의 모든 어서션이 `Konsist.scopeFromProduction()`(프로덕션 소스)에서 출발하기 때문이다.
+이유는 어휘의 대상이 프로덕션 소스이고 매핑 §0.1의 스코프가 거기서 출발하기 때문이다
+(kotlin-spring은 `Konsist.scopeFromProduction()`, java-spring은 `DO_NOT_INCLUDE_TESTS`).
 
 얻은 목록은 매핑 §6의 규약대로 굽는다: **다른 항목의 접두가 되는 최소 집합만 남기고** 각 항목에
 `..`를 붙인다(`com.acme.dbcore`와 `com.acme.dbcore.jpa`가 함께 나오면 앞의 것만 남긴다). 값 위에
@@ -145,31 +147,37 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
 매핑 §0.1의 배치 규약에 `projects[]`의 값을 넣으면 경로가 나온다.
 
 ```
-<git 루트>/<path>/<test_location>/<base_package의 .을 /로 바꾼 경로>/architecture/<Context>ArchitectureTest.kt
+<git 루트>/<path>/<test_location>/<base_package의 .을 /로 바꾼 경로>/architecture/<Context>ArchitectureTest.<확장자>
 ```
 
 - `path`가 `.`이면 git 루트가 프로젝트 루트다. `test_location`은 **프로젝트 경로 기준** 상대
   경로다(`architecture-template.md` §4).
 - `<Context>`는 컨텍스트 이름의 PascalCase — 하이픈·언더스코어는 지우고 다음 글자를 대문자로
   올린다(`order-mgmt` → `OrderMgmt`).
-- 파생 규칙은 같은 디렉터리의 `DerivedRulesTest.kt` 하나에 **프로젝트 단위로** 모은다.
+- **파일 이름과 확장자는 매핑 §0.1의 표가 정한다**(kotlin-spring `.kt`, java-spring `.java`).
+- 파생 규칙은 같은 디렉터리의 `DerivedRulesTest` 한 파일에 **프로젝트 단위로** 모은다.
 - 디렉터리가 없으면 만든다. 생성물은 이 파일들뿐이다.
 
 ### 4-b. 파일 뼈대 (매핑이 정하지 않은 부분만 여기서 정한다)
 
 1. 첫 두 줄은 매핑 §0.1의 생성 헤더를 **글자 그대로**. 5단계가 이 두 줄로 수동 수정을 판정하므로
    한 글자도 바꾸지 않는다.
-2. `package <base_package>.architecture`
-3. **import는 매핑의 「import 목록(정본)」 블록을 그대로 복사한다**(kotlin-spring은 §0.1). 쓰지
+2. 패키지 선언 — 매핑 §0.1의 표기 그대로(`<base_package>.architecture`).
+3. **import는 매핑의 「import 목록(정본)」 블록을 그대로 복사한다**(양 프로파일 모두 §0.1). 쓰지
    않은 줄만 빼고, **패키지를 스스로 유도하지 않는다** — 검증 대장의 소스 경로는 심볼이 아니라
    선언 인터페이스의 위치라, 유도하면 심볼 미해결이 연쇄해 파일 전체가 컴파일되지 않는다(실측).
    테스트 애노테이션은 그 프로젝트가 쓰는 프레임워크를 따른다(JUnit 5면
    `org.junit.jupiter.api.Test`).
-4. 파일 이름과 같은 이름의 클래스 하나에 `@Test` 함수를 담는다(`class ClaimArchitectureTest { … }`).
-5. 매핑 §0.2의 `matchesPattern` 헬퍼를 파일마다 한 번 넣는다.
+4. 파일 이름과 같은 이름의 클래스 하나에 `@Test` 함수(java는 메서드)를 담는다
+   (`class ClaimArchitectureTest { … }`).
+5. **매핑 §0.2의 「파일마다 한 번 넣는 조각」을 그대로 넣는다.** 그 조각의 개수와 이름은 프로파일이
+   정한다 — kotlin-spring은 패턴 매칭 헬퍼 하나, java-spring은 스코프 필드와 패턴 술어 헬퍼다.
 6. **`이행` 중이면**(= git 루트에 `docs/architecture/baseline.jsonl`이 있으면) 매핑 §7의 baseline
    조각도 파일마다 한 번 넣는다. 파일이 없는 프로젝트에는 넣지 않는다 — 쓰지 않을 코드를 생성물에
    남기지 않는다.
+7. **매핑이 코드 템플릿에 후처리 지시를 붙여 두었으면 그대로 따른다** — 전개만으로 끝나지 않는
+   자리가 있다(java-spring §4의 "전개 뒤 첫 `.orShould()`를 `.should()`로 바꾼다"가 그 예이고,
+   빠뜨리면 컴파일이 깨진다).
 
 ### 4-c. 스타일 유래 규칙 — `effective` 항목마다
 
@@ -179,18 +187,22 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
    항목이 **이미 패키지 패턴으로 치환된** 결과이고, 레이어 이름으로 남은 (나) 파라미터
    (`layers`·`allowed_layer`·`layer`)는 `params`에서 이름을 읽어 `layer_patterns[<이름>]`으로
    번역한다. **패턴을 손으로 만들지 않는다** — 정규화는 해석기가 이미 했다.
-3. 플레이스홀더를 치환한다. `{{ruleIdSafe}}`는 백틱 함수 이름에 들어갈 수 없는 문자를 공백으로
-   바꾼 형태이고(매핑 §0.1), 원본 id는 `additionalMessage`에 남는다. 한 파일 안에서 함수 이름은
-   유일해야 한다.
-4. `forbid-import`는 **라우트를 먼저 판정한다**(매핑 §2의 표). ①② 패턴 문자열 조건은 값으로
-   판정하고, ③ "스캔 스코프 안에 소스가 존재"는 3단계의 인벤토리로 판정한다 — `from`·`to`의 어느
-   한 항목이라도 대응 패키지가 인벤토리에 없으면 **라우트 B**다. 외부 라이브러리 패턴
-   (`org.springframework..`)은 언제나 0건이므로 항상 B다.
+3. 플레이스홀더를 치환한다. **`{{ruleIdSafe}}`의 변환과 원본 id가 남는 자리는 매핑 §0.1이
+   프로파일마다 정한다** — kotlin-spring은 백틱 이름에 못 들어가는 문자를 공백으로 바꾸고 원본을
+   `additionalMessage`에, java-spring은 식별자 밖 문자를 `_`로 바꾸고 원본을 `@DisplayName`과
+   `because(...)`에 남긴다. 한 파일 안에서 테스트 이름은 유일해야 한다.
+4. **매핑 §2가 라우트 분기를 정의하면 그 표를 먼저 판정한다** — kotlin-spring이 그 예이고,
+   java-spring §2에는 분기가 없어(참조 대상이 스코프에 없어도 판정된다) 한 형태뿐이다.
+   kotlin-spring 표의 ①② 패턴 문자열 조건은 값으로 판정하고, ③ "스캔 스코프 안에 소스가 존재"는
+   3단계의 인벤토리로 판정한다 — `from`·`to`의 어느 한 항목이라도 대응 패키지가 인벤토리에 없으면
+   **라우트 B**다. 외부 라이브러리 패턴(`org.springframework..`)은 언제나 0건이므로 항상 B다.
 5. `strict` 인자와 기본값은 매핑 §0.3이 primitive별로 정해 두었다. 통과시키려고 뒤집지 않는다.
-6. **baseline이 있으면 강등 합성을 얹는다**(매핑 §7의 표) — `assertFalse`는 위반식에
-   `&& !demoted("<rule id>", <경로>)`, `assertTrue`는 통과식에 `|| demoted(…)`, `assertArchitecture`는
-   수신 스코프에 `.slice { !demoted(…, it.projectPath) }`. **4-d의 파생 규칙도 같다** — 거기서는 rule
-   id 자리에 `derived.<kind>`를 쓴다. check_imports가 baseline에 그 id로 적기 때문이다.
+6. **baseline이 있으면 강등 합성을 얹는다**(매핑 §7의 표). 합성 자리가 어서션 3형 — 위반형·통과형·
+   레이어 등록형 — 마다 하나씩이라는 것이 프로파일 공통이고, **어서션과 헬퍼의 이름은 프로파일이
+   정하므로 그 표에서 읽는다**(kotlin-spring은 `assertFalse`/`assertTrue`/`assertArchitecture`와
+   `demoted(…)`, java-spring은 `noClasses().that`/`classes().that`/`definedBy`와 `notDemoted(…)`).
+   **4-d의 파생 규칙도 같다** — 거기서는 rule id 자리에 `derived.<kind>`를 쓴다. check_imports가
+   baseline에 그 id로 적기 때문이다.
 
 ### 4-d. 파생 규칙 — `derived` 항목마다
 
@@ -260,18 +272,20 @@ diff -u "<기존 파일>" "<새 내용 임시 파일>"
 
    `include`에 없으면 **그 사실을 먼저 알린다.** 빌드에 포함되지 않는 모듈에 테스트를 만든
    상태이고, 그 테스트는 영원히 실행되지 않는다.
-4. **의존성** — 테스트 모듈의 빌드 스크립트에 Konsist가 없으면 좌표를 안내한다(설치하지 않는다).
-
-   ```kotlin
-   testImplementation("com.lemonappdev:konsist:0.17.3")
-   ```
-
-   JUnit 5 실행 설정(`useJUnitPlatform()`)이 없으면 함께 알린다.
-5. **첫 실행에서 확인할 것** — `strict = true`라 0건에서 실패하는 규칙. "생성됐다"가 "통과한다"를
-   뜻하지 않는 지점이다. 여기에 하나가 더 붙을 수 있다: 프로파일의 검증 대장(kotlin-spring은
-   `${CLAUDE_PLUGIN_ROOT}/profiles/kotlin-spring/api-verification.md`)에
-   `⚠️ (미검증 — 첫 실행 시 확인)` 행이 있으면 그 API를 쓴 규칙도 함께 적는다. **지금 그 대장은 전
-   행이 `✅`이므로 해당 규칙이 없다** — ⚠️ 행이 새로 생겼을 때만 이 항목이 살아난다.
+4. **의존성** — 테스트 모듈의 빌드 스크립트를 열어 **그 프로파일의 검증 도구**가 없으면 좌표를
+   안내한다(설치하지 않는다). 좌표는 매핑 문서 머리말이 적는다 — kotlin-spring은
+   `com.lemonappdev:konsist:0.17.3`, java-spring은 `com.tngtech.archunit:archunit:1.4.1`.
+   JUnit 5 실행 설정(`useJUnitPlatform()`)이 없으면 함께 알린다. **스코프 전제도 프로파일마다
+   다르다** — 매핑 §0.1이 테스트 모듈의 의존 요건을 적어 두었으면(java-spring은 검사 대상 모듈
+   의존이 **필수**, kotlin-spring은 소스 트리를 읽으므로 그 반대다) 충족 여부를 함께 확인해
+   알린다. 어긋나면 스코프가 비어 전 규칙이 0건으로 실패한다.
+5. **첫 실행에서 확인할 것** — 매핑 §0.3이 **0건에서 실패하도록 정한 규칙**(kotlin-spring은
+   `strict = true`, java-spring은 ArchUnit 기본값). "생성됐다"가 "통과한다"를 뜻하지 않는 지점이다.
+   여기에 하나가 더 붙을 수 있다: 프로파일의 검증 대장
+   (`${CLAUDE_PLUGIN_ROOT}/profiles/<프로파일>/api-verification.md` — kotlin-spring·java-spring
+   둘 다 이 경로다)에 `⚠️ (미검증 — 첫 실행 시 확인)` 행이 있으면 그 API를 쓴 규칙도 함께 적는다.
+   **지금 두 대장 모두 전 행이 `✅`이므로 해당 규칙이 없다** — ⚠️ 행이 새로 생겼을 때만 이 항목이
+   살아난다.
 6. **이행 중이면 미리 말한다.**
 
    ```bash
@@ -281,11 +295,20 @@ diff -u "<기존 파일>" "<새 내용 임시 파일>"
    > **baseline이 있으면 생성된 테스트가 기존 부채를 강등한다**(매핑 §7 — 4-b·4-c에서 이미 넣었다).
    > 부채는 `[기존 부채] …` 출력으로 나오고 실패는 신규 위반만 낸다. `이행` 라벨은 있는데 baseline이
    > 없으면 첫 실행에서 기존 부채가 전부 실패로 나오므로, 그 전에 `/superarchitect:init`의 동결을
-   > 끝내라고 말한다. **baseline이 Gradle 태스크 입력인지는 전개 시점에 따라 갈린다** — 최신
-   > `_shared` 조각으로 전개된 모듈은 `inputs.files`로 그 파일을 선언하므로 baseline만 고쳐도
-   > 재실행된다(실측: 매핑 §7 한계 ④). **구판 조각으로 전개됐거나 아키텍처 테스트가 다른 모듈에
-   > 있으면 그 선언이 없어** 부채를 갚고 그 파일만 고친 재실행이 `UP-TO-DATE`로 건너뛴다. 그
-   > 갈래에는 `--rerun-tasks`가 필요하다고 함께 알린다(migrate 6-d와 같은 규약).
+   > 끝내라고 말한다. **baseline이 Gradle 태스크 입력인지는 전개 시점에 따라 갈리고, 여기서는 그
+   > 판별이 싸다** — 4항이 이미 연 빌드 스크립트를 보면 된다.
+
+   ```bash
+   grep -n 'architectureBaseline\|baseline.jsonl' "<테스트 모듈 경로>"/build.gradle*
+   ```
+
+   > 최신 `_shared` 조각으로 전개된 모듈은 그 파일을 `inputs.files`로 선언하므로(속성 이름
+   > `architectureBaseline`) baseline만 고쳐도 재실행된다(실측 — 매핑 §7의 `UP-TO-DATE` 한계 행).
+   > **구판 조각으로 전개됐거나 아키텍처 테스트가 다른 모듈에 있으면 그 선언이 없어** 부채를 갚고
+   > 그 파일만 고친 재실행이 `UP-TO-DATE`로 건너뛴다. 선언이 없거나 스크립트를 읽지 못했으면
+   > `--rerun-tasks`가 필요하다고 함께 알린다. **migrate 6-d는 같은 갈래를 조건 없이 붙이는 쪽으로
+   > 처분한다**(그쪽은 빌드 스크립트를 열지 않아 확인보다 붙이는 편이 싸다) — 두 스킬의 처방이
+   > 갈리는 것은 판별 비용이 다르기 때문이고, 그쪽 규약을 조건부로 인용하지 않는다.
 7. **커밋은 사용자가 한다.** 명령만 제안한다.
 8. **다음 걸음** — 생성된 테스트가 원리적으로 못 보는 것(같은 패키지 안의 참조, import 없는 FQN
    사용, 리플렉션, 의미론)은 `/superarchitect:review`가 본다. 규칙 자체를 바꾸고 싶으면 테스트가
