@@ -43,11 +43,9 @@ description: >
 
 - **대상 컨텍스트가 선언한 `스타일` 문서** — 목표 구조가 무엇인지는 거기 적혀 있다. 커스텀이면
   대상 프로젝트의 `docs/architecture/styles/<이름>.md`. `- 패턴:`이 있으면 그 key의 문서도.
-- **이번 클러스터가 실제로 건드리는 주제** — 모듈을 신설하면 `module-composition`, 패키지 자리를
-  정하면 `package-conventions`, 영속이 얽히면 `persistence`, 포트를 도입하면
-  `repositories-domain-services`. INDEX의 `read_when`은 스킬 이름으로 라우팅하는데, 이 스킬이 하는
-  일은 **자리를 만드는 scaffold와 위반을 판정하는 review의 교집합**이므로 그 두 이름이 붙은 항목이
-  실질 후보다.
+- **이번 클러스터가 실제로 건드리는 주제** — INDEX의 `read_when`에 `migrate`가 붙은 문서가 후보다:
+  모듈을 신설하면 `module-composition`, 패키지 자리를 정하면 `package-conventions`, 영속이 얽히면
+  `persistence`, 포트를 도입하면 `repositories-domain-services`.
 - 대상 프로젝트의 `docs/architecture/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 ---

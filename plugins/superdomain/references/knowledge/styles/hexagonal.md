@@ -1,6 +1,6 @@
 ---
 summary: 포트와 어댑터 — domain·application을 안쪽에 두고 바깥과의 모든 상호작용을 포트로 뒤집는 스타일. core의 기본값이며 도메인은 순수하게 유지한다
-read_when: [init, review, fitness, scaffold]
+read_when: [init, review, fitness, scaffold, migrate]
 rules: [hex.deps-inward, hex.domain-pure, hex.domain-no-framework, hex.ports-owned-inside]
 ---
 

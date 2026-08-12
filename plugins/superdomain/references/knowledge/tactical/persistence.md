@@ -1,6 +1,6 @@
 ---
 summary: 순수 도메인 모델과 영속 엔티티 분리 전략 — 매핑 위치, 어댑터 봉쇄 규칙, lazy loading·양방향 연관 안티패턴, JPA 직접 사용이 정당한 조건
-read_when: [apply, review, scaffold]
+read_when: [apply, review, scaffold, migrate]
 ---
 
 ## 개념

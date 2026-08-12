@@ -1,6 +1,6 @@
 ---
 summary: 4개 동심원(domain, usecase, adapter, framework) 스타일. usecase 레이어까지 프레임워크를 금지하므로 트랜잭션 경계가 바깥으로 나간다
-read_when: [init, review, fitness, scaffold]
+read_when: [init, review, fitness, scaffold, migrate]
 rules: [cl.deps-inward, cl.domain-pure, cl.domain-no-framework]
 ---
 

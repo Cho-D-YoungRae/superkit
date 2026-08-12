@@ -1,6 +1,6 @@
 ---
 summary: 도메인 레이어를 분리하고 인터페이스와 구현을 가르는 4레이어 스타일. supporting의 기본값이며 포트 전면 도입 없이 도메인 순수성만 지킨다
-read_when: [init, review, fitness, scaffold]
+read_when: [init, review, fitness, scaffold, migrate]
 rules: [ld.layer-order, ld.domain-pure, ld.domain-no-framework, ld.infra-isolated]
 ---
 

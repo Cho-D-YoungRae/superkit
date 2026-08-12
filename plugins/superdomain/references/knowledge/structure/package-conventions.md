@@ -1,6 +1,6 @@
 ---
 summary: 기본 패키지 관례({기본 패키지}.{컨텍스트}.{레이어}..)와 패키지 규약 표 작성법, 패키지 명명 규칙
-read_when: [init, scaffold]
+read_when: [init, scaffold, migrate]
 ---
 
 ## 개념

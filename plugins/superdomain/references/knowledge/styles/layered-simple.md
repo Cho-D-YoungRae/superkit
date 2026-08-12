@@ -1,6 +1,6 @@
 ---
 summary: controller-service-repository 3레이어. JPA 엔티티를 도메인 엔티티로 직접 쓰는 것을 허용하는 유일한 프리셋이며 generic의 기본값이다
-read_when: [init, review, fitness, scaffold]
+read_when: [init, review, fitness, scaffold, migrate]
 rules: [ls.layer-order, ls.controller-naming, ls.service-naming]
 ---
 

@@ -1,6 +1,6 @@
 ---
 summary: 모듈 구성 3형(multi-module·single-module·app-embedded)의 정본, 선택 체크리스트, 공용 모듈 역할 4종과 방향 규칙
-read_when: [init, scaffold]
+read_when: [init, scaffold, migrate]
 ---
 
 ## 개념
