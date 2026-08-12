@@ -19,10 +19,10 @@ claude --plugin-dir /path/to/superarchitect
 스킬은 `/superarchitect:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
 `plugin.json`·훅·에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
 
-## 현재 상태 (Phase 4까지)
+## 현재 상태 (Phase 5까지)
 
-이 플러그인은 Phase 4(생성)까지 구현되어 있다. **없는 것을 있는 것처럼 쓰지 않는 것이 이
-플러그인의 제1 원칙이므로, 아래 경계를 그대로 지킨다.**
+이 플러그인은 Phase 5(유지·이행)까지 구현되어 있다 — **스킬 열 개가 전원 실재한다.** **없는 것을
+있는 것처럼 쓰지 않는 것이 이 플러그인의 제1 원칙이므로, 아래 경계를 그대로 지킨다.**
 
 ### 지금 있는 것
 
@@ -35,6 +35,9 @@ claude --plugin-dir /path/to/superarchitect
 | `/superarchitect:apply` | `skills/apply/` | domain 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
 | `/superarchitect:scaffold` | `skills/scaffold/` | 선언을 디스크로 옮긴다 — 프로파일 템플릿의 `MANIFEST.md`대로 모듈·레이어 패키지·최소 스텁을 전개하고, 선언에 없는 프로젝트·컨텍스트는 인터뷰로 확정한 뒤 SSOT에 등록한다. init 다음으로 `ARCHITECTURE.md`를 편집하는 유일한 스킬 |
 | `/superarchitect:adr` | `skills/adr/` | 결정을 MADR로 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 기계 규칙을 함의하면 규칙 예외·스타일 선언·어휘 확장 중 어디로 가는지까지 잇는다 |
+| `/superarchitect:sync` | `skills/sync/` | 선언과 디스크를 여섯 축으로 대조해 드리프트를 찾고, 항목마다 [scaffold로 생성 / 코드 수정 / 문서 수정 / 무시]를 제시한다. 방향은 권고하되 확인 없이 확정하지 않고, 대조하지 못한 축은 "0건"이 아니라 "대조하지 않음"으로 남긴다 |
+| `/superarchitect:evolve` | `skills/evolve/` | `collect_signals.py`의 관측에 `evolution-signals.md`의 임계값·해석을 적용해 제안과 `proposed` ADR 초안을 낸다. 임계값을 스스로 만들지 않고, 수락된 제안만 선언·파생물까지 반영한다 |
+| `/superarchitect:migrate` | `skills/migrate/` | `baseline.jsonl`을 클러스터 단위로 갚는다. **부채를 줄이는 유일한 경로**이며 한 번에 한 클러스터, 항목 삭제의 근거는 실측된 해소뿐이다. 비면 파일·`이행` 라벨·완료 ADR을 한 묶음으로 닫는다 |
 | `arch-reviewer` 에이전트 | `agents/arch-reviewer.md` | 읽기 전용. 전달받은 지식 문서의 규칙 절과 자유 관측 5범주로만 판정한다 |
 | SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/architecture/summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
 | 결정 템플릿 파서 | `scripts/parse_architecture.py` | `ARCHITECTURE.md`의 필수 결정 누락·비정규 값·깨진 참조를 라인 번호와 함께 보고한다 |
@@ -42,6 +45,7 @@ claude --plugin-dir /path/to/superarchitect
 | 유효 규칙 해석기 | `scripts/resolve_rules.py` | 두 파서를 조인해 `스타일 선언 − 규칙 예외 + 파생 규칙 3종`을 낸다. **`ARCHITECTURE.md`를 검증하는 가장 넓은 게이트** |
 | 정적 import 검사기 | `scripts/check_imports.py` | 유효 규칙으로 `.kt`/`.java` 소스를 걸어 위반을 찾는다. fitness 테스트의 앞단에서 빠르게 도는 근사다 |
 | 불변식 대조 검사기 | `scripts/check_invariants.py` | domain 문서의 `confirmed` 불변식과 테스트의 `@Tag("INV-...")` 리터럴을 대조한다. 태그가 있을 수 없는 환경(테스트 소스 0건)은 클린이 아니라 `검사 불능`이다 |
+| 진화 신호 수집기 | `scripts/collect_signals.py` | git log·`review-log.jsonl`·`baseline.jsonl` 이력에서 신호 5종을 **관측만** 한다. 임계값과 해석은 넣지 않는다 — 그 정본은 `evolution-signals.md`이고 적용은 `evolve`다 |
 | 인덱스 생성기 | `scripts/build_index.py` | `references/knowledge/`를 스캔해 `references/INDEX.md`를 다시 만든다 |
 | 거버넌스 문서 6종 | `references/governance/` | 결정 템플릿·규칙 어휘·ADR·진화 신호·지식 문서 표준·도메인 문서 표준의 정본 |
 | `kotlin-spring` 프로파일 | `profiles/kotlin-spring/rule-mappings.md` | primitive 5종 + 파생 3종 → Konsist 코드 번역의 정본 |
@@ -50,36 +54,36 @@ claude --plugin-dir /path/to/superarchitect
 | 지식 문서 18종 | `references/knowledge/` | 전부 성숙(draft 0). INDEX를 거쳐 필요한 것만 선별해 읽는다 |
 | `study` 스킬 | `.claude/skills/study/` | 이 저장소 전용. 지식 베이스를 키운다(아래 참조) |
 
-검증 실행 — `resolve_rules.py`가 가장 넓게 본다(`parse_architecture.py`의 검사를 포함하면서 스타일
-문서까지 읽는다).
+직접 실행 — 앞의 셋은 검증이고 `collect_signals.py`는 관측이다. 검증 중에서는 `resolve_rules.py`가
+가장 넓게 본다(`parse_architecture.py`의 검사를 포함하면서 스타일 문서까지 읽는다).
 
 ```bash
 python3 scripts/resolve_rules.py ARCHITECTURE.md      # 0=OK, 1=해석 오류, 2=사용법 오류
 python3 scripts/check_imports.py ARCHITECTURE.md      # 0=위반 없음, 1=위반, 2=해석 불가
 python3 scripts/check_invariants.py ARCHITECTURE.md   # 0=위반 없음, 1=위반·검사 불능, 2=해석 불가
+python3 scripts/collect_signals.py ARCHITECTURE.md    # 0=산출, 1=산출 불가(사유 고지), 2=사용법 오류
 ```
 
-**세 스크립트의 exit 의미가 같지 않다.** `check_imports.py`·`check_invariants.py`의 1은 정상 판정
-결과(위반 발견)이고, `resolve_rules.py`의 1은 해석 실패다. CI에서 같게 다루지 않는다. 그리고
-`check_invariants.py`의 1은 **위반과 `검사 불능`을 겸하므로** exit만 보고 건수를 세지 않는다.
+**네 스크립트의 exit 의미가 같지 않다.** `check_imports.py`·`check_invariants.py`의 1은 정상 판정
+결과(위반 발견)이고, `resolve_rules.py`의 1은 해석 실패, `collect_signals.py`의 1은 신호를 만들지
+못했다는 뜻이다. CI에서 같게 다루지 않는다. 그리고 `check_invariants.py`의 1은 **위반과 `검사
+불능`을 겸하므로** exit만 보고 건수를 세지 않는다.
 
 ### 아직 없는 것
 
-- **나머지 스킬 세 개**(Phase 5) — `sync`, `evolve`, `migrate`. 지금 노출되는 스킬은
-  `init`·`fitness`·`review`·`model`·`apply`·`scaffold`·`adr` 일곱이다.
 - **`java-spring` 프로파일**(Phase 6) — `profiles/java-spring/`은 빈 디렉터리다. Java 프로젝트를
   선언할 수는 있지만 fitness는 매핑 부재를 알리고 생성하지 않는다. 골격 템플릿도 `kotlin-spring`
-  하나에만 있다.
-- **`baseline.jsonl`과 진화 신호 수집**(Phase 5) — `이행`을 선언해도 baseline은 동결되지 않으므로
-  생성된 테스트는 기존 위반도 전부 blocker로 다룬다. `collect_signals.py`·`evolve`도 없다.
+  하나에만 있다. 어휘 확장 절차(`rule-vocabulary.md` §7)도 두 프로파일의 매핑을 함께 요구하므로
+  그때까지 완주할 수 없다.
 
 거버넌스 문서 안에서 "아직 시행되지 않는 조항"은 각 문서의 구현 상태 블록에 모아 두었다
-(`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). Phase 2에서 그 목록은
-두 항목으로 줄었고, 둘 다 **침묵하지 않는다** — 마커 버전 상향은 문서 거부로, baseline 부재는
-과잉 차단(기존 부채도 blocker)으로 드러난다. 반대로 규칙이 아무것도 검사하지 않는 **침묵**은
-이제 도구가 담당한다: `resolve_rules`의 공허 레이어 경고, `check_imports`의 레이어별 `[0건 경고]`,
-`check_invariants`의 `검사 불능`이 "위반 없음"과 "검사한 것이 0개"를 갈라 준다. 어느 쪽이든 그
-목록을 지우는 것은 구현이 도착했을 때뿐이다.
+(`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). Phase 5에서 그 목록은
+**한 항목**으로 줄었고 — 마커의 버전에 따라 해석 규칙을 고르는 것 — 그 항목은 **침묵하지 않는다**:
+버전을 올린 문서는 통과하지 않고 거부된다. 반대로 규칙이 아무것도 검사하지 않는 **침묵**은 도구가
+담당한다: `resolve_rules`의 공허 레이어 경고, `check_imports`의 레이어별 `[0건 경고]`,
+`check_invariants`의 `검사 불능`이 "위반 없음"과 "검사한 것이 0개"를 갈라 준다. 그리고 `이행`을
+선언한 프로젝트에서는 baseline 래칫이 기존 부채와 신규 위반을 가른다 — 동결은 init, 소비는
+`check_imports`와 생성된 테스트, 축소는 migrate뿐이다.
 
 ## 테스트
 
@@ -87,7 +91,7 @@ python3 scripts/check_invariants.py ARCHITECTURE.md   # 0=위반 없음, 1=위�
 python3 -m unittest discover -s tests
 ```
 
-314개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
+375개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
 의존하므로 설치할 것이 없다(PyYAML도 쓰지 않는다. frontmatter는 제한 문법 자체 파서로 읽는다).
 
 ## 지식 추가 절차
@@ -124,8 +128,8 @@ python3 -m unittest discover -s tests
 ```
 .claude-plugin/plugin.json   플러그인 매니페스트
 .claude/skills/study/        이 저장소 전용 스킬 (배포되지 않음)
-skills/init|fitness|review|model|apply|scaffold|adr/
-                             /superarchitect:<스킬명>
+skills/init|fitness|review|model|apply|scaffold|adr|sync|evolve|migrate/
+                             /superarchitect:<스킬명> (10종)
 agents/arch-reviewer.md      review가 의미론 판단만 위임하는 읽기 전용 에이전트
 hooks/hooks.json             SessionStart 훅 등록
 scripts/
@@ -134,6 +138,7 @@ scripts/
   resolve_rules.py           유효 규칙 해석기 — 두 파서를 조인하는 최상층
   check_imports.py           정적 import 검사기 — 해석 결과의 첫 소비자
   check_invariants.py        불변식 ↔ 테스트 태그 대조 검사기
+  collect_signals.py         진화 신호 수집기 — 관측만 하고 임계값은 갖지 않는다
   build_index.py             references/INDEX.md 생성기
   session_summary.sh         SessionStart 훅 본체
 profiles/                    kotlin-spring (매핑·검증 대장·템플릿 4종·examples), java-spring (Phase 6)
