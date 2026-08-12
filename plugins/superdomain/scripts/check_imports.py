@@ -18,7 +18,7 @@
 **이 검사기는 강제의 정본이 아니다.** import 문 없이 쓰이는 참조 — 같은 패키지 안의 타입,
 완전 수식 이름(FQN)을 본문에 그대로 쓴 참조 — 를 보지 못한다. 강제의 정본은 fitness가
 생성하는 Konsist/ArchUnit 테스트이고, 이 스크립트는 그 앞단에서 빠르게 도는 근사다. 그래서
-리포트는 언제나 그 한계를 함께 출력한다(`LIMITATION_NOTE`).
+리포트는 언제나 그 한계를 함께 출력한다(`LIMITATION_NOTE`·`CONFINE_SCOPE_NOTE`).
 
 같은 이유로 **아무것도 검사하지 않은 규칙을 침묵으로 넘기지 않는다.** 매칭 0건의 규칙은
 리포트에서 '위반 없음'과 구분되지 않으므로(어휘 §1), 세 층위로 나누어 전부 고지한다.
@@ -56,6 +56,14 @@ SRC_DIR = "src"                  # `src/test`, `src/androidTest` … 는 프로�
 LIMITATION_NOTE = (
     "한계: 같은 패키지 안의 참조와 import 없이 쓰는 완전 수식 이름(FQN)은 이 검사가 보지 "
     "못합니다 — 강제의 정본은 생성된 Konsist/ArchUnit 아키텍처 테스트입니다."
+)
+# 좁힘으로 생긴 사각의 고지. 규칙이 없는 프로젝트에도 한 줄 나가지만, 푸터는 실행마다 달라지는
+# 진단이 아니라 이 검사기가 무엇을 보지 않는지를 고정으로 밝히는 자리다(위 한계 줄과 같은 결).
+CONFINE_SCOPE_NOTE = (
+    "한계: confine-type의 참조 검사는 그 컨텍스트 범위(레이어 패턴 합집합) 안에서 선언된 "
+    "@Entity만 봅니다 — 다른 컨텍스트의 엔티티 참조는 derived.context-isolation의 몫이고, "
+    "그 쌍이 '### 관계'로 열려 있거나 엔티티가 어느 레이어 패턴에도 들지 않는 곳(공용 모듈 등)에 "
+    "있으면 이 검사의 사각입니다."
 )
 ZERO_MATCH_REASON = "from-측 매칭 파일 0건 — 레이어·패키지 불일치 가능성"
 
@@ -184,6 +192,14 @@ def _first_match(imported, patterns):
     return None
 
 
+def _entity_names(imported, entity_types, entity_packages) -> list:
+    """import 한 건이 들여오는 `@Entity` 타입의 단순 이름들. 두 표는 한 범위에서 모은 것이다."""
+    if imported.wildcard:
+        return sorted(entity_packages.get(imported.fqn, []))
+    name = entity_types.get(imported.fqn)
+    return [name] if name else []
+
+
 def _observed_patterns(sources) -> list:
     """소스들의 `package` 선언을 패턴 목록으로 관측한다(D2).
 
@@ -302,13 +318,8 @@ class _Checker:
         self.root = project_root
         self.sources = sources
         # confine-type 위반 B는 "@Entity 타입을 참조했는가"이므로 타입 집합이 먼저 필요하다.
-        self.entity_types = {}          # 완전 수식 이름 -> 단순 이름
-        self.entity_packages = {}       # 패키지 -> [단순 이름]  (와일드카드 import 판정용)
-        for source in sources:
-            for declared in source.types:
-                if declared.entity:
-                    self.entity_types[f"{source.package}.{declared.name}"] = declared.name
-                    self.entity_packages.setdefault(source.package, []).append(declared.name)
+        # 그 집합은 **규칙의 컨텍스트 범위마다** 다르므로 범위를 키로 캐시한다(`_entities_in`).
+        self._entities = {}
         # 공용 모듈의 domain 제한은 컨텍스트의 domain 패턴이 필요하다. 한 컨텍스트의
         # EffectiveRule들은 같은 layer_patterns를 들고 있으므로 아무 인스턴스나 하나면 된다.
         self.domain_patterns = {}
@@ -431,9 +442,11 @@ class _Checker:
                        f"모든 @Entity가 범위 밖이 되어 판정이 성립하지 않습니다 "
                        f"(위 공허 레이어 경고를 먼저 해소하세요)")
             return False
-        scoped = [s for s in self.sources if _file_in(s, self._scope_of(rule))]
+        scope = self._scope_of(rule)
+        scoped = [s for s in self.sources if _file_in(s, scope)]
         self._zero(rule.rule_id, subject, scoped)
         shown = ", ".join(allowed) or "없음"
+        entity_types, entity_packages = self._entities_in(scope)
 
         for source in scoped:
             if _file_in(source, allowed):
@@ -448,18 +461,36 @@ class _Checker:
                               f"컨텍스트 '{rule.context}': @Entity가 격리 범위 밖 패키지 "
                               f"'{source.package}'에서 선언되었습니다 (허용: {shown})")
             for imported in source.imports:
-                names = self._entity_names(imported)
+                names = _entity_names(imported, entity_types, entity_packages)
                 if names:
                     self._violate(rule.rule_id, source, imported.line,
                                   f"컨텍스트 '{rule.context}': 격리 범위 밖에서 @Entity 타입 "
                                   f"{', '.join(names)}을(를) 참조합니다 — {imported.text} "
                                   f"(허용: {shown})")
 
-    def _entity_names(self, imported) -> list:
-        if imported.wildcard:
-            return sorted(self.entity_packages.get(imported.fqn, []))
-        name = self.entity_types.get(imported.fqn)
-        return [name] if name else []
+    def _entities_in(self, scope) -> tuple:
+        """그 범위 안에서 선언된 `@Entity`만 모은다 — (FQN -> 단순 이름, 패키지 -> [단순 이름]).
+
+        **수집도 검사도 컨텍스트 범위 안에서 한다**(`rule-mappings.md` §3의 `contextScope`와 같은
+        의미론이며, 그 범위를 만드는 필터도 여기 `_scope_of`와 같다). 전역으로 모으면 교차
+        컨텍스트 참조 한 건이 `derived.context-isolation`과 이 규칙 양쪽에서 보고되는데,
+        `allowed_layer`가 가리키는 격리 범위는 그 컨텍스트의 것이므로 남의 엔티티를 그 잣대로
+        재는 것은 범주 오류다 — 사용자는 고칠 선언('### 관계' 표)이 아니라 엉뚱한
+        선언(`allowed_layer`)을 보게 된다. 금지 자체는 파생 규칙이 이미 완전히 덮는다.
+        """
+        key = tuple(scope)
+        collected = self._entities.get(key)
+        if collected is None:
+            types, packages = {}, {}
+            for source in self.sources:
+                if not _file_in(source, scope):
+                    continue
+                for declared in source.types:
+                    if declared.entity:
+                        types[f"{source.package}.{declared.name}"] = declared.name
+                        packages.setdefault(source.package, []).append(declared.name)
+            collected = self._entities[key] = (types, packages)
+        return collected
 
     def _naming_suffix(self, rule, subject):
         suffixes = rule.params.get("suffixes", [])
@@ -712,6 +743,7 @@ def render(report) -> list:
         lines.append(f"읽지 못한 소스 {len(report.unreadable)}건 — 이 파일들은 어떤 규칙도 "
                      f"검사하지 않았습니다: {', '.join(report.unreadable)}")
     lines.append(LIMITATION_NOTE)
+    lines.append(CONFINE_SCOPE_NOTE)
     return lines
 
 

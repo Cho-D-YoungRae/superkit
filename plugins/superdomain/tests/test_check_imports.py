@@ -2,7 +2,7 @@ import json, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from check_imports import LIMITATION_NOTE, check, render
+from check_imports import CONFINE_SCOPE_NOTE, LIMITATION_NOTE, check, render
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -166,6 +166,27 @@ PKG_ARCH = HEAD + """
 - 모듈 구성: multi-module
 """ + CLAIM_MODULES
 
+# 두 컨텍스트가 같은 스타일을 채택한 형태 — confine-type의 범위가 컨텍스트마다 따로다.
+POLICY_MODULES = """
+| 모듈 | 경로 | 레이어 |
+|---|---|---|
+| policy-domain | policy/domain | domain |
+| policy-application | policy/application | application |
+| policy-adapter | policy/adapter | adapter |
+"""
+
+CROSS_ARCH = HEAD + """
+## 컨텍스트: claim
+- 분류: core
+- 스타일: custom/full
+- 모듈 구성: multi-module
+""" + CLAIM_MODULES + """
+## 컨텍스트: policy
+- 분류: core
+- 스타일: custom/full
+- 모듈 구성: multi-module
+""" + POLICY_MODULES
+
 
 class CheckTestCase(unittest.TestCase):
     def setUp(self):
@@ -235,6 +256,18 @@ class CheckTestCase(unittest.TestCase):
                 imports=["com.acme.claim.domain.Claim"])
         self.kt("claim/adapter", "com.acme.claim.adapter", "ClaimJpaEntity",
                 imports=["com.acme.claim.domain.Claim"], annotations=["Entity"])
+
+    def cross_tree(self):
+        """CROSS_ARCH를 통과하는 최소 소스 트리 — 두 컨텍스트가 각자 @Entity를 하나씩 든다."""
+        self.arch(CROSS_ARCH)
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("claim/application", "com.acme.claim.application", "ClaimService")
+        self.kt("claim/adapter", "com.acme.claim.adapter", "ClaimJpaEntity",
+                annotations=["Entity"], body="class ClaimJpaEntity")
+        self.kt("policy/domain", "com.acme.policy.domain", "Policy")
+        self.kt("policy/application", "com.acme.policy.application", "PolicyService")
+        self.kt("policy/adapter", "com.acme.policy.adapter", "PolicyJpaEntity",
+                annotations=["Entity"], body="class PolicyJpaEntity")
 
     def app_tree(self, claim_extra=""):
         self.arch(app_arch(claim_extra))
@@ -350,6 +383,37 @@ class TestPrimitives(CheckTestCase):
                 annotations=["Entity"], body="class OrphanRow")
         violation = self.assert_violation(self.check(), "pk.domain-pure", needle="OrphanRow")
         self.assertIn("com.acme.claim.adapter.persistence..", violation.message)
+
+    def test_confine_type_leaves_cross_context_reference_to_context_isolation(self):
+        # 교차 컨텍스트 @Entity 참조는 이 규칙의 몫이 아니다. `allowed_layer`가 가리키는 격리
+        # 범위는 **그 컨텍스트의** 것이라, 남의 엔티티를 그 잣대로 재면 "상대 컨텍스트의 엔티티를
+        # 이쪽 adapter로 옮기라"는 오독을 부른다(오귀속). 금지 자체는 context-isolation이 덮는다.
+        self.cross_tree()
+        self.kt("claim/application", "com.acme.claim.application", "LeakyService",
+                imports=["com.acme.policy.adapter.PolicyJpaEntity"])
+        report = self.check()
+        self.assertEqual(self.ids(report), ["derived.context-isolation"],
+                         [f"{v.rule_id}: {v.message}" for v in report.violations])
+
+    def test_confine_type_leaves_cross_context_wildcard_to_context_isolation(self):
+        # 와일드카드 경로도 같다 — 엔티티 이름을 패키지로 찾는 분기가 따로 있어 함께 좁혀야 한다.
+        self.cross_tree()
+        self.kt("claim/application", "com.acme.claim.application", "WildService",
+                imports=["com.acme.policy.adapter.*"])
+        report = self.check()
+        self.assertEqual(self.ids(report), ["derived.context-isolation"],
+                         [f"{v.rule_id}: {v.message}" for v in report.violations])
+
+    def test_confine_type_still_sees_own_context_reference_when_contexts_share_a_style(self):
+        # 좁힘의 회귀 가드 — 같은 컨텍스트 안의 위반 B는 그대로 잡혀야 한다.
+        self.cross_tree()
+        self.kt("claim/application", "com.acme.claim.application", "OwnLeakService",
+                imports=["com.acme.claim.adapter.ClaimJpaEntity"])
+        report = self.check()
+        violation = self.assert_violation(report, "af.domain-pure", needle="참조", count=1)
+        self.assertIn("ClaimJpaEntity", violation.message)
+        self.assertIn("컨텍스트 'claim'", violation.message)
+        self.assert_no_violation(report, "derived.context-isolation")
 
     def test_naming_suffix(self):
         self.clean_tree()
@@ -675,6 +739,15 @@ class TestHonesty(CheckTestCase):
         self.assertIn("같은 패키지", LIMITATION_NOTE)
         self.assertIn("Konsist", LIMITATION_NOTE)
         self.assertIn("ArchUnit", LIMITATION_NOTE)
+
+    def test_footer_states_the_confine_type_scope_blind_spot(self):
+        # 컨텍스트 범위로 좁힌 대가 — 범위 밖 엔티티 참조를 이 규칙이 보지 않는다는 사실은
+        # 침묵하면 안 된다(다른 컨텍스트 몫은 어디로 가는지까지 함께 밝힌다).
+        self.clean_tree()
+        lines = render(self.check())
+        self.assertIn(CONFINE_SCOPE_NOTE, lines)
+        self.assertIn("derived.context-isolation", CONFINE_SCOPE_NOTE)
+        self.assertIn("사각", CONFINE_SCOPE_NOTE)
 
     def test_footer_counts_checked_and_skipped(self):
         self.app_tree()
