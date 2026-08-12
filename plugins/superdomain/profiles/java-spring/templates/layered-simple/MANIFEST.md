@@ -158,3 +158,7 @@ single-module이어도 **행은 레이어마다 하나씩**이고 `모듈`·`경
 python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [0건 경고] 없음
 /superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
 ```
+
+**확인한 레이아웃 — multi-module**(Phase 6 T2: `check_imports` exit 0 · ArchUnit 통과). 이
+스타일에서 특히 중요하다 — 위 `api` vs `implementation`은 **multi-module에서만 드러나는 실패**라
+single-module 확인만으로는 수용 기준이 충족돼 보인다.

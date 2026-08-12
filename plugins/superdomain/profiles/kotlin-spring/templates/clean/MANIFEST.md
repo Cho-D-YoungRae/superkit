@@ -136,3 +136,6 @@ single-module이어도 **행은 레이어마다 하나씩**이고 `모듈`·`경
 python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [0건 경고] 없음
 /superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
 ```
+
+**확인한 레이아웃 — 기록 없음.** 모듈 경계를 넘는 컴파일 가시성처럼 **multi-module에서만 드러나는
+실패**가 있으므로, 다음 확인은 multi-module로 밟고 그 사실을 여기 적는다.

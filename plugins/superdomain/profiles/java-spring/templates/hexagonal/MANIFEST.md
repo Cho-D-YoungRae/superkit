@@ -173,3 +173,8 @@ single-module이어도 **행은 레이어마다 하나씩**이고 `모듈`·`경
 python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [0건 경고] 없음
 /superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
 ```
+
+**확인한 레이아웃 — multi-module**(Phase 6 T2: `check_imports` exit 0 · ArchUnit 통과 ·
+`:app:api:bootJar` 성공). 어느 레이아웃으로 밟았는지를 남기는 이유는, 모듈 경계를 넘는 컴파일
+가시성처럼 **multi-module에서만 드러나는 실패**가 있어 single-module 확인만으로는 수용 기준이
+충족돼 보일 수 있기 때문이다.
