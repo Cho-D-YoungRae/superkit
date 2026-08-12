@@ -1,0 +1,5 @@
+// {{context}} — multi-module 골격의 settings 조각. 루트 settings.gradle.kts에 이 줄들을 더한다.
+// single-module·app-embedded에서 이 조각이 어떻게 줄거나 사라지는지는 MANIFEST.md「레이아웃 3형」.
+include(":{{context}}:data")
+include(":{{context}}:application")
+include(":{{context}}:presentation")

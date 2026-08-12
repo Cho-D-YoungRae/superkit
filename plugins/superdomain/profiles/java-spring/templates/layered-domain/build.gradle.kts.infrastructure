@@ -1,0 +1,13 @@
+// {{context}}:infrastructure — 리포지터리 구현·외부 클라이언트·메시지 발행.
+// @Entity는 이 모듈 안에서만 선언·참조된다(ld.domain-pure). application을 의존하는 것도 허용된다.
+plugins {
+    java
+}
+
+dependencies {
+    implementation(project(":{{context}}:domain"))
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+}
+
+// Kotlin 프로파일이 여기에 걸던 `plugin.jpa`는 Java에 필요 없다 — no-arg 생성자를 엔티티
+// 소스가 직접 갖는다(`{{Context}}JpaEntity.java`의 주석). 빌드 조각이 대신할 수 있는 일이 아니다.
