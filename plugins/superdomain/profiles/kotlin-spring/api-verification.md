@@ -4,7 +4,7 @@
 `⚠️ (미검증 — 첫 실행 시 확인)`)은 `rule-mappings.md` §0과 같다. **새 API를 템플릿에 쓰기 전에
 여기에 행을 먼저 추가한다.** 아래에서 `§n`은 `rule-mappings.md`의 절 번호다.
 
-2026-08-11 확인. 소스는 `lemonappdev/konsist` 태그 `v0.17.3`, 문서는 `konsist-documentation` main.
+2026-08-11 확인(§7 관련 2행은 2026-08-12). 소스는 `lemonappdev/konsist` 태그 `v0.17.3`, 문서는 `konsist-documentation` main.
 **`✅ 실측`은 gradle+Konsist 실행으로 확인한 행이다**(샘플 4종 · Konsist 0.17.3 · Gradle 9.7.0).
 
 | API | 상태 | 근거 |
@@ -29,6 +29,8 @@
 | `fullyQualifiedName` | ✅ | `api/provider/KoFullyQualifiedNameProvider.kt` |
 | `KoClassDeclaration`이 `KoConstructorProvider` 구현 | ✅ | `api/declaration/KoClassDeclaration.kt` |
 | 단수 `klass.constructors`·`constructor.parameters`·`klass.properties()`·`type.sourceType` | ✅ 실측 | 프리셋 4종이 `forbid-sibling-dependency`를 쓰지 않아 생성물에는 인스턴스가 없었다 — §5 템플릿을 프로브로 직접 실행해 확인. `sourceType`은 널 표시 `?`를 포함한다(§5) |
+| `KoPathProvider`의 `path`·`projectPath` — `KoFileDeclaration`과 클래스·인터페이스·오브젝트 선언 **양쪽**에 있다 | ✅ 실측 | `api/provider/KoPathProvider.kt`, `api/declaration/KoFileDeclaration.kt`, `api/declaration/combined/KoClassAndInterfaceAndObjectDeclaration.kt`. `projectPath`는 `path`에서 루트 접두만 뗀 값이라 **앞 구분자가 남는다**(`core/provider/KoPathProviderCore.kt`), 루트는 `.git`·gradle wrapper·`pom.xml` 마커의 **최근접 상위**(`core/filesystem/rootprovider/*`) — §7 강등에서 2026-08-12 실행 확인 |
+| `KoScope.slice(predicate)` — 파일 단위로 좁힌 스코프 | ✅ 실측 | `api/container/KoScope.kt`. §7이 `assertArchitecture` 앞에서 부채 파일을 뺄 때 쓴다. 좁힌 뒤 어느 레이어가 비면 §0.3-1의 `KoPreconditionFailedException`이 그대로 뜬다(둘 다 실행 확인) |
 | 같은 레이어에 `include()`와 다른 의존 선언을 함께 호출 — **순서 제약** | ✅ 실측 | `include()`가 먼저면 `KoInvalidAssertArchitectureConfigurationException`("already defined with a strict=null value")으로 어서션이 실행 전에 죽는다(스타일 3종 재현). 의존 선언 뒤로 옮기면 정상 판정하고 §0.3-1의 빈 레이어 검사도 그대로 걸린다 |
 
 ## 관련 문서

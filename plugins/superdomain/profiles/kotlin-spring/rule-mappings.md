@@ -4,13 +4,10 @@
 `references/governance/rule-vocabulary.md`이고 이 문서는 그것을 코드로 옮기기만 한다. 두 문서가
 어긋나면 어휘가 이긴다. 플레이스홀더 규약은 `profiles/README.md`.
 
-| 하려는 일 | 읽을 곳 |
-|---|---|
-| 파일 헤더·배치·스코프·import·헬퍼 | [§0 공통](#0-공통) |
-| 0건 매칭이 조용히 통과하는지 | [§0.3 0건 규율](#03-0건-규율) |
-| primitive 번역 | [§1](#1-layer-order)–[§5](#5-forbid-sibling-dependency) |
-| 파생 규칙 3종 | [§6](#6-파생-규칙-3종) |
-| 쓴 API가 검증됐는지 | [§9](#9-검증-대장) → `api-verification.md` |
+**길잡이** — 헤더·배치·스코프·import·헬퍼는 [§0](#0-공통)(0건 매칭이 조용히 통과하는지는
+[§0.3](#03-0건-규율)), primitive 번역은 [§1](#1-layer-order)–[§5](#5-forbid-sibling-dependency),
+파생 규칙 3종은 [§6](#6-파생-규칙-3종), 이행 프로젝트의 부채 강등은 [§7](#7-baseline-연동),
+쓴 API가 검증됐는지는 [§9](#9-검증-대장) → `api-verification.md`.
 
 **검증 표기** — `✅`는 소스·공식 문서로, `✅ 실측`은 실행으로 확인한 API. 확인하지 못한 API에는
 `⚠️ (미검증 — 첫 실행 시 확인)`을 남긴다(대장 기준 현재 없다). 대장은 §9.
@@ -33,10 +30,9 @@
 | 컨텍스트의 스타일 유래 규칙 | `<아키텍처 테스트 위치>/<기본 패키지 경로>/architecture/{{Context}}ArchitectureTest.kt` |
 | 프로젝트의 파생 규칙 3종 | `<아키텍처 테스트 위치>/<기본 패키지 경로>/architecture/DerivedRulesTest.kt` |
 
-패키지 선언은 `package {{basePackage}}.architecture`. 모든 어서션은
-`Konsist.scopeFromProduction()`(= 프로젝트 − 테스트 소스)에서 출발한다 ✅ — 어휘가 대상으로 정의한
-것이 프로덕션 소스이고(§3.4), 생성물이 test 소스셋에 있어 자기 자신을 검사하지도 않는다. 아키텍처
-테스트 모듈이 소스를 `src/main`에 둔다면 이 전제가 깨진다.
+패키지 선언은 `package {{basePackage}}.architecture`. 모든 어서션은 `Konsist.scopeFromProduction()`
+(= 프로젝트 − 테스트 소스)에서 출발한다 ✅ — 어휘의 대상이 프로덕션 소스이고(§3.4), 생성물이 test
+소스셋에 있어 자기 자신을 검사하지도 않는다. 아키텍처 테스트 모듈이 소스를 `src/main`에 두면 깨진다.
 
 **import 목록(정본)** — 생성 파일은 **이 블록을 그대로 복사**하고 쓰지 않은 줄만 뺀다. 대장의 소스
 경로에서 **유도하지 않는다** — `Konsist`는 `api` 루트에 있고 `assertArchitecture`는 최상위 함수가
@@ -63,13 +59,11 @@ import org.junit.jupiter.api.Test
 
 **테스트 함수 이름 규약** — Kotlin 백틱 식별자는 `. ; [ ] / < > : \`과 개행을 담지 못한다.
 
-- 규칙 id는 그대로 넣을 수 없다. `{{ruleIdSafe}}`(`.` → 공백)를 쓰고 원본 id는
-  `additionalMessage`에 넣는다. 치환되는 다른 이름(`{{context}}`·`{{subject}}`, 파생 규칙의
-  `{{.}}`)에 위 문자가 들어 있으면 같은 방식으로 공백 치환한다 — 하이픈은 안전하다.
-- **한 파일 안에서 함수 이름은 유일해야 한다**(같으면 Kotlin conflicting overloads로 컴파일이
-  깨진다). 컨텍스트별 파일은 규칙 id가 유일 키라 자동으로 만족되지만, 프로젝트당 파일 하나에
-  모이는 파생 규칙은 그렇지 않다 — §6.2의 유일 키를 지킨다. **파일 수준 val도 같은
-  규율이다**(재선언 충돌) — 규칙 인스턴스마다 생기는 val은 §3처럼 `{{ruleIdSafe}}`를 접미한다.
+- 규칙 id는 그대로 넣을 수 없다. `{{ruleIdSafe}}`(`.` → 공백)를 쓰고 원본 id는 `additionalMessage`에
+  넣는다. 치환되는 다른 이름(`{{context}}`·`{{subject}}`·파생의 `{{.}}`)도 같다 — 하이픈은 안전하다.
+- **한 파일 안에서 함수 이름은 유일해야 한다**(같으면 conflicting overloads로 컴파일이 깨진다).
+  컨텍스트별 파일은 규칙 id가 유일 키라 자동이지만 프로젝트당 하나로 모이는 파생 규칙은 아니다 —
+  §6.2의 유일 키를 지킨다. **파일 수준 val도 같다**(재선언 충돌) — §3처럼 `{{ruleIdSafe}}`를 접미한다.
 
 ### 0.2 패턴 매칭 헬퍼
 
@@ -89,8 +83,7 @@ private fun String.matchesPattern(pattern: String): Boolean =
 
 ### 0.3 0건 규율
 
-**"위반 없음"과 "아무것도 검사하지 않음"은 구분되어야 한다.** Konsist가 보장하는 것은 둘이고 둘 다
-소스로 확인했다.
+**"위반 없음"과 "아무것도 검사하지 않음"은 구분되어야 한다.** 보장은 둘, 둘 다 소스로 확인했다.
 
 1. `assertArchitecture`는 등록된 `Layer` 중 하나라도 스코프에 파일이 0건이면
    `KoPreconditionFailedException("Layer <이름> doesn't contain any files.")`를 던진다 ✅. 레이어
@@ -99,9 +92,8 @@ private fun String.matchesPattern(pattern: String): Boolean =
    `true`면 실패.
 
 따라서(어휘가 정하지 않은 번역 판단이므로 명시한다): **forbid-import 라우트 B·naming-suffix·
-forbid-sibling-dependency·파생 3종은 `strict = true`** — 검사 대상이 0건이라는 것은 패턴이 실제
-패키지와 어긋났다는 신호다. **confine-type은 기본값** — 격리 대상이 정당하게 0개일 수 있다(JPA를
-쓰지 않는 프로젝트).
+forbid-sibling-dependency·파생 3종은 `strict = true`** — 검사 대상 0건은 패턴이 실제 패키지와
+어긋났다는 신호다. **confine-type은 기본값** — 격리 대상이 정당하게 0개일 수 있다(JPA 미사용).
 
 `strict = true`는 "그 레이어를 아직 구현하지 않은" 정상 상태에서도 실패한다. 그때 답은 strict를
 끄는 것이 아니라 선언을 고치는 것이다 — 레이어가 없으면 스타일에서 빼거나, 이행 중이면 `이행`
@@ -115,14 +107,13 @@ forbid-sibling-dependency·파생 3종은 `strict = true`** — 검사 대상이
 (레이어마다 패턴이 **여럿일 수 있다** — `{앱}` 규약이 앱마다 전개한다).
 
 > **Konsist의 `dependsOn`은 금지 장치가 아니다.** v0.17.3의 `getFailedDependsOnLayers`는
-> `strict == true`인 항목만 검사하며 그 검사는 "layer1이 layer2에 **실제로 의존하는가**"(의존
-> 누락)다 ✅. 기본값 `strict = false`인 `dependsOn`은 **어떤 실패도 만들지 않는다.** 방향 금지는
+> `strict == true`인 항목만, 그것도 "layer1이 layer2에 **실제로 의존하는가**"(의존 누락)를 본다 ✅.
+> 기본값 `strict = false`인 `dependsOn`은 **어떤 실패도 만들지 않는다.** 방향 금지는
 > `dependsOnNothing()`과 `doesNotDependOn()`만 한다 — `application.dependsOn(domain)`만 나열한
 > 테스트는 application이 adapter를 참조해도 통과한다.
 
-**어휘의 `strict`와 Konsist의 `strict`는 다른 뜻이다.** 어휘는 "인접 레이어에만 의존 가능",
-Konsist는 "그 의존이 반드시 존재해야 함". 어휘의 `strict`는 파라미터가 아니라 **금지 집합의
-크기**로 번역한다.
+**어휘의 `strict`와 Konsist의 `strict`는 다른 뜻이다** — 어휘는 "인접 레이어에만 의존", Konsist는
+"그 의존이 반드시 존재해야 함". 어휘의 `strict`는 파라미터가 아니라 **금지 집합의 크기**로 번역한다.
 
 **번역 규칙** — 레이어 `l0`(가장 안) … `ln`(가장 밖):
 
@@ -155,8 +146,8 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 
 레이어마다 `val <레이어> = setOf(Layer("{{ruleId}}:<레이어>", "{{pattern}}"), …)` 한 줄 —
 `layer_patterns`의 패턴 수만큼 `Layer`가 들어간다. 언제나 `Set<Layer>`로 묶는 이유가 그것이고,
-`Collection<Layer>`용 `include()`·`dependsOnNothing()`·`doesNotDependOn(Set<Layer>)`가 모두
-있으므로 ✅ 항목 수와 무관하게 같은 모양이 된다. 금지 집합의 합집합은 집합 덧셈(`adapter + web`).
+`Collection<Layer>`용 `include()`·`dependsOnNothing()`·`doesNotDependOn(Set<Layer>)`가 모두 있어 ✅
+항목 수와 무관하게 같은 모양이 된다. 금지 집합의 합집합은 집합 덧셈(`adapter + web`).
 
 **`Layer`의 rootPackage 제약** ✅(대장 14행 — 위반이면 생성자가 던진다). 정규화 산출 패턴은 언제나
 `..`로 끝나므로(정본 §6) 레이어 이름이 유효한 패키지 세그먼트이면 자동으로 만족된다.
@@ -180,9 +171,9 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 | B. `files` + `imports` | 그 밖 전부 |
 
 ①②는 `Layer` 생성자 제약, ③은 §0.3-1의 빈 레이어 예외다. ③이 실무에서 결정적이다:
-`org.springframework..`는 프로젝트 소스에 파일이 0건이므로 `Layer`로 쓰면 위반 여부와 무관하게
-항상 예외로 실패한다. **외부 라이브러리 패턴은 라우트 A로 표현할 수 없다** — 프리셋의
-`*.domain-no-framework`는 전부 라우트 B이고, `to`가 같은 프로젝트의 레이어·패키지면 A다.
+`org.springframework..`는 프로젝트 소스에 파일이 0건이라 `Layer`로 쓰면 위반과 무관하게 항상 예외로
+실패한다. **외부 라이브러리 패턴은 라우트 A로 표현할 수 없다** — 프리셋의 `*.domain-no-framework`는
+전부 라우트 B이고, `to`가 같은 프로젝트의 레이어·패키지면 A다.
 
 **라우트 A**
 
@@ -218,30 +209,29 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 `withPackage`는 파일 목록과 타입 선언 목록 모두에 걸리고 패턴의 `..`를 직접 해석한다 ✅(대장 21행).
 
 **주의** — `hasImportWithName(...)`은 **정확 문자열 일치**이며 `..`를 해석하지 않는다 ✅(소스:
-`names.any { it == import.name }`). 공식 문서의 `hasImport("usecase..")` 예시는 0.17.3 API와 맞지
-않는다. 패턴 매칭에는 §0.2 헬퍼를 쓴다. 스타 임포트는 `..` 패턴에는 걸리고
-(`com.acme.claim.adapter.*`가 접두를 만족) 정확 타입 패턴에는 걸리지 않는다.
+`names.any { it == import.name }`) — 공식 문서의 `hasImport("usecase..")` 예시는 0.17.3과 맞지 않는다.
+패턴 매칭에는 §0.2 헬퍼를 쓴다. 스타 임포트는 `..` 패턴에만 걸리고 정확 타입 패턴에는 걸리지 않는다.
 
 ---
 
 ## 3. confine-type
 
-**입력** — `params["type"]`(셀렉터)와 허용 범위 목록: `allowed_layer`가 있으면 각 레이어 이름의
-`layer_patterns[<레이어>]`를 합친 것, `allowed_package`가 있으면 `params["allowed_package"]`
-그대로(§2.1의 (가)·(나) 어디에도 속하지 않는 순수 패키지 패턴 필드다).
+**입력** — `params["type"]`(셀렉터), 허용 범위 목록 `allowed`(= `allowed_layer`가 있으면 각 레이어
+이름의 `layer_patterns[<레이어>]`를 합친 것, `allowed_package`가 있으면 그 값 그대로 — (가)·(나)
+어디에도 속하지 않는 순수 패키지 패턴 필드다), 범위 `contextScope`(= `layer_patterns` 값의 합집합).
 
 | 셀렉터 | Konsist 필터 |
 |---|---|
 | `jpa-entity` | `.withAnnotationNamed(listOf("Entity", "jakarta.persistence.Entity", "javax.persistence.Entity"))` ✅ |
 
-**수집도 검사도 그 컨텍스트 범위 안에서 한다** — `contextScope` = `layer_patterns` 값 전체의 합집합.
-`allowed_layer`가 §2.1(나)에 따라 **그 컨텍스트의** 레이어라, 전역 셀렉터는 `domain-pure`를 가진 두
-컨텍스트가 서로의 `@Entity`를 위반으로 잡게 만든다 ✅ 실측(2건 실패 → 좁힌 뒤 12/12). 교차 컨텍스트
-참조는 `derived.context-isolation`(§6)의 몫이다 — `check_imports`의 `_scope_of`가 같은 필터다.
+**수집도 검사도 그 컨텍스트 범위 안에서 한다.** `allowed_layer`가 §2.1(나)에 따라 **그 컨텍스트의**
+레이어라, 전역 셀렉터는 `domain-pure`를 가진 두 컨텍스트가 서로의 `@Entity`를 위반으로 잡게 만든다
+✅ 실측(2건 실패 → 좁힌 뒤 12/12). 교차 컨텍스트 참조는 `derived.context-isolation`(§6)의 몫이다 —
+`check_imports`의 `_scope_of`가 같은 필터다.
 
 이름 기반 셀렉터를 쓰는 이유: `withAnnotationOf(Entity::class)`는 테스트 모듈에 JPA 컴파일 의존을
 만든다(대장 27행). 두 어서션이 공유하는 변수라 **`Collection<String>` 오버로드**를 쓴다 ✅ — vararg
-쪽은 `*배열`로 첫 인자를 채울 수 없다. 세 val 이름의 `{{ruleIdSafe}}` 접미는 §0.1의 유일성 규율이다.
+쪽은 `*배열`로 첫 인자를 채울 수 없다. 세 val의 `{{ruleIdSafe}}` 접미는 §0.1 규율이다.
 
 ```kotlin
 private val `contextScope_{{ruleIdSafe}}` = listOf({{items:contextScope}})
@@ -278,9 +268,9 @@ fun `{{context}} - {{ruleIdSafe}} (참조)`() {
 **커버리지 한계** (침묵 금지 — 이 목록은 대안이 도착했을 때만 지운다)
 
 1. import 없는 참조(FQN 인라인, 리플렉션, 문자열 기반)는 보지 못한다.
-2. **스타 임포트를 놓친다** — `import com.acme...persistence.*`는 엔티티 FQN과 정확히 일치하지
-   않는다. 보강하려면 위반 B의 조건에 다음을 OR로 더한다. 오탐(엔티티가 아닌 타입 때문에
-   와일드카드를 쓴 경우)을 감수하는 선택이라 기본 템플릿에는 넣지 않았다 —
+2. **스타 임포트를 놓친다** — `import com.acme...persistence.*`는 엔티티 FQN과 정확히 일치하지 않는다.
+   보강하려면 위반 B에 다음을 OR로 더한다(오탐 — 엔티티 아닌 타입 때문에 와일드카드를 쓴 경우 — 을
+   감수하는 선택이라 기본 템플릿에는 없다):
    `` || file.hasImport { it.isWildcard && `allowedPackages_{{ruleIdSafe}}`.any { p -> it.name.matchesPattern(p) } } `` ✅
 3. 격리 대상이 0건이면 두 어서션 모두 진공 통과하며, 그 통과는 "JPA를 쓰지 않는 프로젝트"와
    "셀렉터가 아무것도 못 잡음"을 구분하지 못한다.
@@ -342,18 +332,17 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 }
 ```
 
-단수 접근자 `klass.constructors`·`parameters`·`klass.properties()`·`type.sourceType`은 2026-08-11
-실행으로 확인했다 ✅ — 생성자 파라미터의 `type`은 non-null, 프로퍼티의 `type`은 nullable이다.
-**`sourceType`은 널 표시 `?`를 붙여 돌려준다**(`AlphaUseCase?`) ✅ — `removeSuffix("?")`가 없으면
-널 허용 프로퍼티의 형제 의존을 조용히 놓친다(실측: 2건 중 1건만 검출).
+단수 접근자 `klass.constructors`·`parameters`·`klass.properties()`·`type.sourceType`은 실행으로 봤다
+✅ — 생성자 파라미터의 `type`은 non-null, 프로퍼티의 `type`은 nullable이다. **`sourceType`은 널 표시
+`?`를 붙여 돌려준다**(`AlphaUseCase?`) ✅ — `removeSuffix("?")`가 없으면 널 허용 프로퍼티의 형제
+의존을 조용히 놓친다(실측: 2건 중 1건만 검출).
 
 **커버리지 한계**
 
-1. 생성자 파라미터와 프로퍼티 선언만 본다. 함수 파라미터·반환 타입·지역 변수·오브젝트 정적 접근을
+1. 생성자 파라미터와 프로퍼티 선언만 본다 — 함수 파라미터·반환 타입·지역 변수·오브젝트 정적 접근을
    통한 형제 호출은 보지 못한다.
-2. **접미사 이름으로만 판정한다.** 다른 레이어·컨텍스트의 동명 접미사 타입에 대한 의존도 위반으로
-   잡힌다(과잉 검출). 정밀하게 하려면 참조 타입의 FQN이 필요한데 v1은 이름 비교로 둔다 — 과잉
-   검출은 소리가 나지만 과소 검출은 조용하기 때문이다.
+2. **접미사 이름으로만 판정한다.** 다른 레이어·컨텍스트의 동명 접미사 타입 의존도 위반으로 잡힌다
+   (과잉 검출). FQN 비교가 정밀하지만 v1은 이름으로 둔다 — 과잉은 소리가 나고 과소는 조용하다.
 3. 자기 자신에 대한 참조는 `it != klass.name`으로 제외한다(어휘 §3.5 주의).
 
 ---
@@ -364,10 +353,9 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 어휘의 `forbid-import` 인스턴스이고 스타일 문서가 아니라 선언에서 나온다. **`규칙 예외`의 대상이
 아니다** — 조절 수단은 `### 관계` 표, `포함 컨텍스트`, 공용 모듈 역할이다.
 
-세 종류 모두 **라우트 B**로 생성한다. ① from·to 목록이 프로젝트의 모든 컨텍스트·앱·모듈에 걸쳐
-있어, 한 컨텍스트가 아직 비어 있으면 §0.3-1의 빈 레이어 예외가 프로젝트 전체 파생 테스트를 막는다.
-② 앱·공용 모듈을 관측 경로로 얻을 때 패키지가 0건일 수 있고 그때의 계약은 "생략 + 고지"인데,
-라우트 A는 생략이 아니라 예외가 된다.
+세 종류 모두 **라우트 B**로 생성한다. ① from·to가 프로젝트의 모든 컨텍스트·앱·모듈에 걸쳐 있어 한
+컨텍스트가 아직 비어 있으면 §0.3-1의 빈 레이어 예외가 파생 테스트 전체를 막는다. ② 앱·공용 모듈을
+관측으로 얻을 때 패키지가 0건일 수 있고 그때의 계약은 "생략 + 고지"인데 라우트 A는 예외가 된다.
 
 **앱·공용 모듈의 패키지를 얻는 두 경로 — 선언이 먼저, 관측이 폴백.**
 
@@ -383,7 +371,6 @@ fun `{{context}} - {{ruleIdSafe}}`() {
 ```kotlin
 // 선언: 패키지 규약 {앱} 행 전개 (app_patterns)
 private val coreApiPackages = listOf("com.imstargg.core.api..")
-
 // 관측: infrastructure/db-core (package 선언 1건)
 private val dbCorePackages = listOf("com.imstargg.dbcore..")
 ```
@@ -405,8 +392,7 @@ fun `<이름>`() {
 }
 ```
 
-`withPackage`에는 vararg 오버로드와 `Collection<String>` 오버로드가 모두 있으므로 ✅ 리터럴 전개와
-관측 목록 변수를 똑같이 넘길 수 있다.
+`withPackage`에는 vararg·`Collection<String>` 오버로드가 다 있어 ✅ 리터럴 전개와 관측 변수를 똑같이 넘긴다.
 
 ### 6.2 kind별 대입
 
@@ -426,38 +412,32 @@ fun `<이름>`() {
 | `shared-module-direction` 정방향 | `{{subject}} - derived shared-module-direction` | 관측 패키지 | `{{items:detail.forbidden}}` **+ 앱 코드 합류**(아래 규칙) |
 | `shared-module-direction` 도메인 제한 | `{{subject}} - derived shared-module-direction (domain {{.}})` | `{{.}}`의 domain 레이어 패턴 | 관측 패키지 |
 
-마지막 행은 `{{#detail.domain_restricted_contexts}}` 반복 블록 **안**이다. 따라서 그 행의 `{{.}}`는
-순회 중인 컨텍스트 이름이며, `profiles/README.md`가 정의한 `{{context}}`(= `EffectiveRule.context`,
-이 `DerivedRule`에는 존재하지 않는다)와 **다른 값이다.** 다른 다섯 행에는 반복 블록이 없다.
+마지막 행만 `{{#detail.domain_restricted_contexts}}` 반복 블록 **안**이라, 그 `{{.}}`는 순회 중인
+컨텍스트 이름이고 `profiles/README.md`가 정의한 `{{context}}`(= `EffectiveRule.context` — 이
+`DerivedRule`에는 없다)와 **다른 값이다.**
 
-**이 행의 테스트 이름에는 `{{subject}}`와 `{{.}}`가 둘 다 있어야 한다.** 파생 규칙은 프로젝트당
-파일 하나(`DerivedRulesTest.kt`)에 모이는데, resolve_rules는 shared-kernel이 아닌 **모든** 공용
-모듈에 같은 `domain_restricted_contexts`를 넣는다. 그런 모듈이 둘 이상이면(imstargg형의
-`db-core`·`brawlstars-client`·`logging`) 컨텍스트 이름만으로는 같은 파일에 이름이 같은 `fun`이
-여러 개 생겨 Kotlin conflicting overloads로 컴파일이 깨진다.
-
-**표의 여섯 이름이 한 파일 안에서 유일한 근거**: 앞 다섯 행은 `{{subject}}`(kind마다 컨텍스트명·
-앱명·모듈명) + kind 문자열 + 방향 접미사(`(역방향)`·`(앱 간)`)로 갈리고, 마지막 행만
-`{{subject}}` 하나로는 갈리지 않아 `{{.}}`가 필요하다. 즉 유일 키는 앞 다섯 행이
-(subject, kind, 방향), 마지막 행이 (공용 모듈, 컨텍스트)다. 새 kind나 새 방향을 추가할 때 이 표에
-이름을 넣기 전에 유일 키부터 정한다.
+**그 행의 이름에는 `{{subject}}`와 `{{.}}`가 둘 다 있어야 한다.** 파생 규칙은 프로젝트당 파일
+하나(`DerivedRulesTest.kt`)에 모이는데 resolve_rules는 shared-kernel 아닌 **모든** 공용 모듈에 같은
+`domain_restricted_contexts`를 넣으므로, 그런 모듈이 둘 이상이면(imstargg형의 `db-core`·`logging`)
+컨텍스트 이름만으로는 같은 이름의 `fun`이 여러 개 생겨 conflicting overloads로 컴파일이 깨진다. 즉
+유일 키는 앞 다섯 행이 (subject, kind, 방향 — `(역방향)`·`(앱 간)`), 마지막 행이 (공용 모듈,
+컨텍스트)다. **새 kind나 새 방향은 이 표에 이름을 넣기 전에 유일 키부터 정한다.**
 
 `additionalMessage`는 `"파생 <id> — <무엇이 왜 금지되는지>"` 형식으로 쓴다. 예: `"파생
 derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의존할 수 없다"`.
 
 - `context-isolation`의 `to`가 비면 resolve_rules가 인스턴스 자체를 보내지 않는다.
-- **앱 모듈 → 앱 모듈 의존 금지는 별도 어서션이 필요하다**(정본 §3, §5.1 규칙 5). 앞의 두
-  app-confinement 어서션에서 따라 나오지 않는다 — resolve_rules는 `forbidden`·`reverse_from`에서
-  컨텍스트 비분할 레이어(`'*'`) 패턴을 빼는데(앱이 자기 자신을 금지하는 것을 막기 위해)
-  app-embedded에서 **다른 앱의 패키지가 바로 그 패턴**이라, 두 목록 어디에도 타 앱 코드가 없다.
-  그래서 "앱 간" 행이 표에 있다.
+- **앱 모듈 → 앱 모듈 의존 금지는 별도 어서션이 필요하다**(정본 §3, §5.1 규칙 5) — 앞의 두
+  app-confinement 어서션에서 따라 나오지 않는다. resolve_rules가 `forbidden`·`reverse_from`에서 컨텍스트
+  비분할 레이어(`'*'`) 패턴을 빼는데(앱이 자기 자신을 금지하지 않게) app-embedded에서 **다른 앱의
+  패키지가 바로 그 패턴**이라 두 목록 어디에도 타 앱 코드가 없다. "앱 간" 행이 표에 있는 이유다.
 - **공용 모듈 정방향의 앱 코드 합류**: `{앱}` 규약이 있으면 그 전개형이 비분할 레이어로서 이미
   `detail.forbidden`에 있다. **없으면**(`app_patterns` 키 부재 + `### 애플리케이션` 표 존재) 앱
   패키지가 선언 어디에도 없으므로, 앱마다 `app-confinement`의 `module_path`를 ②로 관측한 패턴을 이
-  `<forbidden>`에 합류시키고 `// 관측:`을 붙인다 — 빼면 "공용 모듈 → 앱" 금지가 어느 어서션에도
-  남지 않는다(정본의 금지 대상은 앱·컨텍스트 코드 **둘 다**). 관측 0건인 앱은 그 몫만 빠지므로 앱
-  이름과 함께 고지하되 인스턴스는 만든다 — ②의 생략 분기는 공용 모듈 자기 패키지 몫이다. 대칭
-  구현은 `check_imports`의 `_app_code_patterns`.
+  `<forbidden>`에 합류시키고 `// 관측:`을 붙인다 — 빼면 "공용 모듈 → 앱" 금지가 어느 어서션에도 남지
+  않는다(정본의 금지 대상은 앱·컨텍스트 코드 **둘 다**). 관측 0건인 앱은 그 몫만 빠지므로 이름과 함께
+  고지하되 인스턴스는 만든다(②의 생략 분기는 공용 모듈 자기 패키지 몫). 대칭 구현은
+  `check_imports`의 `_app_code_patterns`.
 - 도메인 제한 행은 `detail["domain_restricted_contexts"]`(D3)의 컨텍스트마다 하나씩 만들고,
   `role`이 `shared-kernel`이면 그 목록이 비어 있어 하나도 생기지 않는다.
 
@@ -469,32 +449,52 @@ derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의�
 
 ## 7. baseline 연동
 
-> **구현 상태 — Phase 5다.** ArchUnit에는 `FreezingArchRule`이 있지만 Konsist에는 동등 기능이
-> 없다. 계획은 "생성된 테스트가 `docs/architecture/baseline.jsonl`을 읽어 알려진 위반을
-> warn으로 강등한다"이고, 그 로직은 **아직 이 문서에 없다.** 지금 생성되는 테스트는 모든 위반을
-> 실패로 낸다 — `이행` 라벨이 있는 프로젝트에서 fitness를 처음 돌리면 기존 부채가 전부 실패로
-> 나온다는 뜻이므로 그 상태를 예상하고 실행한다. 이 절이 채워질 때 이 블록을 제거한다.
+`이행` 라벨이 있으면 목표 스타일 기준의 기존 위반이 `docs/architecture/baseline.jsonl`에 동결돼
+있다(정본 §5.1 규칙 8) — 한 줄 JSON `{"rule": …, "path": …}`(`note`는 선택)이고 경로는 git 루트
+상대다. `check_imports`가 만들고 migrate만 줄인다. Konsist에는 `FreezingArchRule`이 없으므로 **생성
+테스트가 어서션 앞에서 대상을 걸러 강등한다**(예외 메시지 파싱은 포맷이 내부 사정이라 버전 업에
+깨진다). 조각은 baseline을 쓰는 생성 파일마다 한 번(§0.2 헬퍼 자리), 나머지는 어서션마다 한 곳씩.
 
-강등을 구현할 때의 유의점 하나만 미리 적어 둔다: Konsist 어서션은 위반 목록을 예외 메시지로만
-내보내므로, 예외를 잡아 메시지를 파싱하는 대신 **어서션 앞에서 대상 목록을 baseline으로 걸러 내는**
-방향이 맞다. 메시지 포맷은 라이브러리 내부 사정이라 파싱하면 버전 업에 깨진다.
+```kotlin
+private val baselineFile = generateSequence(java.io.File("").absoluteFile) { it.parentFile }
+    .map { java.io.File(it, "docs/architecture/baseline.jsonl") }.firstOrNull { it.isFile }
+private val baseline: Set<Pair<String, String>> = baselineFile?.readLines().orEmpty()
+    .withIndex().filter { it.value.isNotBlank() }.map { (i, line) ->     // 빈 줄만 건너뛴다
+        fun field(key: String) = Regex(""""$key"\s*:\s*"([^"]+)"""").find(line)?.groupValues?.get(1)
+            ?: error("$baselineFile:${i + 1}: \"$key\" 값이 없습니다 — baseline을 믿을 수 없습니다")
+        field("rule") to field("path")
+    }.toSet()
+
+private fun demoted(ruleId: String, projectPath: String): Boolean =      // 동결분이면 판정에서 제외
+    ((ruleId to projectPath.replace('\\', '/').removePrefix("/")) in baseline)
+        .also { if (it) println("[기존 부채] $ruleId — $projectPath (baseline 동결분)") }
+```
+
+| 어서션 | 강등 합성 — `<경로>`는 파일·선언 양쪽에 있는 `projectPath`(루트 기준, 앞 구분자 포함) |
+|---|---|
+| `assertFalse { <위반식> }` — §2 라우트 B·§3 B·§5·§6 | `{ <위반식> && !demoted("{{ruleId}}", <경로>) }` |
+| `assertTrue { <통과식> }` — §3 A·§4 | `{ <통과식> \|\| demoted("{{ruleId}}", <경로>) }` |
+| `assertArchitecture { … }` — §1·§2 라우트 A | 수신 스코프에 `.slice { !demoted("{{ruleId}}", it.projectPath) }` |
+
+그 루트는 `.git`·`gradlew` 마커의 최근접 상위이며 baseline의 git 루트와 같다는 것이 전제다(대장) —
+위 셋과 깨진 줄 중단까지 실행으로 확인했다 ✅ 실측. **한계**(침묵 금지): ① 키가 (규칙 id, 경로)뿐이라
+**같은 파일·같은 규칙의 추가 위반도 흡수된다**(`check_imports` 푸터도 같은 고지). ② baseline은 import
+기반 근사가 만들어 **Konsist만 보는 위반은 기존 부채여도 실패**한다. ③ 한 레이어의 파일이 **전부**
+부채면 `slice` 뒤 그 레이어가 비어 §0.3-1의 예외로 죽는다 ✅ 실측 — 규칙을 지우지 말고 migrate로
+갚는다. ④ baseline은 Gradle 입력이 아니라 이 파일만 고쳐 재실행하면 `UP-TO-DATE`다 ✅ 실측.
 
 ## 8. Spring Modulith
 
-single-module 레이아웃의 **보조** 검증 수단으로 쓸 수 있다(`@ApplicationModule` +
-`ApplicationModules.of(App::class).verify()` — 순환 참조 검출과 모듈 문서 생성이 강점).
-**v1의 생성 대상은 Konsist뿐이며 superarchitect는 Modulith 설정을 만들지 않는다** — ① 경계가
-애플리케이션 클래스 기준 패키지 트리에 묶여 "컨텍스트 × 레이어 → 패키지 패턴" 정규화를 표현하지
-못하고, ② 경계 선언이 소스 쪽에 생겨 SSOT가 갈라진다. 이미 쓰는 프로젝트는 병행하면 된다.
+single-module의 **보조** 검증 수단이 될 수 있다(`@ApplicationModule` + `ApplicationModules.of(App::
+class).verify()` — 순환 참조 검출·모듈 문서 생성). **v1의 생성 대상은 Konsist뿐이며 superarchitect는
+Modulith 설정을 만들지 않는다** — ① 경계가 앱 클래스 기준 패키지 트리에 묶여 "컨텍스트 × 레이어 →
+패키지 패턴" 정규화를 표현하지 못하고 ② 경계 선언이 소스로 가 SSOT가 갈라진다. 병행은 자유다.
 
 ## 9. 검증 대장
 
-검증 대장은 `api-verification.md`다 — 이 문서가 쓰는 Konsist API와 그 근거가 거기 있다.
-**새 API를 쓸 때는 그 파일에 행을 추가한 뒤에만 템플릿에 넣는다.**
+검증 대장은 `profiles/kotlin-spring/api-verification.md`다 — 이 문서가 쓰는 Konsist API와 그 근거가
+거기 있다. **새 API를 쓸 때는 그 파일에 행을 추가한 뒤에만 템플릿에 넣는다.** 함께 읽을 정본:
 
-## 10. 관련 문서
-
-- `profiles/kotlin-spring/api-verification.md` — 검증 대장(§9)
-- `references/governance/rule-vocabulary.md` — 어휘 정본
-- `references/governance/architecture-template.md` — 정규화(§6)·파생 규칙(§5.1 규칙 5)의 정본
+- `references/governance/rule-vocabulary.md` — 어휘
+- `references/governance/architecture-template.md` — 정규화(§6)·파생 규칙(§5.1 규칙 5)·래칫(규칙 8)
 - `profiles/README.md` — 프로파일 계약과 플레이스홀더 규약
