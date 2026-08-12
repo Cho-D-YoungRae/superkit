@@ -81,7 +81,7 @@ ZERO_MATCH_REASON = "from-측 매칭 파일 0건 — 레이어·패키지 불일
 BASELINE_RELATIVE = "docs/architecture/baseline.jsonl"
 BASELINE_MATCH_NOTE = (
     "한계: 부채 매칭 키는 (규칙 id, 경로)뿐입니다 — 줄 번호를 키에 넣지 않아 리팩터링에는 견디는 "
-    "대신, 같은 파일에서 같은 규칙을 어긴 **추가** 위반도 기존 부채로 함께 흡수됩니다. 그 파일의 "
+    "대신, 같은 파일에서 같은 규칙을 어긴 추가 위반도 기존 부채로 함께 흡수됩니다. 그 파일의 "
     "부채를 migrate로 갚기 전까지 이 사각이 남습니다."
 )
 
