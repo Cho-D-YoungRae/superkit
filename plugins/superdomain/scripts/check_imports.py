@@ -18,7 +18,15 @@
 **이 검사기는 강제의 정본이 아니다.** import 문 없이 쓰이는 참조 — 같은 패키지 안의 타입,
 완전 수식 이름(FQN)을 본문에 그대로 쓴 참조 — 를 보지 못한다. 강제의 정본은 fitness가
 생성하는 Konsist/ArchUnit 테스트이고, 이 스크립트는 그 앞단에서 빠르게 도는 근사다. 그래서
-리포트는 언제나 그 한계를 함께 출력한다(`LIMITATION_NOTE`·`CONFINE_SCOPE_NOTE`).
+리포트는 그 한계를 함께 출력한다 — `LIMITATION_NOTE`는 언제나, `CONFINE_SCOPE_NOTE`·
+`BASELINE_MATCH_NOTE`는 그 규칙·그 파일이 이번 실행에 실제로 관여했을 때만(푸터의 한 줄은
+읽는 사람에게 '언제나 참'이어야 한다).
+
+**`이행` 프로젝트의 기존 부채는 별도 채널로 나간다**(정본 §5.1 규칙 8). `docs/architecture/
+baseline.jsonl`이 있으면 플래그 없이 자동으로 읽어, 매칭되는 위반을 `[기존 부채]`로 강등한다 —
+리포트에는 남지만 exit 코드에는 반영되지 않고 신규 위반만 1을 만든다. 매칭 키는 (규칙 id, 경로)
+뿐이고 그 대가는 푸터가 밝힌다. 깨진 줄 하나면 어느 위반이 동결분인지 전체를 알 수 없으므로
+**해석 불가(exit 2)로 다룬다** — 래칫을 부분적으로 믿느니 검사를 세우지 않는다.
 
 같은 이유로 **아무것도 검사하지 않은 규칙을 침묵으로 넘기지 않는다.** 매칭 0건의 규칙은
 리포트에서 '위반 없음'과 구분되지 않으므로(어휘 §1), 세 층위로 나누어 전부 고지한다.
@@ -40,8 +48,8 @@ from pathlib import Path
 # resolve_rules.py가 해석의 정본이다. 이 스크립트는 그 산출(EffectiveRule/DerivedRule)만
 # 소비하며, 결정 문서·스타일 문서·정규화 규칙을 다시 해석하지 않는다.
 from resolve_rules import (DOMAIN_LAYER, KIND_APP_CONFINEMENT, KIND_CONTEXT_ISOLATION,
-                           KIND_SHARED_MODULE_DIRECTION, derived_rule_id, format_error,
-                           resolve_document)
+                           KIND_SHARED_MODULE_DIRECTION, LocatedError, derived_rule_id,
+                           format_error, resolve_document)
 
 SOURCE_SUFFIXES = (".kt", ".java")
 JPA_ENTITY = "jpa-entity"        # confine-type의 v1 셀렉터 — 어휘 §3.3
@@ -57,8 +65,9 @@ LIMITATION_NOTE = (
     "한계: 같은 패키지 안의 참조와 import 없이 쓰는 완전 수식 이름(FQN)은 이 검사가 보지 "
     "못합니다 — 강제의 정본은 생성된 Konsist/ArchUnit 아키텍처 테스트입니다."
 )
-# 좁힘으로 생긴 사각의 고지. 규칙이 없는 프로젝트에도 한 줄 나가지만, 푸터는 실행마다 달라지는
-# 진단이 아니라 이 검사기가 무엇을 보지 않는지를 고정으로 밝히는 자리다(위 한계 줄과 같은 결).
+# 좁힘으로 생긴 사각의 고지. **confine-type을 실제로 판정한 실행에서만 낸다** — 그 규칙이 없거나
+# 생략된 프로젝트에 이 줄을 내면 없는 규칙의 한계를 읽는 사람이 떠안는다(푸터의 줄은 언제나 참이어야
+# 한다). 규칙 단위 한계라는 점에서 언제나 참인 위 `LIMITATION_NOTE`와 결이 다르다.
 CONFINE_SCOPE_NOTE = (
     "한계: confine-type의 참조 검사는 그 컨텍스트 범위(레이어 패턴 합집합) 안에서 선언된 "
     "@Entity만 봅니다 — 다른 컨텍스트의 엔티티 참조는 derived.context-isolation의 몫이고, "
@@ -66,6 +75,15 @@ CONFINE_SCOPE_NOTE = (
     "있으면 이 검사의 사각입니다."
 )
 ZERO_MATCH_REASON = "from-측 매칭 파일 0건 — 레이어·패키지 불일치 가능성"
+
+# 동결된 기존 부채. 경로는 ARCHITECTURE.md가 있는 디렉터리(= git 루트) 기준이라 위반의 표시 경로와
+# 같은 기준이고, 그래서 (규칙 id, 경로)로 바로 맞춰 볼 수 있다.
+BASELINE_RELATIVE = "docs/architecture/baseline.jsonl"
+BASELINE_MATCH_NOTE = (
+    "한계: 부채 매칭 키는 (규칙 id, 경로)뿐입니다 — 줄 번호를 키에 넣지 않아 리팩터링에는 견디는 "
+    "대신, 같은 파일에서 같은 규칙을 어긴 **추가** 위반도 기존 부채로 함께 흡수됩니다. 그 파일의 "
+    "부채를 migrate로 갚기 전까지 이 사각이 남습니다."
+)
 
 RE_PACKAGE = re.compile(r"^\s*package\s+([\w.]+)", re.M)
 # `*`를 문자 집합에 넣어 두어야 와일드카드가 잘리지 않는다. Kotlin의 별칭(`... as Row`)과
@@ -140,6 +158,14 @@ class Skip:
     reason: str
 
 
+@dataclass(frozen=True)
+class Baseline:
+    """동결된 기존 부채 목록. 매칭 키는 (규칙 id, 경로)뿐이다 — 줄 번호는 리팩터링에 취약하다."""
+
+    display: str     # 리포트·오류에 쓰는 경로(ARCHITECTURE.md 기준 상대)
+    keys: frozenset  # {(rule_id, path)}
+
+
 @dataclass
 class Report:
     violations: list = field(default_factory=list)
@@ -149,6 +175,9 @@ class Report:
     unreadable: list = field(default_factory=list)  # 읽지 못한 소스 — 검사에서 빠진 사각지대
     checked: int = 0
     errors: list = field(default_factory=list)      # 비어 있지 않으면 해석 불가(exit 2)
+    baseline: object = None                         # Baseline | None — 자동 감지 결과
+    debt: list = field(default_factory=list)        # [Violation] — 강등된 기존 부채(exit 미반영)
+    confine_scoped: bool = False                    # confine-type을 실제로 판정했는가
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +336,59 @@ def _load_sources(root, base) -> tuple:
 
 
 # ---------------------------------------------------------------------------
+# baseline — 동결된 기존 부채(정본 §5.1 규칙 8)
+# ---------------------------------------------------------------------------
+
+def _load_baseline(base) -> tuple:
+    """`docs/architecture/baseline.jsonl`을 자동 감지한다 — (Baseline|None, [LocatedError]).
+
+    **플래그를 두지 않는다.** 파일이 있다는 것은 그 프로젝트가 이행 중이라는 선언이고, 그때
+    부채와 신규를 가르지 않은 판정은 언제나 틀린 판정이다 — 켜고 끌 대상이 아니다.
+    """
+    path = base / BASELINE_RELATIVE
+    if not path.is_file():
+        return None, []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None, [LocatedError(
+            0, "baseline 파일을 읽지 못했습니다 — 인코딩(UTF-8)과 권한을 확인하세요",
+            BASELINE_RELATIVE)]
+
+    keys, errors = set(), []
+    for number, line in enumerate(text.split("\n"), start=1):
+        if not line.strip():
+            continue          # 빈 줄은 위반을 담지 않으므로 래칫이 새지 않는다
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            errors.append(LocatedError(
+                number, "baseline 줄이 JSON이 아닙니다 — 한 줄에 위반 하나씩 "
+                        '{"rule": ..., "path": ...} 형식입니다', BASELINE_RELATIVE))
+            continue
+        rule = entry.get("rule") if isinstance(entry, dict) else None
+        target = entry.get("path") if isinstance(entry, dict) else None
+        if not isinstance(rule, str) or not isinstance(target, str) or not (rule and target):
+            errors.append(LocatedError(
+                number, "baseline 줄에 문자열 'rule'과 'path'가 모두 있어야 합니다 "
+                        "(path는 git 루트 기준 상대경로)", BASELINE_RELATIVE))
+            continue
+        keys.add((rule, target))
+    if errors:
+        return None, errors   # 한 줄이 깨지면 어느 위반이 동결분인지 전체를 알 수 없다
+    return Baseline(BASELINE_RELATIVE, frozenset(keys)), []
+
+
+def _split_debt(violations, baseline) -> tuple:
+    """위반을 (신규, 기존 부채)로 가른다 — 매칭 키는 (규칙 id, 경로)."""
+    fresh, debt = [], []
+    for violation in violations:
+        target = debt if (violation.rule_id, violation.path) in baseline.keys else fresh
+        target.append(violation)
+    return fresh, debt
+
+
+# ---------------------------------------------------------------------------
 # 검사
 # ---------------------------------------------------------------------------
 
@@ -443,6 +525,8 @@ class _Checker:
                        f"(위 공허 레이어 경고를 먼저 해소하세요)")
             return False
         scope = self._scope_of(rule)
+        # 여기서부터가 실제 판정이다 — 푸터의 범위 한계 고지는 이 지점을 밟은 실행만 낸다.
+        self.report.confine_scoped = True
         scoped = [s for s in self.sources if _file_in(s, scope)]
         self._zero(rule.rule_id, subject, scoped)
         shown = ", ".join(allowed) or "없음"
@@ -702,6 +786,10 @@ def check(arch_path) -> Report:
                         for warning in resolution.warnings]
 
     base = Path(arch_path).resolve().parent
+    report.baseline, baseline_errors = _load_baseline(base)
+    if baseline_errors:
+        report.errors = baseline_errors
+        return report
     for project in resolution.projects:
         name = project["name"]
         effective = [rule for rule in resolution.effective if rule.project == name]
@@ -729,6 +817,8 @@ def check(arch_path) -> Report:
 
     report.violations = sorted(set(report.violations),
                                key=lambda v: (v.path, v.line, v.rule_id, v.message))
+    if report.baseline is not None:
+        report.violations, report.debt = _split_debt(report.violations, report.baseline)
     return report
 
 
@@ -736,14 +826,25 @@ def render(report) -> list:
     """리포트를 사람이 읽는 줄 목록으로 만든다. 위반·경고·생략·한계가 한 화면에 함께 있다."""
     lines = list(report.inherited)
     lines += [f"{v.path}:{v.line}: [{v.rule_id}] {v.message}" for v in report.violations]
+    lines += [f"[기존 부채] {v.path}:{v.line}: [{v.rule_id}] {v.message}" for v in report.debt]
     lines += [warning.message for warning in report.zero_match]
     lines.append(f"검사한 규칙 {report.checked}건 / 생략한 규칙 {len(report.skipped)}건")
+    if report.baseline is not None:
+        matched = len({(v.rule_id, v.path) for v in report.debt})
+        lines.append(
+            f"기존 부채 {len(report.debt)}건 — exit 코드에 반영하지 않습니다 "
+            f"({report.baseline.display}의 {len(report.baseline.keys)}개 항목 중 {matched}개가 "
+            f"이번 실행의 위반과 매칭됐습니다. 나머지는 해소됐거나 이번 실행이 검사하지 않은 "
+            f"규칙입니다 — 축소는 migrate만 합니다)")
     lines += [f"생략: {s.rule_id} ({s.subject}): {s.reason}" for s in report.skipped]
     if report.unreadable:
         lines.append(f"읽지 못한 소스 {len(report.unreadable)}건 — 이 파일들은 어떤 규칙도 "
                      f"검사하지 않았습니다: {', '.join(report.unreadable)}")
     lines.append(LIMITATION_NOTE)
-    lines.append(CONFINE_SCOPE_NOTE)
+    if report.baseline is not None:
+        lines.append(BASELINE_MATCH_NOTE)
+    if report.confine_scoped:
+        lines.append(CONFINE_SCOPE_NOTE)
     return lines
 
 
@@ -755,6 +856,13 @@ def _payload(report) -> dict:
         "skipped": [asdict(s) for s in report.skipped],
         "unreadable": list(report.unreadable),
         "checked": report.checked,
+        # 강등 채널은 violations와 겹치지 않는다 — 저쪽이 exit 1을 만드는 신규 위반이다.
+        "baseline": {
+            "path": report.baseline.display if report.baseline else None,
+            "entries": len(report.baseline.keys) if report.baseline else 0,
+            "demoted": [asdict(v) for v in report.debt],
+            "note": BASELINE_MATCH_NOTE if report.baseline else None,
+        },
     }
 
 

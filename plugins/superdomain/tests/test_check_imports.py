@@ -2,7 +2,8 @@ import json, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from check_imports import CONFINE_SCOPE_NOTE, LIMITATION_NOTE, check, render
+from check_imports import (BASELINE_MATCH_NOTE, BASELINE_RELATIVE, CONFINE_SCOPE_NOTE,
+                           LIMITATION_NOTE, check, render)
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -220,6 +221,16 @@ class CheckTestCase(unittest.TestCase):
         lines.append(body if body is not None else f"class {name}")
         relpath = f"{module}/src/main/kotlin/{package.replace('.', '/')}/{name}.kt"
         return self.src(relpath, "\n".join(lines) + "\n")
+
+    def baseline(self, *lines):
+        """`docs/architecture/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리(P5-D2)."""
+        path = self.tmpdir / BASELINE_RELATIVE
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+        return path
+
+    def entry(self, rule, path, **extra):
+        return json.dumps({"rule": rule, "path": path, **extra}, ensure_ascii=False)
 
     # ---- 관측 도우미 ------------------------------------------------------
 
@@ -749,6 +760,25 @@ class TestHonesty(CheckTestCase):
         self.assertIn("derived.context-isolation", CONFINE_SCOPE_NOTE)
         self.assertIn("사각", CONFINE_SCOPE_NOTE)
 
+    def test_footer_omits_the_confine_scope_note_without_a_confine_type_rule(self):
+        # 푸터의 한계 줄은 '언제나 참'이어야 한다 — confine-type을 한 건도 판정하지 않은 실행에
+        # 그 규칙의 사각을 고지하면 없는 규칙의 한계를 읽는 사람에게 떠넘기는 것이다.
+        self.arch(STRICT_ARCH, styles={"strict": STYLE_STRICT})
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("claim/application", "com.acme.claim.application", "ClaimService")
+        self.kt("claim/adapter", "com.acme.claim.adapter", "ClaimController")
+        lines = render(self.check())
+        self.assertIn(LIMITATION_NOTE, lines)
+        self.assertNotIn(CONFINE_SCOPE_NOTE, lines)
+
+    def test_footer_keeps_the_confine_scope_note_when_the_rule_was_skipped(self):
+        # 생략된 규칙도 판정하지 않은 것이므로 같은 규율이다.
+        self.arch(MONO_ARCH.replace("| claim-adapter | claim/adapter | adapter |\n", ""))
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        report = self.check()
+        self.assertTrue([s for s in report.skipped if s.rule_id == "af.domain-pure"])
+        self.assertNotIn(CONFINE_SCOPE_NOTE, render(report))
+
     def test_footer_counts_checked_and_skipped(self):
         self.app_tree()
         shutil.rmtree(self.tmpdir / "support")
@@ -756,6 +786,100 @@ class TestHonesty(CheckTestCase):
         report = self.check()
         self.assertIn(f"검사한 규칙 {report.checked}건 / 생략한 규칙 {len(report.skipped)}건", lines)
         self.assertTrue(any(line.startswith("생략:") and "logging" in line for line in lines))
+
+
+LEAKY = "claim/domain/src/main/kotlin/com/acme/claim/domain/Leaky.kt"
+
+
+class TestBaseline(CheckTestCase):
+    """`이행` 프로젝트의 래칫(정본 §5.1 규칙 8) — 기존 부채는 warn, 신규만 blocker."""
+
+    def leaky_tree(self, *imports):
+        """domain이 adapter를 참조하는 트리 — af.deps-inward와 af.domain-pure가 함께 걸린다."""
+        self.clean_tree()
+        self.kt("claim/domain", "com.acme.claim.domain", "Leaky",
+                imports=list(imports) or ["com.acme.claim.adapter.ClaimJpaEntity"])
+
+    def test_matching_violation_moves_to_the_debt_channel(self):
+        self.leaky_tree()
+        self.baseline(self.entry("af.deps-inward", LEAKY))
+        report = self.check()
+        self.assertEqual(self.ids(report), ["af.domain-pure"],
+                         [f"{v.rule_id}: {v.message}" for v in report.violations])
+        self.assertEqual([(v.rule_id, v.path) for v in report.debt],
+                         [("af.deps-inward", LEAKY)])
+
+    def test_new_violation_stays_a_blocker(self):
+        # 같은 규칙이라도 다른 경로는 동결된 적이 없다 — 래칫의 본체다.
+        self.leaky_tree()
+        self.baseline(self.entry("af.deps-inward", "claim/domain/src/main/kotlin/other/Old.kt"))
+        report = self.check()
+        self.assertIn("af.deps-inward", self.ids(report))
+        self.assertEqual(report.debt, [])
+
+    def test_note_field_is_optional(self):
+        self.leaky_tree()
+        self.baseline(self.entry("af.deps-inward", LEAKY, note="2026-08-12 동결"))
+        self.assertEqual([v.rule_id for v in self.check().debt], ["af.deps-inward"])
+
+    def test_blank_lines_are_tolerated(self):
+        self.leaky_tree()
+        self.baseline("", self.entry("af.deps-inward", LEAKY), "   ")
+        self.assertEqual([v.rule_id for v in self.check().debt], ["af.deps-inward"])
+
+    def test_same_rule_and_path_absorbs_additional_violations(self):
+        # P5-D1이 line을 키에서 뺀 대가 — 같은 파일·같은 규칙의 **추가** 위반도 함께 흡수된다.
+        # 조용히 넘기지 않는다는 것이 이 테스트의 요지이며, 고지는 푸터가 한다.
+        self.leaky_tree("com.acme.claim.adapter.ClaimJpaEntity", "com.acme.claim.adapter.Extra")
+        self.baseline(self.entry("af.deps-inward", LEAKY))
+        report = self.check()
+        self.assertEqual(len([v for v in report.debt if v.rule_id == "af.deps-inward"]), 2)
+        self.assert_no_violation(report, "af.deps-inward")
+        self.assertIn(BASELINE_MATCH_NOTE, render(report))
+
+    def test_footer_reports_the_debt_and_its_limit(self):
+        self.leaky_tree()
+        self.baseline(self.entry("af.deps-inward", LEAKY))
+        lines = render(self.check())
+        self.assertTrue(any(line.startswith(f"[기존 부채] {LEAKY}:3: [af.deps-inward]")
+                            for line in lines), lines)
+        self.assertTrue(any(line.startswith("기존 부채 1건") and BASELINE_RELATIVE in line
+                            for line in lines), lines)
+        self.assertIn(BASELINE_MATCH_NOTE, lines)
+        self.assertIn("추가", BASELINE_MATCH_NOTE)
+
+    def test_footer_reports_entries_that_matched_nothing(self):
+        # 해소된 항목과 '이번 실행이 검사하지 않은' 항목은 구분되지 않는다 — 뭉뚱그리지 않고
+        # 그 사실 그대로 센다(migrate가 축소의 정본이다).
+        self.leaky_tree()
+        self.baseline(self.entry("af.deps-inward", LEAKY),
+                      self.entry("af.no-framework", "claim/domain/src/main/kotlin/Gone.kt"))
+        line = next(l for l in render(self.check()) if l.startswith("기존 부채"))
+        self.assertIn("2개 항목 중 1개", line)
+
+    def test_no_baseline_leaves_the_footer_silent(self):
+        self.leaky_tree()
+        lines = render(self.check())
+        self.assertEqual([l for l in lines if l.startswith(("[기존 부채]", "기존 부채"))], [])
+        self.assertNotIn(BASELINE_MATCH_NOTE, lines)
+
+    def test_broken_line_is_an_error_not_a_silent_pass(self):
+        # 깨진 줄 하나면 어떤 위반이 동결분인지 전체를 알 수 없다 — 부분적으로 믿느니 세우지 않는다.
+        self.leaky_tree()
+        self.baseline(self.entry("af.deps-inward", LEAKY), '{"rule": "af.no-framework"}')
+        report = self.check()
+        self.assertEqual(report.violations, [])
+        self.assertEqual(len(report.errors), 1, report.errors)
+        self.assertEqual(report.errors[0].line, 2)
+        self.assertEqual(report.errors[0].path, BASELINE_RELATIVE)
+        self.assertIn("path", report.errors[0].message)
+
+    def test_malformed_json_line_is_an_error(self):
+        self.leaky_tree()
+        self.baseline("이건 JSON이 아니다")
+        report = self.check()
+        self.assertEqual(len(report.errors), 1, report.errors)
+        self.assertEqual(report.errors[0].line, 1)
 
 
 class TestCli(CheckTestCase):
@@ -804,7 +928,7 @@ class TestCli(CheckTestCase):
         self.assertEqual(result.returncode, 1)
         payload = json.loads(result.stdout)
         self.assertEqual(sorted(payload),
-                         ["checked", "inherited", "skipped", "unreadable",
+                         ["baseline", "checked", "inherited", "skipped", "unreadable",
                           "violations", "zero_match"])
         self.assertEqual(sorted(payload["violations"][0]),
                          ["line", "message", "path", "rule_id"])
@@ -819,6 +943,50 @@ class TestCli(CheckTestCase):
         self.assertEqual(payload["violations"], [])
         self.assertTrue(payload["zero_match"], payload)
         self.assertEqual(sorted(payload["zero_match"][0]), ["message", "rule_id", "subject"])
+
+    def test_baseline_is_detected_without_a_flag_and_does_not_change_exit(self):
+        self.clean_tree()
+        self.kt("claim/domain", "com.acme.claim.domain", "Leaky",
+                imports=["com.acme.claim.adapter.ClaimJpaEntity"])
+        self.baseline(self.entry("af.deps-inward", LEAKY),
+                      self.entry("af.domain-pure", LEAKY))
+        result = self.run_cli(str(self.arch_path))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn(f"[기존 부채] {LEAKY}:3: [af.deps-inward]", result.stdout)
+        self.assertIn(BASELINE_MATCH_NOTE, result.stdout)
+
+    def test_broken_baseline_line_exits_two(self):
+        self.clean_tree()
+        self.baseline('{"rule": "af.deps-inward", "path": 3}')
+        result = self.run_cli(str(self.arch_path))
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(result.stderr.startswith(f"{BASELINE_RELATIVE}:1: "), result.stderr)
+
+    def test_json_carries_the_baseline_channel(self):
+        self.clean_tree()
+        self.kt("claim/domain", "com.acme.claim.domain", "Leaky",
+                imports=["com.acme.claim.adapter.ClaimJpaEntity"])
+        self.baseline(self.entry("af.deps-inward", LEAKY))
+        result = self.run_cli(str(self.arch_path), "--json")
+        self.assertEqual(result.returncode, 1)      # af.domain-pure는 신규로 남는다
+        payload = json.loads(result.stdout)
+        self.assertEqual(sorted(payload),
+                         ["baseline", "checked", "inherited", "skipped", "unreadable",
+                          "violations", "zero_match"])
+        self.assertEqual(sorted(payload["baseline"]),
+                         ["demoted", "entries", "note", "path"])
+        self.assertEqual(payload["baseline"]["path"], BASELINE_RELATIVE)
+        self.assertEqual(payload["baseline"]["entries"], 1)
+        self.assertEqual([v["rule_id"] for v in payload["baseline"]["demoted"]],
+                         ["af.deps-inward"])
+        self.assertEqual([v["rule_id"] for v in payload["violations"]], ["af.domain-pure"])
+
+    def test_json_baseline_channel_is_empty_without_the_file(self):
+        self.clean_tree()
+        payload = json.loads(self.run_cli(str(self.arch_path), "--json").stdout)
+        self.assertEqual(payload["baseline"],
+                         {"path": None, "entries": 0, "demoted": [], "note": None})
 
     def test_violation_lines_are_sorted_by_path_and_line(self):
         self.clean_tree()
