@@ -2,7 +2,7 @@ import json, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from check_invariants import LIMITATION_NOTE, check, render
+from check_invariants import BLOCKED_HEAD, LIMITATION_NOTE, check, render
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -662,6 +662,39 @@ class TestBlocked(InvariantTestCase):
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
         self.assertTrue(any("검사 불능" in line for line in render(self.check())))
 
+    def test_blocked_renders_exactly_two_fixed_lines(self):
+        """검사 불능의 두 줄은 **문면째로** 소비된다 — 문구를 바꾸면 하류가 조용히 어긋난다.
+
+        review 8-2는 이 두 줄을 "그대로" 인용해 승계 구역에 싣고(`skills/review/SKILL.md` 8-2),
+        apply 2단계는 `blocked`가 비었는지로 작업 목록을 가른다. 그래서 여기서 부분 일치가 아니라
+        완전 일치로 고정한다. 문면을 바꾸려면 이 단언과 두 스킬 문서를 함께 고쳐야 한다.
+        """
+        self.arch()
+        self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed"),
+                                     row("INV-CLAIM-002", "confirmed"),
+                                     row("INV-CLAIM-003", "proposed")))
+        report = self.check()
+        lines = render(report)
+        # 머리 문자열도 리터럴로 잠근다 — 스킬 문서들이 `검사 불능:`을 그대로 인용한다.
+        self.assertEqual(BLOCKED_HEAD, "검사 불능: 테스트 소스가 없습니다")
+        self.assertEqual(
+            report.blocked,
+            f"{BLOCKED_HEAD} — confirmed 2건을 대조할 수 없습니다")
+        second = "수집한 불변식 3건(confirmed 2 · proposed 1) — 대조하지 못했습니다"
+        self.assertIn(report.blocked, lines)
+        self.assertIn(second, lines)
+        # 두 줄은 이 순서로 인접한다 — review가 "두 줄"로 인용하는 근거다.
+        self.assertEqual(lines[lines.index(report.blocked) + 1], second)
+
+    def test_blocked_line_when_no_confirmed(self):
+        """confirmed 0건 갈래의 문면도 같은 방식으로 고정한다(클린이 아니라는 고지다)."""
+        self.arch()
+        self.doc("claim", domain_doc(row("INV-CLAIM-001", "proposed")))
+        self.assertEqual(
+            self.check().blocked,
+            f"{BLOCKED_HEAD} — confirmed 0건이지만 태그를 관측할 수 없는 환경이라 "
+            f"클린으로 판정하지 않습니다")
+
     def test_empty_test_source_tree_still_counts_as_sources(self):
         self.arch()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
@@ -809,6 +842,33 @@ class TestCli(InvariantTestCase):
                          ["INV-CLAIM-001", "INV-CLAIM-002"])
         self.assertEqual(payload["blocked"], "")
         self.assertEqual(payload["limitation"], LIMITATION_NOTE)
+
+    def test_json_keys_are_exactly_the_documented_set(self):
+        """`--json` payload의 키 **집합**을 고정한다.
+
+        `skills/apply/SKILL.md` 2단계가 이 열두 개를 이름으로 나열하고 그 목록을 계약처럼 쓴다:
+        `violations`·`warnings`·`notices`·`invariants`·`tags`·`checked`·`confirmed`·`proposed`·
+        `test_sources`·`unreadable`·`blocked`·`limitation`. 부분 일치 단언만 두면 키를 더하거나
+        지워도 테스트가 통과해 그 문서가 조용히 낡는다 — 그래서 동등성으로 잠근다. 키를 바꾸려면
+        apply 2단계의 목록을 같은 커밋에서 고쳐야 한다.
+        """
+        documented = {
+            "violations", "warnings", "notices", "invariants", "tags", "checked",
+            "confirmed", "proposed", "test_sources", "unreadable", "blocked", "limitation",
+        }
+        self.assertEqual(len(documented), 12)
+        self.arch()
+        self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
+
+        # 검사 불능 경로가 먼저다 — 소비자가 분기마다 다른 모양을 만나지 않아야 한다.
+        blocked = json.loads(self.run_cli(str(self.arch_path), "--json").stdout)
+        self.assertNotEqual(blocked["blocked"], "")
+        self.assertEqual(set(blocked), documented)
+
+        self.tagged("INV-CLAIM-001")
+        clean = json.loads(self.run_cli(str(self.arch_path), "--json").stdout)
+        self.assertEqual(clean["blocked"], "")
+        self.assertEqual(set(clean), documented)
 
     def test_json_carries_the_description_for_apply(self):
         self.arch()
