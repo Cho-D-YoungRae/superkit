@@ -215,7 +215,7 @@ scaffold가 골격을 만들 때 쓰는 파일 묶음이다. 프리셋 스타일
 | `test/*.kt` | 테스트 골격. `test`는 레이어가 아니라 **소스셋**이며 가장 안쪽 레이어를 소유한 모듈의 `src/test`로 간다 |
 | `_shared/build.gradle.kts.app` | **앱 실행 모듈**의 빌드 스크립트 |
 | `_shared/<앱 메인 클래스>` | 실행 진입점 템플릿(kotlin-spring은 `{{App}}Application.kt`) |
-| `_shared/build.gradle.kts.archtest` | **아키텍처 테스트 모듈**의 빌드 스크립트(검증 도구·JUnit 실행 설정). 테스트 **소스**는 여기 없다 — 아래 참조 |
+| `_shared/build.gradle.kts.archtest` | **아키텍처 테스트 모듈**의 빌드 스크립트(검증 도구·JUnit 실행 설정, 그리고 생성 테스트가 런타임에 읽는 `baseline.jsonl`의 태스크 입력 선언 — 없으면 baseline만 바뀐 재실행이 `UP-TO-DATE`로 새어 간다). 테스트 **소스**는 여기 없다 — 아래 참조 |
 
 **빌드 조각은 구조 검사가 보지 못하는 것을 담는 유일한 자리다.** 아키텍처 규칙은 import와 이름만
 보므로, `@Entity`의 no-arg 생성자나 `@Transactional` 프록시를 위한 open 처리가 빠진 골격은

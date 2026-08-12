@@ -95,9 +95,8 @@ private fun String.matchesPattern(pattern: String): Boolean =
 forbid-sibling-dependency·파생 3종은 `strict = true`** — 검사 대상 0건은 패턴이 실제 패키지와
 어긋났다는 신호다. **confine-type은 기본값** — 격리 대상이 정당하게 0개일 수 있다(JPA 미사용).
 
-`strict = true`는 "그 레이어를 아직 구현하지 않은" 정상 상태에서도 실패한다. 그때 답은 strict를
-끄는 것이 아니라 선언을 고치는 것이다 — 레이어가 없으면 스타일에서 빼거나, 이행 중이면 `이행`
-라벨과 baseline으로 다룬다(§7).
+`strict = true`는 "그 레이어를 아직 구현하지 않은" 정상 상태에서도 실패한다. 답은 strict를 끄는 것이
+아니라 선언을 고치는 것이다 — 없는 레이어는 스타일에서 빼고, 이행 중이면 `이행` 라벨과 baseline이다(§7).
 
 ---
 
@@ -469,19 +468,21 @@ private fun demoted(ruleId: String, projectPath: String): Boolean =      // 동�
         .also { if (it) println("[기존 부채] $ruleId — $projectPath (baseline 동결분)") }
 ```
 
-| 어서션 | 강등 합성 — `<경로>`는 파일·선언 양쪽에 있는 `projectPath`(루트 기준, 앞 구분자 포함) |
+| 어서션 | 강등 합성 — `<경로>`는 파일·선언 양쪽에 있는 `projectPath`(루트 기준, 앞 구분자 포함). 그 루트는 `.git`·`gradlew` 마커의 최근접 상위이며 baseline의 git 루트와 같다는 것이 전제다(대장) |
 |---|---|
-| `assertFalse { <위반식> }` — §2 라우트 B·§3 B·§5·§6 | `{ <위반식> && !demoted("{{ruleId}}", <경로>) }` |
+| `assertFalse { <위반식> }` — §2 라우트 B·§3 B·§5·§6 | `{ <위반식> && !demoted("{{ruleId}}", <경로>) }` — **파생 규칙의 `{{ruleId}}`는 `derived.<kind>`다**(§6.2) |
 | `assertTrue { <통과식> }` — §3 A·§4 | `{ <통과식> \|\| demoted("{{ruleId}}", <경로>) }` |
 | `assertArchitecture { … }` — §1·§2 라우트 A | 수신 스코프에 `.slice { !demoted("{{ruleId}}", it.projectPath) }` |
 
-그 루트는 `.git`·`gradlew` 마커의 최근접 상위이며 baseline의 git 루트와 같다는 것이 전제다(대장) —
-아래 ③까지 실행으로 확인했다 ✅ 실측. **한계**(침묵 금지): ① 키가 (규칙 id, 경로)뿐이라 **같은
-파일·같은 규칙의 추가 위반도 흡수된다**(`check_imports` 푸터도 같은 고지). ② baseline은 import 기반
-근사가 만들어 **Konsist만 보는 위반은 기존 부채여도 실패**한다. ③ 앞의 둘과 달리 `slice`는 위반
-여부를 모르는 채 파일을 빼므로 **이미 갚은 부채도 계속 제외·출력되고**, 한 레이어가 통째로 부채면 그
-레이어가 비어 §0.3-1의 예외로 죽는다 — 답은 migrate로 갚아 항목을 지우는 것이다. ④ Gradle 입력이
-아니라 이 파일만 고쳐 재실행하면 `UP-TO-DATE`다. ⑤ `note`에 `, "path": …` 꼴을 손으로 넣으면 오독한다.
+**실측 범위** — 위 조각(깨진 줄에서의 중단 포함)·강등 합성 3형·아래 ①~④는 실행으로 확인했다 ✅ 실측.
+
+| 한계 — 침묵 금지 | 내용 |
+|---|---|
+| ① 매칭 키 | 키가 (규칙 id, 경로)뿐이라 **같은 파일·같은 규칙의 추가 위반도 흡수된다**(`check_imports` 푸터도 같은 고지) |
+| ② 사각 | baseline은 import 기반 근사가 만들어 **Konsist만 보는 위반은 기존 부채여도 실패**한다 |
+| ③ `slice` | 앞의 둘과 달리 위반 여부를 모르는 채 파일을 빼므로 **이미 갚은 부채도 계속 제외·출력되고**, 한 레이어가 통째로 부채면 그 레이어가 비어 §0.3-1의 예외로 죽는다 — 답은 migrate로 갚아 항목을 지우는 것이다 |
+| ④ `UP-TO-DATE` | 이 파일은 소스가 아니라 Gradle이 변화를 보지 못한다. `_shared`의 archtest 조각이 `inputs.files`로 선언해 막지만 ⚠️ (미검증 — 첫 실행 시 확인), **구판 조각이나 다른 테스트 모듈에는 그대로 남으므로** 그때는 `--rerun-tasks`가 답이다 |
+| ⑤ 정규식 로더 | `note`에 `, "path": …` 꼴을 손으로 넣으면 오독한다. 값에 이스케이프가 들어가도 정규식이 놓쳐 **`"path" 값이 없습니다`로 중단**하는데, 같은 줄을 `json.loads`로 읽는 `check_imports`는 통과하므로 **두 소비자가 갈린다** — 그 메시지는 값의 부재가 아니라 형태를 가리킨다 ⚠️ (미검증) |
 
 ## 8. Spring Modulith
 
@@ -493,8 +494,6 @@ Konsist뿐이며 Modulith 설정을 만들지 않는다** — ① 경계가 앱 
 ## 9. 검증 대장
 
 검증 대장은 `profiles/kotlin-spring/api-verification.md`다 — 이 문서가 쓰는 Konsist API와 그 근거가
-거기 있다. **새 API를 쓸 때는 그 파일에 행을 추가한 뒤에만 템플릿에 넣는다.** 함께 읽을 정본:
-
-- `references/governance/rule-vocabulary.md` — 어휘
-- `references/governance/architecture-template.md` — 정규화(§6)·파생 규칙(§5.1 규칙 5)·래칫(규칙 8)
-- `profiles/README.md` — 프로파일 계약과 플레이스홀더 규약
+거기 있다. **새 API를 쓸 때는 그 파일에 행을 추가한 뒤에만 템플릿에 넣는다.** 함께 읽을 정본은 셋이다:
+`references/governance/rule-vocabulary.md`(어휘), `references/governance/architecture-template.md`
+(정규화 §6·파생 규칙 §5.1 규칙 5·래칫 규칙 8), `profiles/README.md`(프로파일 계약·플레이스홀더 규약).
