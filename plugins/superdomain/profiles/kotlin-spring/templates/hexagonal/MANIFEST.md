@@ -36,7 +36,7 @@ fitness가 생성한 Konsist 테스트를 통과한다.** 골격의 모양은 �
 | `build.gradle.kts.adapter` | adapter | 〃 |
 | `domain/{{Context}}.kt` | domain | 애그리거트 루트 + 식별자 VO + 상태 enum + 예외 |
 | `application/{{Context}}Port.kt` | application | out 포트 1 |
-| `application/{{Context}}UseCase.kt` | application | in 포트 + 구현 = 유스케이스 1 |
+| `application/Activate{{Context}}UseCase.kt` | application | in 포트 + 구현 = 유스케이스 1. 파일 이름이 그 안의 주 타입(`Activate{{Context}}UseCase`)과 같다 — 유스케이스 파일은 동사가 이름의 일부라 `{{Context}}`만으로는 이름이 서지 않는다 |
 | `adapter/{{Context}}PersistenceAdapter.kt` | adapter | out 어댑터 1 + JPA 엔티티 |
 | `test/{{Context}}Test.kt` | domain(테스트) | 도메인 단위 테스트 골격(`@Tag` 예시 주석 포함) |
 
@@ -55,7 +55,7 @@ fitness의 생성물이고 배치 규약은 `rule-mappings.md` §0.1이 갖는�
 {{context}}/domain/src/main/kotlin/<{{pkg:domain}}의 . → />/{{Context}}.kt
 {{context}}/domain/src/test/kotlin/<{{pkg:domain}}의 . → />/{{Context}}Test.kt
 {{context}}/application/src/main/kotlin/<{{pkg:application}}의 . → />/{{Context}}Port.kt
-{{context}}/application/src/main/kotlin/<{{pkg:application}}의 . → />/{{Context}}UseCase.kt
+{{context}}/application/src/main/kotlin/<{{pkg:application}}의 . → />/Activate{{Context}}UseCase.kt
 {{context}}/adapter/src/main/kotlin/<{{pkg:adapter}}의 . → />/{{Context}}PersistenceAdapter.kt
 ```
 
@@ -72,7 +72,7 @@ fitness의 생성물이고 배치 규약은 `rule-mappings.md` §0.1이 갖는�
 
 | 조각의 요소 | 병합 규칙 |
 |---|---|
-| 헤더 주석 | **버리지 않는다.** 레이어 순서대로 파일 맨 위에 모은다 — "이 의존을 여기 더하면 어느 규칙이 잡는다"는 근거가 사라지면 나중에 아무나 더한다 |
+| 주석 | **버리지 않는다 — 위치와 무관하게 전부 보존한다.** 조각 머리의 주석은 레이어 순서대로 파일 맨 위에 모으고, 블록 안(`plugins`·`dependencies`)과 블록 뒤의 근거 주석은 그 항목을 따라 옮긴다. "이 의존을 여기 더하면 어느 규칙이 잡는다"·"이 플러그인이 빠지면 부팅에서 깨진다"는 근거가 사라지면 나중에 아무나 더하고 아무나 지운다 |
 | `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다 |
 | `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
 | `project(":{{context}}:…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |

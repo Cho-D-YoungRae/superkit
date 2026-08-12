@@ -89,6 +89,13 @@ superarchitect/
         └── examples/
 ```
 
+> **정정(2026-08-12, 구현 착지 반영)** — `examples/`의 "좋은/나쁜 사례 **각 1개**"는 착지한 규약과
+> 다르다. 정본은 `profiles/README.md` ③이고 수치는 **good 2~3 / bad 1~2**다. good이 늘어난 이유는
+> 수용 기준에 있다 — 한 스타일의 규칙을 **모두** 만족하는 최소 발췌여야 하는데 hexagonal의 네 규칙은
+> domain·application·adapter 세 레이어에 걸쳐 있어 한 파일에 담기지 않는다. bad이 1~2인 이유는
+> 한 파일이 규칙 여럿에 걸리는 실무형 모양을 함께 보여야 하기 때문이다. `kotlin-spring`의 실물이
+> good 3 / bad 2다.
+
 `knowledge/`의 주제 디렉터리는 **정확히 1단계로 고정**한다. 주제 아래 추가 중첩은 build_index.py가 오류로 거부한다 — "디렉터리가 계속 깊어질" 수 없는 구조. 새 주제 = 디렉터리 생성이면 끝(등록 절차 없음).
 
 ## 4. 구조 선언 — ARCHITECTURE.md 결정 템플릿
