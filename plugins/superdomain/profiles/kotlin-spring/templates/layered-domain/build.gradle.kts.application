@@ -3,6 +3,9 @@
 // 규약이 아니라 컴파일로 만든다. @Service·@Transactional은 이 스타일에서 정상이다.
 plugins {
     kotlin("jvm")
+    // Kotlin 클래스는 기본이 final이라 CGLIB이 상속할 수 없다. `@Transactional` 프록시가
+    // 여기서 깨진다 — 이것도 구조 검사가 보지 못하고 부팅에서 드러난다.
+    kotlin("plugin.spring")
 }
 
 dependencies {

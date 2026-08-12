@@ -1,4 +1,4 @@
-// 좋은 예 2/3 — hexagonal, application. 최상위 public 타입 셋이 모두 Port·UseCase로 끝난다.
+// 좋은 예 2/3 — hexagonal, application. 최상위 public 타입 넷이 모두 Port·UseCase로 끝난다.
 package com.acme.claim.application
 
 import com.acme.claim.domain.Claim

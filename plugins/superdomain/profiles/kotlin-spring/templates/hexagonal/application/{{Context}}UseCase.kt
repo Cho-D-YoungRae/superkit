@@ -15,7 +15,9 @@ interface Activate{{Context}}UseCase {
     data class Command(val id: {{Context}}Id)
 }
 
-class DefaultActivate{{Context}}UseCase(private val port: {{Context}}Port) : Activate{{Context}}UseCase {
+class DefaultActivate{{Context}}UseCase(
+    private val port: {{Context}}Port,
+) : Activate{{Context}}UseCase {
 
     override fun handle(command: Activate{{Context}}UseCase.Command) {
         val target = port.findById(command.id) ?: throw {{Context}}NotFound(command.id)

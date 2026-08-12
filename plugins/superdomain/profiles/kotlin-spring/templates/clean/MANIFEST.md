@@ -21,6 +21,11 @@ fitness가 생성한 Konsist 테스트를 통과한다.**
 드러나는 자리는 두 곳이다 — 애노테이션 없는 `{{Context}}Interactor`와, 그 대가로 생긴
 `Transactional{{Context}}Interactor` 데코레이터.
 
+**규칙이 보지 못하는 것 — 컴파일러 플러그인.** `check_imports`도 Konsist도 **구조**만 본다.
+`@Entity`의 no-arg 생성자와 `@Transactional`의 CGLIB 프록시(Kotlin 클래스는 기본이 final)는
+어느 쪽에도 걸리지 않으므로, 빠지면 골격이 **두 검사를 다 통과하고 부팅에서 깨진다.** 그래서
+`kotlin("plugin.jpa")`·`kotlin("plugin.spring")`이 `build.gradle.kts.framework`에 근거 주석과 함께 들어 있다.
+
 ## 파일 목록
 
 | 템플릿 파일 | 레이어 | 전개 뒤 |
@@ -37,9 +42,16 @@ fitness가 생성한 Konsist 테스트를 통과한다.**
 | `framework/{{Context}}GatewayAdapter.kt` | framework | 게이트웨이 구현 1 + JPA 엔티티 |
 | `framework/Transactional{{Context}}Interactor.kt` | framework | 트랜잭션 데코레이터 |
 
-**소스 파일이 hexagonal보다 둘 많은 이유**는 원이 하나 더 있어서다. `adapter`와 `framework`가
-각각 비어 있으면 안 되므로(0건 규율) 두 링에 파일이 최소 하나씩 필요하고, 그중 하나가 인터랙터
-바깥으로 밀려난 트랜잭션 경계다. 이 둘을 지우면 골격은 수용 기준을 통과하지 못한다.
+**소스 파일이 hexagonal보다 둘 많은 이유**는 둘이 서로 다르다.
+
+- `adapter/{{Context}}Controller.kt`는 **0건 규율이 강제한다.** 원이 하나 더 있고 `adapter` 링이
+  비면 `cl.deps-inward`가 예외로 죽으므로, 이 파일 없이는 골격이 수용 기준을 통과하지 못한다.
+- `framework/Transactional{{Context}}Interactor.kt`는 **강제되지 않는다.** `framework` 링은
+  `{{Context}}GatewayAdapter.kt`만으로 이미 채워지고, 이 파일을 지워도 check_imports는 여전히
+  exit 0이다(실측). 그런데도 골격에 두는 이유는 위 「통과해야 하는 규칙」 끝에 적은 것 —
+  clean과 hexagonal의 유일한 선언 차이가 **눈에 보이는 코드가 되는 자리가 여기뿐**이기 때문이다.
+  이 파일을 지우면 골격은 통과하지만, 트랜잭션 경계를 어디에 두라는 것인지가 사라져 사람이
+  인터랙터에 `@Transactional`을 붙이는 것으로 되돌아간다.
 
 `test/{{Context}}Test.kt`는 레이어가 아니라 **소스셋**이다 — domain 레이어를 소유한 모듈의
 `src/test/kotlin`에 놓인다. 아키텍처 테스트는 이 골격이 만들지 않는다(fitness의 생성물이고 배치
@@ -64,11 +76,20 @@ fitness가 생성한 Konsist 테스트를 통과한다.**
 모듈은 `{{context}}` 하나이고 네 레이어는 그 안의 패키지다.
 
 - settings 조각은 `include(":{{context}}")` **한 줄**로 줄인다.
-- `build.gradle.kts.<레이어>` 넷을 **하나로 합친다** — `dependencies`는 합집합, 같은 모듈을
-  가리키게 된 `project(":{{context}}:…")` 줄은 지운다.
-- 합치면 `usecase`에 스프링이 클래스패스로 들어온다. `cl.domain-no-framework`는 import를 보므로
-  규칙은 그대로 살아 있지만, 컴파일러가 막아 주던 몫은 사라진다 — single-module에서 clean을 고를
-  때 알고 고르는 대가다.
+- `build.gradle.kts.<레이어>` 넷을 **하나로 합친다.** 단순히 이어 붙이면 `plugins` 블록이
+  여럿이 되어 Gradle이 구성 단계에서 거부한다. 병합은 결정적으로 한다.
+
+| 조각의 요소 | 병합 규칙 |
+|---|---|
+| 헤더 주석 | **버리지 않는다.** 레이어 순서대로 파일 맨 위에 모은다 — "이 의존을 여기 더하면 어느 규칙이 잡는다"는 근거가 사라지면 나중에 아무나 더한다 |
+| `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다 |
+| `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
+| `project(":{{context}}:…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |
+| `tasks.test { useJUnitPlatform() }` | 파일 전체에 **한 번**만 |
+
+합치면 `usecase`에 스프링이 클래스패스로 들어온다. `cl.domain-no-framework`는 import를 보므로
+규칙은 그대로 살아 있지만, 컴파일러가 막아 주던 몫은 사라진다 — single-module에서 clean을 고를
+때 알고 고르는 대가다.
 
 ### app-embedded — 규약 패턴 위치에 레이어 패키지만
 

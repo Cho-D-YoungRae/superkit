@@ -11,7 +11,9 @@ import {{pkg:usecase}}.{{Context}}Interactor
  * 데코레이터를 framework에 두고 트랜잭션을 여기서 연다. 인터랙터 코드에는 흔적이 남지 않는다.
  */
 @Service
-class Transactional{{Context}}Interactor(private val delegate: {{Context}}Interactor) : {{Context}}InputBoundary {
+class Transactional{{Context}}Interactor(
+    private val delegate: {{Context}}Interactor,
+) : {{Context}}InputBoundary {
 
     @Transactional
     override fun activate(command: {{Context}}InputBoundary.Command) = delegate.activate(command)

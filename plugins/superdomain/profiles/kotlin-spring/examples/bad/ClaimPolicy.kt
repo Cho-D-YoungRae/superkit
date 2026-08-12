@@ -1,7 +1,8 @@
 // 나쁜 예 1/2 — hexagonal, domain. 위반 규칙: hex.domain-no-framework
 //   Konsist 실패 첫 줄: Assert 'claim - hex domain-no-framework' was violated (1 time).
-//   check_imports  : ClaimPolicy.kt:5: [hex.domain-no-framework] 컨텍스트 'claim': 금지된 대상
-//                    'org.springframework..'을(를) import합니다 — org.springframework.stereotype.Component
+//   check_imports  : ClaimPolicy.kt:7: [hex.domain-no-framework] 컨텍스트 'claim': 금지된
+//                    대상 'org.springframework..'을(를) import합니다 —
+//                    org.springframework.stereotype.Component
 package com.acme.claim.domain
 
 import org.springframework.stereotype.Component

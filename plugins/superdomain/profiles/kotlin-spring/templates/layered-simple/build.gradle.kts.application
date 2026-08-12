@@ -2,6 +2,9 @@
 // 이 스타일에서는 정상이다). presentation은 의존하지 않는다(ls.layer-order).
 plugins {
     kotlin("jvm")
+    // Kotlin 클래스는 기본이 final이라 CGLIB이 상속할 수 없다. `@Transactional` 프록시가
+    // 여기서 깨진다 — 이것도 구조 검사가 보지 못하고 부팅에서 드러난다.
+    kotlin("plugin.spring")
 }
 
 dependencies {

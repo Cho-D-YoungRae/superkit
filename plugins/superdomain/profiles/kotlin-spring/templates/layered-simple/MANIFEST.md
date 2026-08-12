@@ -26,6 +26,12 @@ fitness가 생성한 Konsist 테스트를 통과한다.**
 **`*.domain-pure`가 없는 것이 이 스타일의 내용이다.** 그래서 골격의 `@Entity`는 격리 대상이 아니라
 모델 그 자체이고, `data` 레이어에 산다. 프레임워크 차단 규칙도 없다.
 
+**규칙이 보지 못하는 것 — 컴파일러 플러그인.** `check_imports`도 Konsist도 **구조**만 본다.
+`@Entity`의 no-arg 생성자와 `@Transactional`의 CGLIB 프록시(Kotlin 클래스는 기본이 final)는
+어느 쪽에도 걸리지 않으므로, 빠지면 골격이 **두 검사를 다 통과하고 부팅에서 깨진다.** 그래서
+`kotlin("plugin.jpa")`가 `build.gradle.kts.data`에,
+`kotlin("plugin.spring")`이 `build.gradle.kts.application`에 근거 주석과 함께 들어 있다.
+
 ## 파일 목록
 
 | 템플릿 파일 | 레이어 | 전개 뒤 |
@@ -65,8 +71,16 @@ multi-module을 고를 이유는 드물다 — 모듈 구성은 스타일과 직
 패키지다.
 
 - settings 조각은 `include(":{{context}}")` **한 줄**로 줄인다.
-- `build.gradle.kts.<레이어>` 셋을 **하나로 합친다** — `dependencies`는 합집합, 같은 모듈을
-  가리키게 된 `project(":{{context}}:…")` 줄은 지운다.
+- `build.gradle.kts.<레이어>` 셋을 **하나로 합친다.** 단순히 이어 붙이면 `plugins` 블록이
+  여럿이 되어 Gradle이 구성 단계에서 거부한다. 병합은 결정적으로 한다.
+
+| 조각의 요소 | 병합 규칙 |
+|---|---|
+| 헤더 주석 | **버리지 않는다.** 레이어 순서대로 파일 맨 위에 모은다 — "이 의존을 여기 더하면 어느 규칙이 잡는다"는 근거가 사라지면 나중에 아무나 더한다 |
+| `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다 |
+| `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
+| `project(":{{context}}:…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |
+| `tasks.test { useJUnitPlatform() }` | 파일 전체에 **한 번**만 |
 
 ### app-embedded — 규약 패턴 위치에 레이어 패키지만
 

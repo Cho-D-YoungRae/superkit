@@ -3,6 +3,9 @@
 // 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
 plugins {
     kotlin("jvm")
+    // `@Entity`는 Hibernate가 no-arg 생성자를 요구한다. 아키텍처 규칙은 이것을 보지 못한다 —
+    // 구조 검사는 통과하고 **부팅에서** 깨지는 자리다.
+    kotlin("plugin.jpa")
 }
 
 dependencies {

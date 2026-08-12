@@ -2,6 +2,12 @@
 // @Entity·게이트웨이 구현·스프링 설정·트랜잭션 데코레이터가 여기서 끝난다(cl.domain-pure).
 plugins {
     kotlin("jvm")
+    // `@Entity`는 Hibernate가 no-arg 생성자를 요구한다. 아키텍처 규칙은 이것을 보지 못한다 —
+    // 구조 검사는 통과하고 **부팅에서** 깨지는 자리다.
+    kotlin("plugin.jpa")
+    // Kotlin 클래스는 기본이 final이라 CGLIB이 상속할 수 없다. `@Transactional` 프록시가
+    // 여기서 깨진다 — 이것도 구조 검사가 보지 못하고 부팅에서 드러난다.
+    kotlin("plugin.spring")
 }
 
 dependencies {
