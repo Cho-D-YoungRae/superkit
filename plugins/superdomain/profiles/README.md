@@ -13,16 +13,17 @@ primitive다 — 프로파일은 `hexagonal`이라는 스타일을 모르고, `l
 | 프로파일 | 도구 | 상태 |
 |---|---|---|
 | `kotlin-spring` | Konsist 0.17.3 (`com.lemonappdev:konsist`) | 네 가지 다 있음 — 매핑·검증 대장·프리셋 템플릿 4종·examples |
-| `java-spring` | ArchUnit 1.4.1 (`com.tngtech.archunit:archunit`) | 빈 디렉터리 — 아래 구현 상태 |
+| `java-spring` | ArchUnit 1.4.1 (`com.tngtech.archunit:archunit`) | 필수 2파일 있음 — 매핑·검증 대장. 선택 2종(프리셋 템플릿·examples)은 아직 없다 |
 
 이 계약의 소비자는 모두 도착했다: 매핑을 읽어 테스트를 만드는 `fitness` 스킬, 템플릿이 소비하는
 `EffectiveRule`·`DerivedRule`을 내는 `scripts/resolve_rules.py`, 그리고 `profiles/` 디렉터리를
 동적으로 읽는 `parse_architecture.py`.
 
-> **구현 상태 — `java-spring`은 Phase 6이다.** `profiles/java-spring/`에는 아직
-> `rule-mappings.md`가 없다. Java 프로젝트를 선언할 수는 있지만 fitness는 매핑 부재를 그대로
-> 알리고 중단한다(생성하지 않는다). 어휘 확장 절차(`rule-vocabulary.md` §7)가 요구하는 "두
-> 프로파일 매핑 동시 추가"도 그때까지 완주할 수 없다.
+**표의 상태 열은 스킬의 갈래에 그대로 대응한다.** 필수 2파일이 있으면 `fitness`는 그 프로파일의
+프로젝트에 테스트를 생성한다 — 두 프로파일 다 그렇고, 어휘 확장 절차(`rule-vocabulary.md` §7)가
+요구하는 "두 프로파일 매핑 동시 추가"도 이제 완주할 수 있다. 선택 항목인 `templates/`가 없으면
+`scaffold`가 그 스타일에서 멈추고(지어내지 않는다), `examples/`가 없으면 읽을 예제가 없을 뿐이다.
+**이 표는 스냅숏이고 판정 근거는 디렉터리다** — 스킬은 외운 목록이 아니라 `ls`로 확인한다.
 
 ## 디렉터리 구조
 
@@ -58,7 +59,7 @@ profiles/<이름>/
 1. **생성 파일 헤더**(고정 문자열)와 **파일 배치 규약** — 어떤 이름의 파일이 어디에 생기는가.
 2. **import 목록(정본)** — 생성 파일이 **그대로 복사**할 블록. "검증 대장의 소스 경로에서
    유도하라"로 대신하지 않는다. 그 경로는 심볼이 아니라 선언 인터페이스의 위치이며, 유도가 틀리면
-   파일 전체가 컴파일되지 않는다(kotlin-spring 실측).
+   파일 전체가 컴파일되지 않는다(두 프로파일에서 각각 실측).
 3. **primitive 5종 각각**에 대해: 입력(어느 필드를 읽는가) → 코드 템플릿(그대로 컴파일되는 완전한
    형태) → 주의·커버리지 한계.
 4. **파생 규칙 3종**(`derived.context-isolation`·`derived.app-confinement`·
@@ -99,7 +100,7 @@ profiles/<이름>/
 | `{{context}}` | `EffectiveRule.context` — 소문자 그대로 |
 | `{{Context}}` | `context`의 PascalCase (파일명·클래스명용). **하이픈·언더스코어로 나눈 각 세그먼트의 첫 글자를 대문자로 올리고 구분자를 제거한다** — `core-api` → `CoreApi`, `order_mgmt` → `OrderMgmt` |
 | `{{ruleId}}` | `EffectiveRule.rule_id` |
-| `{{ruleIdSafe}}` | `ruleId`에서 대상 언어의 식별자에 쓸 수 없는 문자를 공백으로 바꾼 형태 (Kotlin 백틱 함수 이름은 `.`을 담을 수 없다 — `hex.domain-pure` → `hex domain-pure`) |
+| `{{ruleIdSafe}}` | `ruleId`에서 **대상 언어의 식별자에 쓸 수 없는 문자를 그 프로파일 §0.1이 정한 변환으로 바꾼 형태.** 이 표가 정하는 것은 규약(무엇을 바꾸는가)이고 변환 값은 각 프로파일이 정한다 — kotlin-spring은 공백(백틱 함수 이름이 `.`을 담지 못한다: `hex.domain-pure` → `hex domain-pure`), java-spring은 `_`(`hex.domain-pure` → `hex_domain_pure`) |
 | `{{primitive}}` | `EffectiveRule.primitive` |
 | `{{layerName}}` | §2.1(나) 파라미터가 담은 레이어 이름 1개 — `params[키]`의 항목 |
 | `{{LayerName}}` | `layerName`의 PascalCase (도구가 오류 메시지에 쓰는 표시 이름) |
