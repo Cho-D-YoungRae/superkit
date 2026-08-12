@@ -597,6 +597,36 @@ class TestDerivedRules(CheckTestCase):
                 imports=["com.acme.web.WebApp"])
         self.assert_violation(self.check(), "derived.app-confinement", needle="역참조")
 
+    def test_app_confinement_reverse_reference_from_inside_app_module(self):
+        # 컨텍스트 패키지의 파일이 **앱 모듈 경로 아래**에 있어도 역참조는 역참조다. 귀속을 경로로
+        # 판정하면 이 파일이 앱 코드로 취급돼 검사에서 통째로 빠진다 — Konsist는 잡는 자리다.
+        self.app_tree()
+        self.kt("app/web", "com.acme.core.domain.claim", "WebBridge",
+                imports=["com.acme.web.WebApp"])
+        self.assert_violation(self.check(), "derived.app-confinement", needle="역참조")
+
+    def test_reverse_reference_survives_observed_app_patterns(self):
+        # `{앱}` 규약이 없어 앱 패키지를 관측할 때, 앱 모듈 아래의 컨텍스트 파일이 관측에 섞이면
+        # 그 패키지가 앱 패턴이 되어 **같은 레이어의 정상 파일까지** 역방향 검사에서 빠진다.
+        self.arch(OBS_ARCH)
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("app/batch", "com.acme.batch", "BatchApp")
+        self.kt("app/web", "com.acme.web", "WebApp")
+        self.kt("app/web", "com.acme.claim.domain", "WebBridge")
+        self.kt("claim/domain", "com.acme.claim.domain", "Reverse",
+                imports=["com.acme.web.WebApp"])
+        self.assert_violation(self.check(), "derived.app-confinement", needle="역참조")
+
+    def test_app_module_file_is_still_app_code_forward(self):
+        # 회귀 가드 — 앱 모듈 아래 파일에 대한 **앞방향** 판정(미포함 컨텍스트 import·앱 → 앱)은
+        # 경로 귀속 그대로다. 역방향을 좁힌 것이 앞방향까지 좁히면 안 된다.
+        self.app_tree()
+        self.kt("app/web", "com.acme.core.domain.claim", "WebBridge",
+                imports=["com.acme.core.domain.billing.Invoice"])
+        violation = self.assert_violation(self.check(), "derived.app-confinement",
+                                          needle="billing")
+        self.assertIn("web", violation.message)
+
     def test_app_to_app_by_declaration(self):
         self.app_tree()
         self.kt("app/web", "com.acme.web", "CrossApp",

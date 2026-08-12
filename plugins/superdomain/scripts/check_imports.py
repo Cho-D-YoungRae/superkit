@@ -686,6 +686,19 @@ class _Checker:
         rule_id = derived_rule_id(rule.kind)
         detail = rule.detail
         subject = f"앱 {rule.subject}"
+        def observed_app_patterns(module_path):
+            """앱 모듈 경로 아래에서 **앱 패키지만** 관측한다(D2).
+
+            그 경로 아래에 선언된 컨텍스트 패키지의 파일이 섞여 있을 수 있다 — 잘못 놓인
+            파일이거나, `{앱}` 규약 없는 app-embedded의 컨텍스트 코드다. 그것을 앱 패턴으로
+            관측하면 둘이 함께 무너진다: 그 파일 자신이 앱 코드가 되어 아래 역방향 검사에서
+            빠지고, 같은 패키지의 **정상 파일들까지** 앱 패턴에 흡수돼 함께 빠진다. 선언이
+            컨텍스트 패턴이라고 말하는 것은 어느 디렉터리에 있든 컨텍스트 코드다.
+            """
+            return _observed_patterns([s for s in self.sources
+                                       if self._under(s, module_path)
+                                       and not _file_in(s, detail["reverse_from"])])
+
         # app_patterns는 같은 프로젝트의 인스턴스들이 공유하는 dict다 — 읽기만 한다.
         table = detail.get("app_patterns")
         if table:
@@ -693,19 +706,18 @@ class _Checker:
             others = {name: list(patterns) for name, patterns in table.items()
                       if name != rule.subject}
         else:
-            own = _observed_patterns([s for s in self.sources
-                                      if self._under(s, detail["module_path"])])
+            own = observed_app_patterns(detail["module_path"])
             others = {}
             for name, module_path in self.app_paths.items():
                 if name == rule.subject:
                     continue
-                patterns = _observed_patterns([s for s in self.sources
-                                               if self._under(s, module_path)])
+                patterns = observed_app_patterns(module_path)
                 if patterns:
                     others[name] = patterns
         if not own:
             self._skip(rule_id, subject,
-                       f"모듈 경로 '{detail['module_path']}' 아래 .kt/.java 소스 관측 0건 — "
+                       f"모듈 경로 '{detail['module_path']}' 아래 앱 패키지 관측 0건 — "
+                       f".kt/.java 소스가 없거나, 있는 것이 전부 선언된 컨텍스트 패키지입니다. "
                        f"앱 패키지를 알 수 없어 검사하지 않았습니다 "
                        f"(패키지 규약에 '{{앱}}' 행을 두면 선언으로 알 수 있습니다)")
             return False
@@ -731,7 +743,10 @@ class _Checker:
                                       f"(조립 지점이 두 곳으로 갈라집니다)")
 
         for source in self.sources:
-            if self._under(source, detail["module_path"]) or _file_in(source, own):
+            # 제외는 **패키지**로 판정한다 — from-측 귀속이 경로인 위 앞방향과 갈리는 자리다.
+            # 경로로 빼면 앱 모듈 아래에 놓인 컨텍스트 파일이 앱 코드가 되어 이 검사에서
+            # 통째로 빠지고, 그 사각은 푸터의 `생략` 어디에도 나타나지 않는다(관측 참조).
+            if _file_in(source, own):
                 continue
             if not _file_in(source, detail["reverse_from"]):
                 continue
