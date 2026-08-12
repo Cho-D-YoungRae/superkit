@@ -19,10 +19,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * 구성 기준 패키지(AutoConfigurationPackages)는 이 애노테이션이 붙은 <b>메인 클래스의 패키지</b>
  * ({@code {{basePackage}}.{{app}}})에 그대로 남고, 거기서 기본값을 받는 JPA 엔티티 스캔
  * ({@code @EntityScan} 미지정 시)과 Spring Data 리포지터리 자동 등록도 마찬가지다. 그래서 컨텍스트
- * 모듈에 있는 엔티티·리포지터리를 인식시키려면 {@code @EntityScan}·{@code @EnableJpaRepositories}로
- * 그 패키지를 따로 지정해야 할 수 있다 <b>(실측 예정 — 검증 시 확인)</b>. 골격의 수용 기준(구조
- * 검사 + 아키텍처 테스트, hexagonal은 {@code bootJar}까지)은 애플리케이션 컨텍스트를 띄우지
- * 않으므로 이 자리를 확인해 주지 않는다.
+ * 모듈에 있는 엔티티·리포지터리를 인식시키려면 {@code @EntityScan("{{basePackage}}")}·
+ * {@code @EnableJpaRepositories("{{basePackage}}")}를 이 클래스에 <b>함께 붙여야 한다</b> ✅ 실측 —
+ * "붙일 수도 있다"가 아니다. 없으면 순서대로 {@code No qualifying bean of type '….Repository'},
+ * 그다음 {@code Not a managed type: class ….}로 부팅이 실패한다.
+ *
+ * <p><b>DB 배선은 사람 몫이다.</b> 이 모듈이 선언하는 것은 {@code spring-boot-starter}뿐이지만,
+ * 컨텍스트 모듈의 JPA 스타터가 <b>런타임 전이</b>로 따라와 DataSource 자동 구성이 켜진다 ✅ 실측 —
+ * 드라이버와 datasource 프로퍼티가 없으면 컨텍스트가 뜨지 않는다. 골격의 수용 기준(구조 검사 +
+ * 아키텍처 테스트, hexagonal은 {@code bootJar}까지)은 애플리케이션 컨텍스트를 띄우지 않으므로
+ * 위 두 자리를 확인해 주지 않는다.
  */
 @SpringBootApplication(scanBasePackages = "{{basePackage}}")
 public class {{App}}Application {

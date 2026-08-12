@@ -16,6 +16,12 @@ plugins {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
+    // Spring Data가 리포지터리 프록시를 만들 때 `PreferredConstructorDiscoverer`가 **Kotlin
+    // 리플렉션**을 쓴다. 없으면 `NoClassDefFoundError: kotlin/reflect/full/KClasses`로 죽는다
+    // ✅ 실측. 위 `plugin.spring`·data 조각의 `plugin.jpa`와 같은 층이다 — 구조 검사가 보지 못하고
+    // **부팅에서** 드러난다. 앱 모듈에 두는 이유는 컨텍스트 모듈이 이 클래스를 직접 부르지 않고
+    // 런타임에만 필요하기 때문이다(그래서 `runtimeOnly`).
+    runtimeOnly("org.jetbrains.kotlin:kotlin-reflect")
 
     // '### 애플리케이션' 표의 `포함 컨텍스트` 열이 이 목록을 정한다. 각 항목은 그 컨텍스트
     // **스타일의 가장 바깥 레이어** 모듈이고(안쪽은 전이 의존으로 따라온다), 어느 레이어인지는

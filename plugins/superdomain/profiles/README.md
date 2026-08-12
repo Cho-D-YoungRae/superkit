@@ -221,7 +221,9 @@ scaffold가 골격을 만들 때 쓰는 파일 묶음이다. 프리셋 스타일
 **빌드 조각은 구조 검사가 보지 못하는 것을 담는 유일한 자리다.** 아키텍처 규칙은 import와 이름만
 보므로, `@Entity`의 no-arg 생성자나 `@Transactional` 프록시를 위한 open 처리가 빠진 골격은
 `check_imports`와 fitness를 **둘 다 통과하고 부팅에서 깨진다.** 그 언어·프레임워크의 그런 항목은
-조각에 근거 주석과 함께 넣는다(kotlin-spring은 `kotlin("plugin.jpa")`·`kotlin("plugin.spring")`).
+조각에 근거 주석과 함께 넣는다(kotlin-spring은 `kotlin("plugin.jpa")`·`kotlin("plugin.spring")`,
+그리고 앱 조각의 `runtimeOnly("org.jetbrains.kotlin:kotlin-reflect")` — Spring Data가 리포지터리
+프록시를 만들 때 Kotlin 리플렉션을 요구한다 ✅ 실측).
 
 ### 앱 실행 모듈 — 스타일 디렉터리에 두지 않는다
 
