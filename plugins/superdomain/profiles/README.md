@@ -210,7 +210,7 @@ scaffold가 골격을 만들 때 쓰는 파일 묶음이다. 프리셋 스타일
 
 | 파일 | 뜻 |
 |---|---|
-| `settings.gradle.kts.fragment` | 루트 settings에 **더할** include 줄들. 덮어쓰지 않는다 |
+| `settings.gradle.kts.fragment` | 루트 settings에 **더할** 줄들(모듈마다 `include` + `projectDir` 재지정 한 쌍 — 이름은 컨텍스트 접두형, 디렉터리는 계층형이어서 둘이 갈린다). 덮어쓰지 않는다 |
 | `build.gradle.kts.<레이어>` | 그 레이어 모듈의 빌드 스크립트. **버전을 박지 않는다** — 대상 프로젝트의 plugins 블록·버전 카탈로그·BOM이 정한다 |
 | `<레이어>/*.<확장자>` | 그 레이어의 소스 템플릿. **소스 확장자는 그 프로파일의 몫이다**(kotlin-spring `.kt`, java-spring `.java`) |
 | `test/*.<확장자>` | 테스트 골격. `test`는 레이어가 아니라 **소스셋**이며 가장 안쪽 레이어를 소유한 모듈의 `src/test`로 간다 |

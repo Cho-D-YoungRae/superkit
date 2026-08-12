@@ -96,7 +96,8 @@ fitness의 생성물이고 배치 규약은 `rule-mappings.md` §0.1이 갖는�
 모듈은 `{{context}}` 하나이고 세 레이어는 그 안의 패키지다. 경로에서 `{{context}}/<레이어>/`가
 `{{context}}/`로 줄어드는 것 말고는 같다.
 
-- settings 조각은 `include(":{{context}}")` **한 줄**로 줄인다.
+- settings 조각은 `include(":{{context}}")` **한 줄**로 줄인다 — 모듈 이름이 곧 디렉터리라
+  `projectDir` 재지정 줄은 함께 사라진다.
 - `build.gradle.kts.<레이어>` 셋을 **하나로 합친다.** 단순히 이어 붙이면 `plugins` 블록이
   여럿이 되어 Gradle이 구성 단계에서 거부한다. 병합은 결정적으로 한다.
 
@@ -105,7 +106,7 @@ fitness의 생성물이고 배치 규약은 `rule-mappings.md` §0.1이 갖는�
 | 주석 | **버리지 않는다 — 위치와 무관하게 전부 보존한다.** 조각 머리의 주석은 레이어 순서대로 파일 맨 위에 모으고, 블록 안(`plugins`·`dependencies`)과 블록 뒤의 근거 주석은 그 항목을 따라 옮긴다. "이 의존을 여기 더하면 어느 규칙이 잡는다"·"이 옵션이 빠지면 첫 요청에서 깨진다"는 근거가 사라지면 나중에 아무나 더하고 아무나 지운다 |
 | `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다 |
 | `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
-| `project(":{{context}}:…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |
+| `project(":{{context}}-…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |
 | `tasks.test { useJUnitPlatform() }` | 파일 전체에 **한 번**만 |
 | `tasks.withType<JavaCompile> { … "-parameters" }` | 파일 전체에 **한 번**만. 합친 모듈에는 컨트롤러가 함께 들어오므로 이 블록은 **반드시 남는다** |
 
@@ -147,7 +148,7 @@ single-module이어도 **행은 레이어마다 하나씩**이고 `모듈`·`경
 **앱 실행 모듈.** 이 컨텍스트를 `포함 컨텍스트`로 선언한 앱의 모듈은 이 골격이 만들지 않는다 —
 `templates/_shared/`의 `build.gradle.kts.app`과 `{{App}}Application.java`가 만들고, 배치는
 `### 애플리케이션` 표의 `모듈 경로`다(`profiles/README.md` ②「앱 실행 모듈」). 그 앱이 이
-컨텍스트에서 의존하는 모듈은 **가장 바깥 레이어인 `:{{context}}:adapter` 하나**이며(안쪽은 전이
+컨텍스트에서 의존하는 모듈은 **가장 바깥 레이어인 `:{{context}}-adapter` 하나**이며(안쪽은 전이
 의존으로 따라온다), 그 값이 `{{#app.contextModules}}`에 들어가는 항목이다.
 
 **아키텍처 테스트 모듈.** `_shared/build.gradle.kts.archtest`가 만드는 그 모듈은

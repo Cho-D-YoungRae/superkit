@@ -1,12 +1,12 @@
-// {{context}}:adapter — 가장 바깥. application·domain을 안다.
+// {{context}}-adapter — 가장 바깥. application·domain을 안다.
 // @Entity는 이 모듈 안에서만 선언·참조된다(hex.domain-pure) — JPA 의존이 여기에만 있는 이유다.
 plugins {
     java
 }
 
 dependencies {
-    implementation(project(":{{context}}:application"))
-    implementation(project(":{{context}}:domain"))
+    implementation(project(":{{context}}-application"))
+    implementation(project(":{{context}}-domain"))
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-web")
 }

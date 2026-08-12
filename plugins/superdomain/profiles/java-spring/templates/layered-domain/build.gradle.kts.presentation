@@ -1,4 +1,4 @@
-// {{context}}:presentation — 컨트롤러와 조립 지점. ld.infra-isolated의 from에 없는 유일한 안쪽
+// {{context}}-presentation — 컨트롤러와 조립 지점. ld.infra-isolated의 from에 없는 유일한 안쪽
 // 레이어이므로 infrastructure를 볼 수 있다. 조립 목적이면 runtimeOnly로 충분하다 —
 // 컴파일 참조를 열면 컨트롤러가 인프라를 직접 부르는 남용 경로가 함께 열린다(스타일 R5).
 plugins {
@@ -6,10 +6,10 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":{{context}}:application"))
-    implementation(project(":{{context}}:domain"))
+    implementation(project(":{{context}}-application"))
+    implementation(project(":{{context}}-domain"))
     implementation("org.springframework.boot:spring-boot-starter-web")
-    runtimeOnly(project(":{{context}}:infrastructure"))
+    runtimeOnly(project(":{{context}}-infrastructure"))
 }
 
 // **Java에서 구조 검사가 보지 못하는 자리 — 파라미터 이름.** Spring 6.1부터 `@PathVariable`·

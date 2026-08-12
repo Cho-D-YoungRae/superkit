@@ -1,13 +1,13 @@
-// {{context}}:framework — 가장 바깥 원. 안쪽 전부를 안다.
+// {{context}}-framework — 가장 바깥 원. 안쪽 전부를 안다.
 // @Entity·게이트웨이 구현·스프링 설정·트랜잭션 데코레이터가 여기서 끝난다(cl.domain-pure).
 plugins {
     java
 }
 
 dependencies {
-    implementation(project(":{{context}}:adapter"))
-    implementation(project(":{{context}}:usecase"))
-    implementation(project(":{{context}}:domain"))
+    implementation(project(":{{context}}-adapter"))
+    implementation(project(":{{context}}-usecase"))
+    implementation(project(":{{context}}-domain"))
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 }
 

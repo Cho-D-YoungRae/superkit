@@ -1,4 +1,4 @@
-// {{context}}:data — 가장 안쪽. 엔티티가 곧 모델이므로 JPA 의존이 여기 있다.
+// {{context}}-data — 가장 안쪽. 엔티티가 곧 모델이므로 JPA 의존이 여기 있다.
 // application·presentation을 의존하지 않는다(ls.layer-order — data가 안→밖 순서의 첫 항목이다).
 // 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
 plugins {

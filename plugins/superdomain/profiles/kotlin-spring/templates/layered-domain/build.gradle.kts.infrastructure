@@ -1,4 +1,4 @@
-// {{context}}:infrastructure — 리포지터리 구현·외부 클라이언트·메시지 발행.
+// {{context}}-infrastructure — 리포지터리 구현·외부 클라이언트·메시지 발행.
 // @Entity는 이 모듈 안에서만 선언·참조된다(ld.domain-pure). application을 의존하는 것도 허용된다.
 plugins {
     kotlin("jvm")
@@ -8,7 +8,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":{{context}}:domain"))
+    implementation(project(":{{context}}-domain"))
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 }
 

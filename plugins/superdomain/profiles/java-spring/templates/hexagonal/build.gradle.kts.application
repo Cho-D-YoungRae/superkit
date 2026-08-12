@@ -1,10 +1,10 @@
-// {{context}}:application — 유스케이스와 포트. domain만 안다(hex.deps-inward).
+// {{context}}-application — 유스케이스와 포트. domain만 안다(hex.deps-inward).
 plugins {
     java
 }
 
 dependencies {
-    implementation(project(":{{context}}:domain"))
+    implementation(project(":{{context}}-domain"))
     // @Service·@Transactional은 이 스타일에서 허용된다 — hex.domain-no-framework의 from에
     // application이 없다. 그것을 막고 싶으면 스타일을 clean으로 바꾸는 것이 답이다.
     // 켤 때 Kotlin 쪽에서 함께 켜야 했던 `plugin.spring`은 Java에 필요 없다 — 클래스가 기본

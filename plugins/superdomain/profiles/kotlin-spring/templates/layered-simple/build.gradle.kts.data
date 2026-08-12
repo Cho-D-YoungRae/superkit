@@ -1,4 +1,4 @@
-// {{context}}:data — 가장 안쪽. 엔티티가 곧 모델이므로 JPA 의존이 여기 있다.
+// {{context}}-data — 가장 안쪽. 엔티티가 곧 모델이므로 JPA 의존이 여기 있다.
 // application·presentation을 의존하지 않는다(ls.layer-order — data가 안→밖 순서의 첫 항목이다).
 // 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
 plugins {
@@ -21,7 +21,7 @@ plugins {
 dependencies {
     // **`implementation`이 아니라 `api`다.** `{{Context}}Repository`가 `JpaRepository`를 상속하는
     // 순간 스프링 데이터 타입이 이 모듈의 **공개 API**가 된다 — `{{Context}}Service`가
-    // `findById(...)`를 부르려면 그 상위 타입이 `:{{context}}:application`의 컴파일 클래스패스에
+    // `findById(...)`를 부르려면 그 상위 타입이 `:{{context}}-application`의 컴파일 클래스패스에
     // 있어야 하고, `implementation`으로 감추면
     // `Cannot access 'JpaRepository' which is a supertype of '{{Context}}Repository'`로 깨진다
     // ✅ 실측. **multi-module에서만 드러난다** — single-module은 세 레이어가 한 컴파일 단위라

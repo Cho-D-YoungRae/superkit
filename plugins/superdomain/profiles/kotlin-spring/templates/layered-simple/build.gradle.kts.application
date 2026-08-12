@@ -1,4 +1,4 @@
-// {{context}}:application — 서비스와 트랜잭션 경계. data를 안다(엔티티를 그대로 다루는 것이
+// {{context}}-application — 서비스와 트랜잭션 경계. data를 안다(엔티티를 그대로 다루는 것이
 // 이 스타일에서는 정상이다). presentation은 의존하지 않는다(ls.layer-order).
 plugins {
     kotlin("jvm")
@@ -8,7 +8,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":{{context}}:data"))
+    implementation(project(":{{context}}-data"))
     implementation("org.springframework:spring-context")
     implementation("org.springframework:spring-tx")
 }

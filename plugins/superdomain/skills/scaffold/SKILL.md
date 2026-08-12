@@ -161,8 +161,9 @@ ls "<프로젝트 경로>"/settings.gradle* "<프로젝트 경로>"/pom.xml 2>/d
 아키텍처 테스트 위치의 디렉터리와 그 모듈의 빌드 스크립트.
 
 - **settings는 더한다, 덮지 않는다.** 파일이 없으면 `rootProject.name = "<프로젝트 이름>"`으로
-  시작하고, 있으면 include 줄만 추가한다. 각 스타일의 `settings.gradle.kts.fragment`가 그 줄의
-  정본이다(레이아웃에 따라 줄이 줄거나 사라지는 규칙은 MANIFEST에 있다).
+  시작하고, 있으면 줄만 추가한다. 각 스타일의 `settings.gradle.kts.fragment`가 그 줄의 정본이다
+  (레이아웃에 따라 줄이 줄거나 사라지는 규칙은 MANIFEST에 있다). **조각의 `projectDir` 재지정 줄을
+  빼지 않는다** — 모듈 이름이 저장소 전역에서 유일해야 jar 이름이 겹치지 않는다(조각 머리 주석).
 - **아키텍처 테스트 위치가 별도 모듈이면 include에 넣고 빌드 스크립트를 함께 만든다.** include만
   있고 스크립트가 없으면, 또는 스크립트만 있고 include가 없으면 fitness가 만들 테스트는 영원히
   실행되지 않는다. 조각은 `templates/_shared/build.gradle.kts.archtest`이고(계약 ② 「파일 구성」),
@@ -211,7 +212,7 @@ ls "${CLAUDE_PLUGIN_ROOT}/profiles/<프로파일>/templates/_shared/"
   검사도 되지 않는다.
 - **`{{#app.contextModules}}`의 항목은 각 `포함 컨텍스트`의 가장 바깥 레이어 모듈 하나씩**이다.
   어느 레이어가 그것인지는 **그 컨텍스트 스타일의 MANIFEST 「앱 실행 모듈」 한 줄**이 적는다
-  (hexagonal은 `:{{context}}:adapter`). 표에 없는 컨텍스트를 의존에 더하지 않는다 — 의존이 아니라
+  (hexagonal은 `:{{context}}-adapter`). 표에 없는 컨텍스트를 의존에 더하지 않는다 — 의존이 아니라
   표를 먼저 고친다(4-a).
 - **커스텀 스타일에는 그 MANIFEST가 없다.** 그때 가장 바깥 레이어는 그 스타일 `layer-order`
   인스턴스의 **`layers` 파라미터 마지막 항목**이다 — 그 파라미터는 언제나 안→밖이기 때문이다.

@@ -1,12 +1,12 @@
-// {{context}}:presentation — 컨트롤러와 요청·응답 모델.
+// {{context}}-presentation — 컨트롤러와 요청·응답 모델.
 // 엔티티를 컨트롤러가 직접 다루는 것은 이 스타일에서 규칙 위반이 아니다. 그러려면
-// `project(":{{context}}:data")`를 더한다 — 다만 스키마 변경이 곧 API 변경이 된다(스타일 R5).
+// `project(":{{context}}-data")`를 더한다 — 다만 스키마 변경이 곧 API 변경이 된다(스타일 R5).
 plugins {
     java
 }
 
 dependencies {
-    implementation(project(":{{context}}:application"))
+    implementation(project(":{{context}}-application"))
     implementation("org.springframework.boot:spring-boot-starter-web")
 }
 
