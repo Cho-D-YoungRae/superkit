@@ -437,6 +437,16 @@ class ClaimArchitectureTest {
 
 - `java-spring/rule-mappings.md`: 동일 primitive → ArchUnit 매핑(`ArchRuleDefinition`, `layeredArchitecture()` API). 같은 선언에서 Java 프로젝트용 아키텍처 테스트를 생성한다.
 - baseline 연동: java-spring은 ArchUnit의 `FreezingArchRule`로 기존 위반 동결을 구현한다(정확히 이 용도의 내장 기능, ViolationStore 경로는 `archunit.properties`로 지정). kotlin-spring은 Konsist에 동등 기능이 없으므로, 생성된 테스트가 baseline.jsonl을 읽어 알려진 위반을 warn(리포트만)으로 강등하는 로직을 포함시킨다.
+
+> **정정(2026-08-12, 구현 착지 반영)** — **java-spring도 `FreezingArchRule`을 쓰지 않는다.** 위 문장은
+> baseline.jsonl이 코어 계약(매칭 키 `(rule, path)`, 축소는 migrate만)으로 확정되기 전에 쓰였는데,
+> ArchUnit 1.4.1의 `ViolationStore`는 `save(ArchRule, List<String>)`·`getViolations(ArchRule)`로 **위반
+> 설명 줄**을 규칙 단위로 저장하고 동치 판정도 `ViolationLineMatcher`(줄 대 줄 문자열 비교)라 그 키로
+> 사상되지 않으며, store와 baseline.jsonl이 **이중 장부**가 되어 migrate의 축소가 store에 반영되지
+> 않는다. 두 프로파일 모두 생성 테스트가 baseline.jsonl을 직접 읽어 강등한다.
+>
+> **번역·강등 합성·경로 사상·한계의 정본은 `profiles/java-spring/rule-mappings.md`(§7·§8)와
+> `profiles/java-spring/api-verification.md`다. 스펙 본문이 아니라 그쪽이 이긴다.**
 - `templates/<style>/` (프리셋 4종 각각, 프로파일별): settings.gradle(.kts) 조각, 모듈별 빌드 스크립트, 패키지 골격, 샘플 포트/어댑터/유스케이스, 테스트 골격. single-module용 패키지 경계 골격 변형과 app-embedded용 레이어 패키지 골격 변형도 제공한다. 커스텀 스타일은 템플릿 대신 스타일 선언으로부터 골격을 유도한다.
 - Spring Modulith는 single-module 레이아웃의 보조 검증 수단으로 rule-mappings.md에 문서화만 한다(v1 생성 대상은 Konsist/ArchUnit만).
 
