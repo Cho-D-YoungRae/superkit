@@ -128,6 +128,24 @@ HYPHEN_CONTEXT_ARCH = HEAD + """
 | order-edge | order/edge | edge |
 """
 
+# 앱 이름은 하이픈을 점으로 바꿔 패키지가 된다(§6) — `{앱}` 규약 행이 있을 때만 세그먼트가 된다.
+APP_ARCH = HEAD + """
+### 애플리케이션
+| 이름 | 모듈 경로 | 포함 컨텍스트 |
+|---|---|---|
+| {app} | apps/{app} | all |
+
+## 컨텍스트: order
+- 분류: core
+- 스타일: custom/ports-lite
+- 모듈 구성: multi-module
+
+| 모듈 | 경로 | 레이어 |
+|---|---|---|
+| order-core | order/core | core |
+| order-edge | order/edge | edge |
+"""
+
 TEST_LOCATION_LINE = "- 아키텍처 테스트 위치: architecture-test/src/test/kotlin"
 
 SHARED_ARCH = HEAD + SHARED_MODULE_TABLE + """
@@ -571,6 +589,34 @@ class TestCrossFileValidation(ResolveTestCase):
         # 대조군 — 같은 문서에서 이름만 합법 세그먼트로 바꾸면 통과한다.
         text = HYPHEN_CONTEXT_ARCH.replace("## 컨텍스트: order-mgmt", "## 컨텍스트: order_mgmt")
         self.assert_clean(self.resolve_text(text, {"ports-lite": PORTS_LITE}))
+
+    def app_text(self, app, *rows):
+        return with_conventions(APP_ARCH.format(app=app), *rows)
+
+    def test_invalid_segment_app_name_error(self):
+        # `api-2` → `api.2`. 숫자로 시작하는 조각은 컴파일되지 않는 패키지를 만든다.
+        text = self.app_text("api-2", ("core", "com.acme.{컨텍스트}.core.."),
+                             ("edge", "com.acme.{앱}.."))
+        error = self.assert_one_error(self.resolve_text(text, {"ports-lite": PORTS_LITE}),
+                                      "유효한 패키지 세그먼트가 아닙니다",
+                                      line=line_of(text, "## 프로젝트: backend"))
+        self.assertIn("애플리케이션 이름 'api-2'", error.message)
+        self.assertIn("api.2", error.message)
+
+    def test_valid_hyphen_app_name_not_flagged(self):
+        # 대조군 — 하이픈 자체는 문제가 아니다. `core-api` → `core.api`는 두 조각 모두 합법이다.
+        text = self.app_text("core-api", ("core", "com.acme.{컨텍스트}.core.."),
+                             ("edge", "com.acme.{앱}.."))
+        self.assert_clean(self.resolve_text(text, {"ports-lite": PORTS_LITE}))
+
+    def test_invalid_app_name_not_flagged_without_app_placeholder(self):
+        # `{앱}` 행이 없으면 앱 이름은 패키지가 되지 않는다(관측 대상이다, D2) — 무관하다.
+        text = self.app_text("api-2", ("core", "com.acme.{컨텍스트}.core.."),
+                             ("edge", "com.acme.{컨텍스트}.edge.."))
+        self.assert_clean(self.resolve_text(text, {"ports-lite": PORTS_LITE}))
+        # 규약 표가 아예 없을 때도 같다 — 검사할 선언 경로 자체가 없다.
+        self.assert_clean(self.resolve_text(APP_ARCH.format(app="api-2"),
+                                            {"ports-lite": PORTS_LITE}))
 
     def test_unknown_pattern_key_error(self):
         text = with_label(MINIMAL, "- 모듈 구성: multi-module", "- 패턴: nosuch")

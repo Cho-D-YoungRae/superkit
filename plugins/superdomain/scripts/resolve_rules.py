@@ -337,6 +337,35 @@ def _check_convention_layers(project, contexts, declarations, errors, arch_path)
             ))
 
 
+def _check_app_segments(project, errors, arch_path):
+    """애플리케이션 이름의 `{앱}` 전개가 유효한 패키지 세그먼트들인지 확인한다(§6 — 컨텍스트의 짝).
+
+    앱 이름은 하이픈을 점으로 바꿔 대입되므로(`core-api` → `core.api`) 전개 결과가 여러 세그먼트가
+    된다. 하이픈 자체는 문제가 아니고, 조각 하나가 세그먼트로 성립하지 않는 것이 문제다 —
+    `api-2` → `api.2`의 `2`는 컴파일되지 않는 패키지를 만든다.
+
+    `{앱}` 규약 행이 없으면 앱 패키지는 선언되지 않고 관측된다(D2). 그때 앱 이름은 패턴에 전혀
+    들어가지 않으므로 검사하지 않는다 — 컨텍스트 이름의 `{컨텍스트}` 판정과 같은 논리다.
+    """
+    if not any("{앱}" in pattern for pattern in project.package_conventions.values()):
+        return
+    for application in project.applications:
+        expanded = application.name.replace("-", ".")
+        bad = next((segment for segment in expanded.split(".")
+                    if not RE_PACKAGE_SEGMENT.match(segment)), None)
+        if bad is None:
+            continue
+        errors.append(LocatedError(
+            project.line,
+            f"프로젝트 '{project.name}'의 애플리케이션 이름 '{application.name}'의 전개 "
+            f"'{expanded}'이(가) 유효한 패키지 세그먼트가 아닙니다('{bad}' 조각). 패키지 규약의 "
+            f"'{{앱}}' 자리에 이름의 하이픈을 점으로 바꿔 넣으므로(§6) 이 이름은 컴파일되지 않는 "
+            f"패키지를 만들고, 그 패턴으로 생성된 아키텍처 테스트는 강제 시점에 죽습니다 — 앱 "
+            f"이름을 바꾸거나 그 규약 행의 '{{앱}}'을 실제 세그먼트로 바꿔 적으세요.",
+            arch_path,
+        ))
+
+
 def _check_patterns(context, catalog, errors, arch_path):
     """`패턴` 라벨의 값이 실재하는 knowledge 문서 key인지 확인한다(§5.3 행 5)."""
     if not context.patterns:
@@ -669,6 +698,7 @@ def resolve_document(arch_path) -> Resolution:
     for project in architecture.projects:
         contexts = contexts_by_project.get(project.name, [])
         _check_convention_layers(project, contexts, declarations, result.errors, path_text)
+        _check_app_segments(project, result.errors, path_text)
 
         domain_pure = {context.name for context in contexts
                        if _is_domain_pure(declarations.get(context.name),
