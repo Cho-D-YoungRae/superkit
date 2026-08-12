@@ -771,7 +771,7 @@ class TestHonesty(CheckTestCase):
         self.assertIn(LIMITATION_NOTE, lines)
         self.assertNotIn(CONFINE_SCOPE_NOTE, lines)
 
-    def test_footer_keeps_the_confine_scope_note_when_the_rule_was_skipped(self):
+    def test_footer_omits_the_confine_scope_note_when_the_rule_was_skipped(self):
         # 생략된 규칙도 판정하지 않은 것이므로 같은 규율이다.
         self.arch(MONO_ARCH.replace("| claim-adapter | claim/adapter | adapter |\n", ""))
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
