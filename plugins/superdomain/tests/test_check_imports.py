@@ -395,6 +395,40 @@ class TestPrimitives(CheckTestCase):
         violation = self.assert_violation(self.check(), "pk.domain-pure", needle="OrphanRow")
         self.assertIn("com.acme.claim.adapter.persistence..", violation.message)
 
+    def test_confine_type_ignores_entity_written_in_a_comment_or_string(self):
+        # 폴백(선언 타입을 못 찾았을 때 지목할 줄)이 파일 전체 텍스트를 검색하면 **Javadoc·주석·
+        # 문자열 안의 `@Entity` 글자**가 선언으로 오판된다 ✅ 실측(Phase 6 T4) — 메시지가 사실과
+        # 다를 뿐 아니라, `이행` 프로젝트에서는 허깨비 항목이 baseline에 얼어붙고 `이행`이 없는
+        # 프로젝트에서는 정당한 탈출로가 없는 거짓 blocker가 된다.
+        self.clean_tree()
+        self.src("claim/application/src/main/java/com/acme/claim/application/OrderService.java",
+                 "package com.acme.claim.application;\n"
+                 "\n"
+                 "/**\n"
+                 " * 이 서비스는 @Entity 를 직접 다루지 않는다 — 매핑은 adapter의 몫이다.\n"
+                 " */\n"
+                 "public class OrderService {\n"
+                 '    private static final String MARKER = "@Entity";\n'
+                 "    // TODO: @Entity 매핑을 adapter로 옮긴다\n"
+                 "}\n")
+        self.assert_no_violation(self.check(), "af.domain-pure")
+
+    def test_confine_type_fallback_still_catches_a_real_declaration(self):
+        # 위 좁힘의 회귀 가드 — 폴백은 죽이지 않는다. 패키지 전용(비 public) Java 클래스는
+        # RE_JAVA_TYPE이 잡지 못하므로 **선언이 실재해도** 폴백만이 지목할 수 있는 자리다.
+        self.clean_tree()
+        self.src("claim/domain/src/main/java/com/acme/claim/domain/ClaimRow.java",
+                 "package com.acme.claim.domain;\n"
+                 "\n"
+                 "import jakarta.persistence.Entity;\n"
+                 "\n"
+                 "@Entity\n"
+                 "class ClaimRow {\n"
+                 "}\n")
+        violation = self.assert_violation(self.check(), "af.domain-pure", needle="선언")
+        self.assertTrue(violation.path.endswith("ClaimRow.java"), violation.path)
+        self.assertEqual(violation.line, 5)
+
     def test_confine_type_leaves_cross_context_reference_to_context_isolation(self):
         # 교차 컨텍스트 @Entity 참조는 이 규칙의 몫이 아니다. `allowed_layer`가 가리키는 격리
         # 범위는 **그 컨텍스트의** 것이라, 남의 엔티티를 그 잣대로 재면 "상대 컨텍스트의 엔티티를

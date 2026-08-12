@@ -266,6 +266,50 @@ def _line_of(text, position) -> int:
     return text.count("\n", 0, position) + 1
 
 
+def _blank_out(chars, start, end) -> None:
+    for k in range(start, end):
+        if chars[k] != "\n":
+            chars[k] = " "
+
+
+def _strip_comments_and_strings(text) -> str:
+    """주석과 문자열 리터럴을 **같은 길이의 공백**으로 덮은 사본.
+
+    길이를 보존하므로 이 사본에서 얻은 오프셋을 원문의 `_line_of`에 그대로 넣을 수 있다. 필요한
+    이유는 문면이 코드인 척하기 때문이다 — Javadoc/KDoc에 적힌 `@Entity`나 문자열 리터럴
+    `"@Entity"`는 선언이 아닌데, 선언 줄과 결합하지 않는 검색은 그것을 선언으로 읽는다 ✅ 실측.
+    Kotlin의 중첩 블록 주석과 삼중 따옴표 문자열까지 본다(둘 다 이 언어에서 흔하다).
+    """
+    chars, i, n = list(text), 0, len(text)
+    while i < n:
+        if text.startswith("//", i):
+            end = text.find("\n", i)
+            end = n if end < 0 else end
+        elif text.startswith("/*", i):
+            depth, end = 1, i + 2
+            while end < n and depth:
+                if text.startswith("/*", end):
+                    depth, end = depth + 1, end + 2
+                elif text.startswith("*/", end):
+                    depth, end = depth - 1, end + 2
+                else:
+                    end += 1
+        elif text.startswith('"""', i):
+            end = text.find('"""', i + 3)
+            end = n if end < 0 else end + 3
+        elif text[i] in "\"'":
+            quote, end = text[i], i + 1
+            while end < n and text[end] not in (quote, "\n"):
+                end += 2 if text[end] == "\\" else 1
+            end = min(end + 1, n)
+        else:
+            i += 1
+            continue
+        _blank_out(chars, i, end)
+        i = end
+    return "".join(chars)
+
+
 def _entity_declaration_lines(lines) -> set:
     """`@Entity`가 붙은 선언의 줄 번호 집합.
 
@@ -314,7 +358,9 @@ def _read_source(path, display):
         entity = line in entity_lines or bool(RE_ENTITY.search(match.group(0)))
         types.append(TypeDecl(match.group(1), line, entity))
 
-    entity_search = RE_ENTITY.search(text)
+    # 폴백은 선언 줄과 결합하지 않는 **파일 전체 검색**이라, 주석·문자열을 먼저 덮지 않으면
+    # Javadoc의 `@Entity` 한 글자가 위반이 된다(위 타입 단위 판정은 선언과 결합하므로 원문을 본다).
+    entity_search = RE_ENTITY.search(_strip_comments_and_strings(text))
     entity_line = _line_of(text, entity_search.start()) if entity_search else 0
     return SourceFile(path, display, package, tuple(imports), tuple(types), entity_line)
 
