@@ -270,8 +270,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
   (1단계의 두 번째 어긋남).
 - **항목을 새로 더하지 않는다.** 이번 작업이 만든 위반은 고칠 것이지 동결할 것이 아니다 — 동결은
   init의 권한이다.
-- `note`를 쓴다면 값 안에 `"rule"`·`"path"` 꼴 문자열을 넣지 않는다. 생성 테스트의 로더가 정규식으로
-  읽어 오독한다(`rule-mappings.md` §7 한계 ⑤).
+- **`rule`·`path` 값에 역슬래시를 쓰지 않는다**(경로 구분자는 `/`). 생성 테스트의 로더는 정규식으로
+  읽어 이스케이프가 든 값을 놓치고 `"path" 값이 없습니다`로 중단하는데, 같은 줄을 `json.loads`로
+  읽는 `check_imports`는 통과해 두 소비자가 갈린다(`rule-mappings.md` §7 한계 ⑤). `note` 값 안의
+  `"path"` 꼴 문자열은 유효 JSON이면 이스케이프되어 오독되지 않는다.
 - **남길 줄이 하나도 없으면 빈 파일을 쓰지 않는다.** 그대로 7단계로 간다.
 - **건수를 인용한 파생물이 여기서 낡는다.** `docs/architecture/summary.md`의 「전역 핵심 규칙」이
   동결 시점 건수를 문장에 박아 두었으면 축소한 지금 그 문장은 거짓이고, 이 파일은 SessionStart
