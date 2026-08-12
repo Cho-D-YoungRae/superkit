@@ -53,9 +53,9 @@ description: >
 파생물 재생성까지 이 스킬이 끝낸다**(9단계) — 반쯤 반영하고 끊으면 선언과 파생물이 갈라진 상태가
 산출물이 된다.
 
-**domain 문서·코드·생성된 테스트는 읽기만 한다.** 경계를 다시 긋는 변경(컨텍스트 신설·병합·분리)도
-이 스킬의 편집 범위 밖이다 — 분류·스타일·모듈 구성을 새로 정하는 인터뷰가 필요하고 그 정본은
-`init`이다(9-a).
+**domain 문서·코드·생성된 테스트는 읽기만 한다.** 경계를 건드리는 변경도 이 스킬의 편집 범위
+밖이다 — 분류·스타일·모듈 구성을 정하는 인터뷰가 필요하고, 그 정본은 **신설이면 `scaffold`(4-a),
+병합·분리면 `init`**이다(9-a).
 
 ---
 
@@ -289,7 +289,8 @@ git worktree remove <임시 경로>
 | 수락한 제안의 ADR 초안 | `decisions/NNNN-slug.md`(`proposed`) | **이 스킬**(8단계) |
 | 분류·스타일·이행·규칙 예외 라벨, 관계 표 행 | `ARCHITECTURE.md`의 그 줄·그 표 → 파생물 | **이 스킬**(9-a → 9-b) |
 | 컨벤션 승격(신호 5) | `docs/architecture/conventions/<key>.md` 초안 | **이 스킬** |
-| 컨텍스트 신설·병합·분리 — 경계를 다시 긋는 것 | 경계·분류·스타일·모듈 구성 인터뷰 | **`/superarchitect:init`**(골격은 `scaffold`) |
+| 컨텍스트 **신설** | 인터뷰 → 선언 등록 → 게이트 → 파생물, 그리고 골격까지 한 절차 | **`/superarchitect:scaffold`**(4-a 분기표가 이 경로의 정본이다) |
+| 컨텍스트 **병합·분리** — 있는 경계를 다시 긋는 것 | 분류·스타일·모듈 구성을 다시 정하는 인터뷰 | **`/superarchitect:init`**(골격이 필요하면 그 뒤 `scaffold`) |
 | 도메인 모델 재편(용어·추상화·애그리거트) | `docs/architecture/domain/<context>.md` | **`/superarchitect:model` 세션** |
 | baseline 축소 | 코드 이행 | **`/superarchitect:migrate`** — 축소는 이 경로로만 |
 
@@ -313,7 +314,8 @@ git worktree remove <임시 경로>
   같은 오류가 두 번 반복되면 멈추고 파서 출력 원문을 보여주며 묻는다.
 - **경계를 다시 긋는 제안은 여기서 편집하지 않는다.** 신호 3의 병합·분리, 신호 1이 컨텍스트
   분할로 이어지는 경우가 그렇다 — 분류·스타일·모듈 구성을 새로 정해야 하므로 무엇을 넘기는지
-  명시하고 `init`으로 보낸다. **넘긴 항목은 9-b에서 재생성하지 않는다** — 그쪽이 자기 절차로
+  명시하고 `init`으로 보낸다. **컨텍스트 신설은 `scaffold`다**(위 표) — 그쪽 4-a가 인터뷰부터
+  선언 등록까지 갖고 있다. **넘긴 항목은 9-b에서 재생성하지 않는다** — 그쪽이 자기 절차로
   게이트와 파생물까지 끝낸다. 두 스킬이 같은 구역을 두 번 쓰면 안 된다.
 
 ### 9-b. 게이트 → 파생물 재생성 → 게이트
@@ -349,9 +351,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
 4. **쓴 파일** — ADR 경로와 채번 근거(관측된 최대 번호 → 새 번호), conventions 경로,
    `ARCHITECTURE.md`의 어느 줄·표, `summary.md`·생성 구역. 9-b 마지막 게이트의 `OK:` 줄을 그대로
    인용한다. 아무것도 쓰지 않았으면 그렇게 적는다.
-5. **넘긴 것과 남은 일** — `init`(경계 재설정)·`model`(도메인 재편)·`migrate`(baseline 축소)로
-   넘긴 항목과 권하는 명령, `/superarchitect:fitness` 갱신 권유(무엇이 바뀌어 필요한지 한 줄),
-   `proposed` ADR의 승인 경로(`/superarchitect:adr`).
+5. **넘긴 것과 남은 일** — `scaffold`(컨텍스트 신설)·`init`(병합·분리)·`model`(도메인 재편)·
+   `migrate`(baseline 축소)로 넘긴 항목과 권하는 명령, `/superarchitect:fitness` 갱신 권유
+   (무엇이 바뀌어 필요한지 한 줄), `proposed` ADR의 승인 경로(`/superarchitect:adr`).
 6. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
 
    ```bash
