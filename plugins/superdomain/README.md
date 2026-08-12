@@ -29,7 +29,7 @@ claude --plugin-dir /path/to/superarchitect
 | 산출물 | 위치 | 하는 일 |
 |---|---|---|
 | `/superarchitect:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·스타일·모듈 구성·관계를 확정하고 `ARCHITECTURE.md`와 파생물(`docs/architecture/summary.md`, ADR)을 만든다 |
-| `/superarchitect:fitness` | `skills/fitness/` | 유효 규칙을 프로파일의 `rule-mappings.md`로 번역해 Konsist 아키텍처 테스트를 생성·갱신한다. 생성까지가 몫이고 실행은 대상 프로젝트의 빌드가 한다 |
+| `/superarchitect:fitness` | `skills/fitness/` | 유효 규칙을 프로파일의 `rule-mappings.md`로 번역해 아키텍처 테스트를 생성·갱신한다(도구는 프로파일이 정한다 — Konsist 또는 ArchUnit). 생성까지가 몫이고 실행은 대상 프로젝트의 빌드가 한다 |
 | `/superarchitect:review` | `skills/review/` | 변경을 결정적 검사로 먼저 거른 뒤 의미론 판단만 `arch-reviewer`에 위임하고, 결과를 `review-log.jsonl`에 append한다 |
 | `/superarchitect:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 도메인 문서를 키운다. 불변식은 `proposed`로 적히고 `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다 |
 | `/superarchitect:apply` | `skills/apply/` | domain 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
@@ -48,9 +48,10 @@ claude --plugin-dir /path/to/superarchitect
 | 진화 신호 수집기 | `scripts/collect_signals.py` | git log·`review-log.jsonl`·`baseline.jsonl` 이력에서 신호 5종을 **관측만** 한다. 임계값과 해석은 넣지 않는다 — 그 정본은 `evolution-signals.md`이고 적용은 `evolve`다 |
 | 인덱스 생성기 | `scripts/build_index.py` | `references/knowledge/`를 스캔해 `references/INDEX.md`를 다시 만든다 |
 | 거버넌스 문서 6종 | `references/governance/` | 결정 템플릿·규칙 어휘·ADR·진화 신호·지식 문서 표준·도메인 문서 표준의 정본 |
-| `kotlin-spring` 프로파일 | `profiles/kotlin-spring/rule-mappings.md` | primitive 5종 + 파생 3종 → Konsist 코드 번역의 정본 |
+| `kotlin-spring` 프로파일 | `profiles/kotlin-spring/` | primitive 5종 + 파생 3종 → Konsist 코드 번역의 정본(`rule-mappings.md`)과 쓴 API의 검증 대장(`api-verification.md`) |
 | 프리셋 골격 템플릿 4종 | `profiles/kotlin-spring/templates/` | scaffold가 전개하는 골격. 스타일마다 `MANIFEST.md`가 파일 목록·레이아웃 3형 배치·병합 규칙을 정한다. 앱 실행·아키텍처 테스트 모듈 조각은 스타일과 무관해 `_shared/`에 함께 둔다 |
 | 규칙 예제 | `profiles/kotlin-spring/examples/` | good 3 / bad 2. 나쁜 예는 걸리는 규칙 id와 도구가 실제로 낸 실패 메시지 첫 줄을 주석에 적는다 |
+| `java-spring` 프로파일 | `profiles/java-spring/` | 같은 어휘를 ArchUnit 1.4.1로 옮긴 짝(번역 사전 + 검증 대장). baseline 강등은 `FreezingArchRule`이 아니라 `baseline.jsonl`을 직접 읽는 kotlin-spring §7 동형이다 — 이중 장부를 만들지 않는다 |
 | 지식 문서 18종 | `references/knowledge/` | 전부 성숙(draft 0). INDEX를 거쳐 필요한 것만 선별해 읽는다 |
 | `study` 스킬 | `.claude/skills/study/` | 이 저장소 전용. 지식 베이스를 키운다(아래 참조) |
 
@@ -71,10 +72,9 @@ python3 scripts/collect_signals.py ARCHITECTURE.md    # 0=산출, 1=산출 불�
 
 ### 아직 없는 것
 
-- **`java-spring` 프로파일**(Phase 6) — `profiles/java-spring/`은 빈 디렉터리다. Java 프로젝트를
-  선언할 수는 있지만 fitness는 매핑 부재를 알리고 생성하지 않는다. 골격 템플릿도 `kotlin-spring`
-  하나에만 있다. 어휘 확장 절차(`rule-vocabulary.md` §7)도 두 프로파일의 매핑을 함께 요구하므로
-  그때까지 완주할 수 없다.
+- **`java-spring`의 골격 템플릿과 examples** — 필수 2파일(번역 사전·검증 대장)이 있어 fitness는 Java
+  프로젝트에도 테스트를 생성하지만, `profiles/java-spring/templates/`가 없어 scaffold는 그
+  프로파일의 스타일에서 멈춘다. 둘 다 프로파일 계약의 **선택** 항목이다(`profiles/README.md` ②③).
 
 거버넌스 문서 안에서 "아직 시행되지 않는 조항"은 각 문서의 구현 상태 블록에 모아 두었다
 (`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). Phase 5에서 그 목록은
@@ -91,7 +91,7 @@ python3 scripts/collect_signals.py ARCHITECTURE.md    # 0=산출, 1=산출 불�
 python3 -m unittest discover -s tests
 ```
 
-375개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
+381개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
 의존하므로 설치할 것이 없다(PyYAML도 쓰지 않는다. frontmatter는 제한 문법 자체 파서로 읽는다).
 
 ## 지식 추가 절차
@@ -141,7 +141,7 @@ scripts/
   collect_signals.py         진화 신호 수집기 — 관측만 하고 임계값은 갖지 않는다
   build_index.py             references/INDEX.md 생성기
   session_summary.sh         SessionStart 훅 본체
-profiles/                    kotlin-spring (매핑·검증 대장·템플릿 4종·examples), java-spring (Phase 6)
+profiles/                    kotlin-spring (매핑·검증 대장·템플릿 4종·examples), java-spring (매핑·검증 대장)
 references/
   INDEX.md                   생성물 — 직접 고치지 말고 build_index.py를 다시 돌린다
   governance/                결정 템플릿·규칙 어휘·ADR·진화 신호·지식/도메인 문서 표준의 정본

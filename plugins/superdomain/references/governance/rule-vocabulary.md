@@ -376,8 +376,6 @@ id를 바꾸면 이 선언이 조용히 아무것도 가리키지 않게 된다 
 
 새 primitive(또는 새 셀렉터)를 추가하는 유일한 합법 경로. **세 가지는 한 변경에 함께 들어간다.**
 
-> **구현 상태 — 아래 3이 가리키는 파일이 아직 없다.** `profiles/kotlin-spring/rule-mappings.md`는 있고, `profiles/java-spring/rule-mappings.md`는 Phase 6에서 만들어진다(§8의 `profiles/<profile>/rule-mappings.md` 참조도 같다). 그때까지 어휘 확장은 이 절차를 완주할 수 없으므로 시도하지 않는다 — 한쪽 매핑만 두고 정의를 추가하면 그것이 아래가 막으려는 "반쪽 어휘"다.
-
 1. **이 문서에 정의를 추가한다** — 이름, 강제 내용, 파라미터 표, 선언 예, 위반 예, 주의.
 2. **`profiles/kotlin-spring/rule-mappings.md`에 Konsist 매핑을 추가한다.**
 3. **`profiles/java-spring/rule-mappings.md`에 ArchUnit 매핑을 추가한다.**
