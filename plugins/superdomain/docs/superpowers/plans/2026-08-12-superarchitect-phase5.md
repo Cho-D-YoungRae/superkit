@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 스크립트 stdlib만(git은 subprocess로 호출 — git 부재·비저장소는 산출 불가 고지). SKILL ≤500줄, description ≤1,536자.
-- **review SKILL은 500/500 — 만지기 전에 압축으로 여유를 먼저 확보한다(P5-D4).** rule-mappings 498/500 — 추가는 등량 교환.
+- **review SKILL은 500/500 — 만지기 전에 압축으로 여유를 먼저 확보한다(P5-D4).** rule-mappings 500/500 — 추가는 등량 교환.
 - 자동 적용 금지(evolve·sync·migrate 공통 — 스펙 §13). 제거는 착지 확인 후에만. INDEX는 스위프 태스크만.
 - 커밋 `git commit --only <자기 경로>`. 오류 한국어 `경로:라인:`.
 
