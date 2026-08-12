@@ -2,7 +2,8 @@ import json, os, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from collect_signals import CollectError, collect, payload, render
+from collect_signals import (INTERPRETATION_NOTE, LIMITATION_NOTE, CollectError, collect,
+                             payload, render)
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -127,10 +128,12 @@ class SignalsTestCase(unittest.TestCase):
         relpath = f"{module}/src/main/kotlin/{package.replace('.', '/')}/{name}.kt"
         return self.write(relpath, f"package {package}\n\nclass {name} // rev {marker}\n")
 
-    def commit(self, message, date=None):
+    def commit(self, message, date=None, committed=None):
+        """`committed`를 따로 주면 작성자 날짜와 커밋터 날짜가 갈린다(축 검증용)."""
         env = None
-        if date:
-            env = dict(os.environ, GIT_AUTHOR_DATE=date, GIT_COMMITTER_DATE=date)
+        if date or committed:
+            env = dict(os.environ, GIT_AUTHOR_DATE=date or committed,
+                       GIT_COMMITTER_DATE=committed or date)
         self.git("add", "-A")
         self.git("commit", "-q", "-m", message, env=env)
         return self.git("rev-parse", "HEAD").strip()
@@ -231,6 +234,17 @@ class UnattributedTest(SignalsTestCase):
         self.assertIn("app/web/src/main/kotlin/com/acme/web/Controller.kt",
                       signals.unattributed.samples)
 
+    def test_project_outside_the_repository_is_announced(self):
+        """저장소 밖 프로젝트는 영구 0건이다 — 사유 없이 조용히 빼면 '변경 없음'과 구분되지 않는다."""
+        self.write("ARCHITECTURE.md", ARCH.replace("- 경로: .", "- 경로: ../바깥"))
+        self.write("docs/architecture/styles/full.md", STYLE_FULL)
+        self.commit("init")
+
+        signals = self.collect()
+        self.assertEqual(signals.contexts, [])
+        self.assertTrue(any("저장소" in note and "바깥" in note for note in signals.notices),
+                        signals.notices)
+
     def test_unattributed_is_announced_in_report(self):
         self.base()
         self.write("README.md", "hello\n")
@@ -302,6 +316,9 @@ def review_line(rule, path, date="2026-08-01", severity="blocker", note="관측"
                        "severity": severity, "note": note}, ensure_ascii=False)
 
 
+CLAIM_KT = "claim/domain/src/main/kotlin/com/acme/claim/domain/Claim.kt"
+
+
 class ReviewLogTest(SignalsTestCase):
     def log(self, *lines):
         self.write("docs/architecture/review-log.jsonl", "".join(f"{line}\n" for line in lines))
@@ -355,6 +372,49 @@ class ReviewLogTest(SignalsTestCase):
         broken = self.collect().review_log.broken
         self.assertEqual(len(broken), 1)
         self.assertIn("rule", broken[0])
+
+    def test_input_sentinel_is_not_counted_as_a_file(self):
+        """`(input)`은 파일을 지목할 수 없다는 표식이다(review SKILL 5-b) — 파일 수에 들면
+        한 파일짜리 지적이 '서로 다른 파일 2개 이상' 문턱을 넘는다."""
+        self.base()
+        self.log(review_line("a.one", CLAIM_KT),
+                 review_line("a.one", "(input)"),
+                 review_line("a.one", "(input)", date="2026-08-02"))
+        self.commit("log")
+
+        entry = self.collect().review_log.rules[0]
+        self.assertEqual(entry.count, 3)
+        self.assertEqual(entry.files, 1)
+        self.assertEqual(entry.inputs, 2)
+
+    def test_severity_distribution_is_carried_per_rule(self):
+        """severity를 버리면 info 지적만으로 '3회 이상'이 채워진다 — 거르지 말고 노출한다."""
+        self.base()
+        self.log(review_line("a.one", CLAIM_KT, severity="blocker"),
+                 review_line("a.one", CLAIM_KT, severity="blocker", date="2026-08-02"),
+                 review_line("a.one", CLAIM_KT, severity="info", date="2026-08-03"))
+        self.commit("log")
+
+        entry = self.collect().review_log.rules[0]
+        self.assertEqual(entry.severities,
+                         [{"severity": "blocker", "count": 2}, {"severity": "info", "count": 1}])
+
+    def test_missing_severity_is_kept_as_an_empty_value(self):
+        """없는 값을 지어내지 않는다 — 빈 문자열로 싣고 표시에서만 (미기재)로 읽는다."""
+        self.base()
+        self.log(json.dumps({"date": "2026-08-01", "rule": "a.one", "path": CLAIM_KT}))
+        self.commit("log")
+
+        signals = self.collect()
+        self.assertEqual(signals.review_log.rules[0].severities, [{"severity": "", "count": 1}])
+        self.assertIn("(미기재)", "\n".join(render(signals)))
+
+    def test_empty_rule_value_is_announced_precisely(self):
+        self.base()
+        self.log(json.dumps({"date": "2026-08-01", "rule": "", "path": CLAIM_KT}))
+        self.commit("log")
+
+        self.assertIn("비어 있습니다", self.collect().review_log.broken[0])
 
     @unittest.skipIf(getattr(os, "geteuid", lambda: 1)() == 0, "root는 권한 거부를 겪지 않는다")
     def test_unreadable_file_is_announced_not_raised(self):
@@ -479,6 +539,21 @@ class SinceTest(SignalsTestCase):
         self.assertEqual([entry.rule for entry in signals.review_log.rules], ["new.rule"])
         self.assertEqual(signals.review_log.window, "2026-03-01")
 
+    def test_window_and_reported_dates_share_the_committer_axis(self):
+        """git의 --since는 커밋터 날짜로 거른다 — 표시 날짜가 작성자 날짜면 rebase·squash
+        이력에서 관측 범위가 요청한 창 밖으로 나간다."""
+        self.arch()
+        self.commit("init", date="2026-01-01T00:00:00+00:00",
+                    committed="2026-07-01T00:00:00+00:00")
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.commit("claim", date="2026-01-02T00:00:00+00:00",
+                    committed="2026-07-02T00:00:00+00:00")
+
+        signals = self.collect(since="2026-04-01")
+        self.assertEqual(signals.span["commits"], 2)
+        self.assertGreaterEqual(signals.span["first"]["date"][:10], "2026-04-01")
+        self.assertTrue(signals.span["last"]["date"].startswith("2026-07-02"))
+
     def test_empty_range_is_not_collectable(self):
         head = self.base()
         with self.assertRaises(CollectError) as caught:
@@ -578,6 +653,23 @@ class CliTest(SignalsTestCase):
         self.assertEqual(sorted(data["hotspots"][0]), sorted(["path", "commits", "key"]))
         self.assertEqual(sorted(data["range"]), sorted(["commits", "files", "first", "last"]))
         self.assertEqual(sorted(data["since"]), sorted(["given", "kind", "resolved"]))
+
+    def test_json_notices_carry_the_standing_notes(self):
+        """한계와 '해석은 evolve의 몫' 고지가 텍스트에만 있으면 주 소비자가 못 읽는다."""
+        self.base()
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.commit("claim")
+        notices = payload(self.collect())["notices"]
+        self.assertIn(LIMITATION_NOTE, notices)
+        self.assertIn(INTERPRETATION_NOTE, notices)
+
+    def test_json_review_rule_shape(self):
+        self.base()
+        self.write("docs/architecture/review-log.jsonl", review_line("a.one", CLAIM_KT) + "\n")
+        self.commit("log")
+        rule = payload(self.collect())["review_log"]["rules"][0]
+        self.assertEqual(sorted(rule), sorted(
+            ["rule", "count", "files", "inputs", "reviews", "contexts", "severities", "notes"]))
 
     def test_report_names_every_collected_signal(self):
         self.base()

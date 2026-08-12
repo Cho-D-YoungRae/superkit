@@ -36,7 +36,8 @@ ARCHITECTURE.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때�
 - `since` — `{"given", "kind", "resolved"}`. `kind`는 `none`·`rev`·`date`.
 - `range` — `{"commits", "files", "first", "last"}`. `files`는 창 안에서 바뀐 서로 다른 파일
   수이고(`hotspots`의 상한 20과 대조하는 값), `first`·`last`는 `{"commit", "date"}`로 오래된
-  것이 `first`다. 관측 창이 비면 애초에 exit 1이므로 이 블록은 언제나 채워져 있다.
+  것이 `first`다. **모든 날짜는 커밋터 날짜다** — `--since`가 거르는 축과 같아야 표시된 범위가
+  요청한 창 안에 있다. 관측 창이 비면 애초에 exit 1이므로 이 블록은 언제나 채워져 있다.
 - `contexts` — 항목 ①. `[{"key", "project", "context", "commits", "files", "changes"}]`,
   커밋 수 내림차순. `key`는 `"<프로젝트>:<컨텍스트>"`이고 `hotspots`·`cochanges`가 이 키로
   같은 컨텍스트를 가리킨다. `changes`는 (커밋, 파일) 쌍의 수다.
@@ -44,10 +45,15 @@ ARCHITECTURE.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때�
 - `hotspots` — 항목 ②. `[{"path", "commits", "key"}]` 상위 20건. `key`가 빈 문자열이면 귀속 불가.
 - `cochanges` — 항목 ③. `[{"a", "b", "commits"}]`, `a` < `b`인 컨텍스트 키 쌍.
 - `review_log` — 항목 ④. `{"path", "present", "entries", "window", "rules", "broken"}`.
-  `rules`는 `[{"rule", "count", "files", "reviews", "contexts", "notes"}]`, 건수 내림차순.
+  `rules`는 `[{"rule", "count", "files", "inputs", "reviews", "contexts", "severities",
+  "notes"}]`, 건수 내림차순. `files`는 `(input)` 센티널을 뺀 실파일 수이고 그 센티널은
+  `inputs`로 따로 센다. `severities`는 `[{"severity", "count"}]`로 **거르지 않은 전량**이며
+  값이 없던 항목은 빈 문자열로 남는다 — info만으로 채워진 반복인지 가르는 것은 evolve의 몫이다.
 - `baseline` — 항목 ⑤. `{"path", "present", "lines", "rules", "history", "broken"}`.
   `history`는 `[{"commit", "date", "lines", "delta"}]`로 오래된 것부터다.
-- `notices` — 고지 문자열 목록. 깨진 줄·부재 파일·근사한 창이 전부 여기에도 모인다.
+- `notices` — 고지 문자열 목록. 깨진 줄·부재 파일·읽기 실패·근사한 관측 창·저장소 밖
+  프로젝트가 전부 여기에도 모이고(각 섹션의 `broken`에도 남는다), **마지막 두 줄은 언제나
+  `LIMITATION_NOTE`·`INTERPRETATION_NOTE`다** — 텍스트에만 두면 주 소비자가 못 읽는다.
 
 **이 수집기가 보지 못하는 것.** 병합 커밋과 리네임은 세지 않는다(`--no-merges --no-renames`).
 `review_log`의 `reviews`는 리뷰 id가 로그에 없어 **서로 다른 날짜 수로 근사**한 값이다.
@@ -71,6 +77,8 @@ from resolve_rules import KIND_CONTEXT_ISOLATION, format_error, resolve_document
 REVIEW_LOG = "docs/architecture/review-log.jsonl"
 BASELINE = "docs/architecture/baseline.jsonl"
 
+INPUT_SENTINEL = "(input)"   # review-log의 "파일을 지목할 수 없음" 표식(review SKILL 5-b)
+
 SOURCE_SUFFIXES = (".kt", ".java")
 SRC_DIR = "src"
 LANG_DIRS = frozenset({"kotlin", "java"})
@@ -79,7 +87,9 @@ HOTSPOT_TOP = 20        # 표시 상한이지 임계값이 아니다 — 전체 
 NOTE_SAMPLES = 5        # rule 하나당 싣는 대표 note 수(항목 ⑤ 주제 묶기의 입력)
 PATH_SAMPLES = 10
 
-LOG_FORMAT = "%x00%H%x00%aI"
+# 커밋터 날짜(`%cI`)다 — git의 `--since`가 거르는 축이 그것이므로, 작성자 날짜로 표시하면
+# rebase·squash 이력에서 관측 범위가 요청한 창 밖으로 나간다.
+LOG_FORMAT = "%x00%H%x00%cI"
 RE_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 INTERPRETATION_NOTE = (
@@ -104,7 +114,7 @@ class CollectError(Exception):
 @dataclass(frozen=True)
 class Commit:
     sha: str
-    date: str                                  # ISO 8601 author date
+    date: str                                  # ISO 8601 커밋터 날짜(`%cI`)
     paths: tuple
 
 
@@ -144,9 +154,11 @@ class Unattributed:
 class RuleCount:
     rule: str
     count: int
-    files: int
+    files: int                                 # `(input)` 센티널은 빼고 센 실파일 수
+    inputs: int                                # `path`가 `(input)`인 항목 수(파일 지목 불가)
     reviews: int                               # 서로 다른 날짜 수 — 리뷰 건수의 근사
     contexts: int
+    severities: list                           # [{"severity", "count"}] — 거르지 않고 그대로
     notes: list
 
 
@@ -291,16 +303,21 @@ def _package_of(relpath):
 class _Attributor:
     """정규화 패턴으로 git 경로를 `<프로젝트>:<컨텍스트>` 키에 귀속시킨다."""
 
-    def __init__(self, resolution, arch_dir, root):
+    def __init__(self, resolution, arch_dir, root, notices=None):
         self._prefixes = []          # [(저장소 기준 접두, 프로젝트명)] — 긴 접두 우선
+        notices = [] if notices is None else notices
         for project in resolution.projects:
             target = Path(os.path.normpath(Path(arch_dir) / project["path"]))
             try:
                 relative = os.path.relpath(target, root)
             except ValueError:
-                continue
+                relative = ".."      # 다른 드라이브 — 상대경로 자체가 없다
             if relative.startswith(".."):
-                continue             # 프로젝트가 저장소 밖이다 — 이 로그로는 볼 수 없다
+                # 이 프로젝트는 영구히 0건이다. 사유 없이 빼면 '변경 없음'과 구분되지 않는다.
+                notices.append(f"프로젝트 '{project['name']}'의 경로 '{project['path']}'가 git "
+                               f"저장소({root}) 밖입니다 — 이 프로젝트의 변경은 관측되지 "
+                               f"않습니다.")
+                continue
             self._prefixes.append(("" if relative == "." else Path(relative).as_posix(),
                                    project["name"]))
         self._prefixes.sort(key=lambda item: -len(item[0]))
@@ -389,6 +406,12 @@ def _change_signals(commits, attributor) -> tuple:
 # 항목 ④ — review-log.jsonl
 # ---------------------------------------------------------------------------
 
+def _tally(counts, key) -> list:
+    """{값: 건수}를 `[{<key>, "count"}]`로. 건수 내림차순, 같으면 값 오름차순."""
+    return [{key: value, "count": count} for value, count in
+            sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+
+
 def _read_lines(root, relpath, broken) -> list:
     """파일의 줄 목록. 읽지 못하면 그 사실을 `broken`에 담고 빈 목록을 준다 — 침묵하지 않는다."""
     try:
@@ -411,8 +434,12 @@ def _jsonl(relpath, lines, broken) -> list:
             broken.append(f"{relpath}:{number}: JSON으로 읽을 수 없는 줄입니다 — "
                           f"집계에서 건너뜁니다.")
             continue
-        if not isinstance(entry, dict) or not entry.get("rule"):
-            broken.append(f"{relpath}:{number}: 'rule' 키가 없습니다 — 집계에서 건너뜁니다.")
+        if not isinstance(entry, dict):
+            broken.append(f"{relpath}:{number}: JSON 객체가 아닙니다 — 집계에서 건너뜁니다.")
+            continue
+        if not entry.get("rule"):
+            broken.append(f"{relpath}:{number}: 'rule'이 없거나 비어 있습니다 — "
+                          f"집계에서 건너뜁니다.")
             continue
         entries.append((number, entry))
     return entries
@@ -437,13 +464,21 @@ def _review_log(root, attributor, window) -> ReviewLog:
                 continue
         log.entries += 1
         group = grouped.setdefault(str(entry["rule"]),
-                                   {"count": 0, "files": set(), "dates": set(),
-                                    "contexts": set(), "notes": []})
+                                   {"count": 0, "files": set(), "inputs": 0, "dates": set(),
+                                    "contexts": set(), "severities": {}, "notes": []})
         group["count"] += 1
         path = str(entry.get("path", ""))
-        group["files"].add(path)
+        # `(input)`은 "파일을 지목할 수 없는 항목"의 표식이다(review SKILL 5-b). 실파일로
+        # 세면 한 파일짜리 지적이 '서로 다른 파일 2개 이상' 문턱을 넘는다.
+        if path == INPUT_SENTINEL:
+            group["inputs"] += 1
+        elif path:
+            group["files"].add(path)
         group["dates"].add(date)
-        key = attributor.attribute(path) if path else ""
+        # severity는 판정 재료다 — 여기서 거르면(예: info 제외) 임계값이 두 곳에 생긴다.
+        severity = str(entry.get("severity", ""))
+        group["severities"][severity] = group["severities"].get(severity, 0) + 1
+        key = attributor.attribute(path) if path and path != INPUT_SENTINEL else ""
         if key:
             group["contexts"].add(key)
         note = str(entry.get("note", "")).strip()
@@ -451,8 +486,10 @@ def _review_log(root, attributor, window) -> ReviewLog:
             group["notes"].append(note)
 
     log.rules = sorted(
-        (RuleCount(rule, group["count"], len(group["files"]), len(group["dates"]),
-                   len(group["contexts"]), group["notes"]) for rule, group in grouped.items()),
+        (RuleCount(rule, group["count"], len(group["files"]), group["inputs"],
+                   len(group["dates"]), len(group["contexts"]),
+                   _tally(group["severities"], "severity"), group["notes"])
+         for rule, group in grouped.items()),
         key=lambda entry: (-entry.count, entry.rule))
     return log
 
@@ -483,8 +520,7 @@ def _baseline(root) -> Baseline:
     for _, entry in entries:
         rule = str(entry["rule"])
         counts[rule] = counts.get(rule, 0) + 1
-    baseline.rules = [{"rule": rule, "count": count} for rule, count in
-                      sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+    baseline.rules = _tally(counts, "rule")
     return baseline
 
 
@@ -542,10 +578,10 @@ def collect(arch_path, since=None) -> Signals:
         raise CollectError(f"관측 창에 커밋이 없습니다 — 범위: "
                            f"{' '.join(extra) if extra else '전체 이력'}.")
 
-    attributor = _Attributor(resolution, arch_dir, root)
+    notices = []
+    attributor = _Attributor(resolution, arch_dir, root, notices)
     contexts, unattributed, hotspots, cochanges, files = _change_signals(commits, attributor)
 
-    notices = []
     window = _window(since_info, commits, notices)
     review_log = _review_log(root, attributor, window)
     baseline = _baseline(root)
@@ -564,6 +600,8 @@ def collect(arch_path, since=None) -> Signals:
                        f"다음 커밋부터 관측됩니다.")
     notices.extend(review_log.broken)
     notices.extend(baseline.broken)
+    # 상시 고지 2줄. 텍스트 리포트에만 두면 주 소비자(evolve)가 읽는 --json에서 사라진다.
+    notices += [LIMITATION_NOTE, INTERPRETATION_NOTE]
 
     span = {"commits": len(commits), "files": files,
             "first": {"commit": commits[-1].sha, "date": commits[-1].date},
@@ -597,7 +635,7 @@ def render(signals) -> list:
              "date": f"{since['given']} 이후"}[since["kind"]]
     lines = [f"루트: {signals.root}",
              f"관측 범위: 커밋 {span['commits']}건 ({scope}) — "
-             f"{span['first']['date']} ~ {span['last']['date']}",
+             f"{span['first']['date']} ~ {span['last']['date']} (커밋터 날짜)",
              "",
              "[수집 ①] 컨텍스트별 변경 빈도"]
     lines += [f"- {entry.key} — 커밋 {entry.commits}, 파일 {entry.files}, 변경 {entry.changes}"
@@ -625,8 +663,11 @@ def render(signals) -> list:
         lines.append("- 창 안에 기록이 없습니다.")
     else:
         for entry in log.rules:
-            lines.append(f"- {entry.rule} — {entry.count}건 (파일 {entry.files}, "
-                         f"리뷰 {entry.reviews}, 컨텍스트 {entry.contexts})")
+            spread = f"파일 {entry.files}" + (f"+(input) {entry.inputs}" if entry.inputs else "")
+            severities = ", ".join(f"{item['severity'] or '(미기재)'} {item['count']}"
+                                   for item in entry.severities)
+            lines.append(f"- {entry.rule} — {entry.count}건 ({spread}, 리뷰 {entry.reviews}, "
+                         f"컨텍스트 {entry.contexts}) — 심각도: {severities}")
             lines += [f"    note: {note}" for note in entry.notes]
 
     baseline = signals.baseline
@@ -639,9 +680,11 @@ def render(signals) -> list:
     lines += [f"- {point.date[:10]} {point.commit[:8]} {point.lines}줄 "
               f"({point.delta:+d})" for point in baseline.history]
 
-    if signals.notices:
-        lines += ["", "고지:"] + [f"- {notice}" for notice in signals.notices]
-    lines += ["", LIMITATION_NOTE, INTERPRETATION_NOTE]
+    standing = (LIMITATION_NOTE, INTERPRETATION_NOTE)
+    running = [notice for notice in signals.notices if notice not in standing]
+    if running:
+        lines += ["", "고지:"] + [f"- {notice}" for notice in running]
+    lines += ["", *standing]        # 두 줄은 여기가 고정 자리다(notices에도 함께 실린다)
     return lines
 
 
