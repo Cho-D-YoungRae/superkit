@@ -336,6 +336,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
 ```
 
+- **이미 `docs/architecture/baseline.jsonl`이 있으면 덮어쓰지 않는다.** 재초기화 실행의
+  `violations[]`는 그 baseline이 이미 걸러 낸 목록이라 그대로 쓰면 부채가 조용히 줄어든다 — 래칫이
+  거꾸로 도는 것이다. 파일은 그대로 두고 현재 건수만 보고한다(축소는 migrate만).
 - **exit 2면 동결하지 않는다.** 게이트와 같은 오류이므로 고치고 다시 실행한다.
 - **exit 0(위반 0건)이면 파일을 만들지 않는다.** 얼릴 부채가 없다는 뜻이니 `이행` 라벨이 정말
   필요한지 되묻는다. 빈 파일은 래칫이 있는 척하는 상태라 더 나쁘다.
