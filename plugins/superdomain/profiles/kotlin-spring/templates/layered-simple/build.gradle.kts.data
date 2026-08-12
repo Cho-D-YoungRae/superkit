@@ -1,0 +1,38 @@
+// {{context}}-data — 가장 안쪽. 엔티티가 곧 모델이므로 JPA 의존이 여기 있다.
+// application·presentation을 의존하지 않는다(ls.layer-order — data가 안→밖 순서의 첫 항목이다).
+// 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
+plugins {
+    kotlin("jvm")
+    // `kotlin("jvm")`이 여는 것은 `java`까지다. 아래 `api` 한 줄을 쓰려면 `java-library`가 함께 있어야 한다.
+    `java-library`
+    // `@Entity`는 Hibernate가 no-arg 생성자를 요구한다. 아키텍처 규칙은 이것을 보지 못한다 —
+    // 구조 검사는 통과하고 **부팅에서** 깨지는 자리다.
+    kotlin("plugin.jpa")
+}
+
+// `plugin.jpa`가 여는 것은 **no-arg 생성자까지**다. 클래스 자체는 여전히 final이므로, 이 스타일에서
+// 엔티티에 연관관계(`@ManyToOne`·`@OneToMany`)를 더해 **지연 로딩 프록시**가 필요해지는 순간
+// 아래를 함께 켜야 한다 — 켜지 않으면 Hibernate가 프록시를 만들지 못하고 런타임에 드러난다.
+// 엔티티가 곧 모델인 스타일이라 이 자리에 가장 먼저 닿는다.
+//
+//   plugins { kotlin("plugin.allopen") }
+//   allOpen { annotation("jakarta.persistence.Entity") }
+
+dependencies {
+    // **`implementation`이 아니라 `api`다.** `{{Context}}Repository`가 `JpaRepository`를 상속하는
+    // 순간 스프링 데이터 타입이 이 모듈의 **공개 API**가 된다 — `{{Context}}Service`가
+    // `findById(...)`를 부르려면 그 상위 타입이 `:{{context}}-application`의 컴파일 클래스패스에
+    // 있어야 하고, `implementation`으로 감추면
+    // `Cannot access 'JpaRepository' which is a supertype of '{{Context}}Repository'`로 깨진다
+    // ✅ 실측. **multi-module에서만 드러난다** — single-module은 세 레이어가 한 컴파일 단위라
+    // 이 자리가 보이지 않는다. 엔티티가 곧 모델인 이 스타일에서는 영속 기술이 안쪽 레이어의
+    // 계약에 그대로 드러나며, 그 사실이 빌드 그래프에도 그대로 나타난다
+    // (`*.domain-pure`가 없는 유일한 스타일 — layered-simple.md R4).
+    api("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Gradle 8+에서는 런처를 테스트 런타임에 명시해야 한다(실측 — 없으면 "Failed to
+    // load JUnit Platform"으로 죽는다). spring-boot-starter-test를 쓰면 이미 들어 있다.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test { useJUnitPlatform() }

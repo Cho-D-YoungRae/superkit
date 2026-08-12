@@ -1,0 +1,15 @@
+// {{context}}-application — 서비스와 트랜잭션 경계. data를 안다(엔티티를 그대로 다루는 것이
+// 이 스타일에서는 정상이다). presentation은 의존하지 않는다(ls.layer-order).
+plugins {
+    java
+}
+
+dependencies {
+    implementation(project(":{{context}}-data"))
+    implementation("org.springframework:spring-context")
+    implementation("org.springframework:spring-tx")
+}
+
+// Kotlin 프로파일이 이 모듈에 걸던 `plugin.spring`은 Java에 필요 없다 — 클래스가 기본 final이
+// 아니라 CGLIB이 그대로 상속한다. 다만 `@Transactional` 대상에 **final 메서드**를 두면 그
+// 메서드만 조용히 프록시되지 않는다(구조 검사가 보지 못하는 자리다).

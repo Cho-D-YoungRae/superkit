@@ -1,0 +1,15 @@
+// {{context}}-domain — 가장 안쪽. 리포지터리 **인터페이스**가 여기 산다(구현은 infrastructure).
+// 스프링·JPA 의존을 더하면 ld.domain-no-framework가 잡는다.
+// 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
+plugins {
+    java
+}
+
+dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Gradle 8+에서는 런처를 테스트 런타임에 명시해야 한다(실측 — 없으면 "Failed to
+    // load JUnit Platform"으로 죽는다). spring-boot-starter-test를 쓰면 이미 들어 있다.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test { useJUnitPlatform() }

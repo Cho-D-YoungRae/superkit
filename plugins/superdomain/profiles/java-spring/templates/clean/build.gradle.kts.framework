@@ -1,0 +1,17 @@
+// {{context}}-framework — 가장 바깥 원. 안쪽 전부를 안다.
+// @Entity·게이트웨이 구현·스프링 설정·트랜잭션 데코레이터가 여기서 끝난다(cl.domain-pure).
+plugins {
+    java
+}
+
+dependencies {
+    implementation(project(":{{context}}-adapter"))
+    implementation(project(":{{context}}-usecase"))
+    implementation(project(":{{context}}-domain"))
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+}
+
+// Kotlin 프로파일이 여기에 걸던 `plugin.jpa`·`plugin.spring`은 Java에 필요 없다 —
+// no-arg 생성자는 엔티티 소스가 직접 갖고(`{{Context}}JpaEntity.java`), 클래스는 기본이 final이
+// 아니라 `@Transactional` 프록시가 그대로 선다. 다만 프록시 대상에 **final 메서드**를 두면
+// 그 메서드만 조용히 프록시되지 않는데, 그것은 구조 검사가 보지 못한다.

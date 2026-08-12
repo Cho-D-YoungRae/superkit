@@ -1,0 +1,16 @@
+// {{context}}-application — 애플리케이션 서비스와 트랜잭션 경계. domain만 안다.
+// **infrastructure를 의존하지 않는다**(ld.infra-isolated) — 그 금지가 인터페이스/구현 분리를
+// 규약이 아니라 컴파일로 만든다. @Service·@Transactional은 이 스타일에서 정상이다.
+plugins {
+    java
+}
+
+dependencies {
+    implementation(project(":{{context}}-domain"))
+    implementation("org.springframework:spring-context")
+    implementation("org.springframework:spring-tx")
+}
+
+// Kotlin 프로파일이 이 모듈에 걸던 `plugin.spring`은 Java에 필요 없다 — 클래스가 기본 final이
+// 아니라 CGLIB이 그대로 상속한다. 다만 `@Transactional` 대상에 **final 메서드**를 두면 그
+// 메서드만 조용히 프록시되지 않는다(구조 검사가 보지 못하는 자리다).

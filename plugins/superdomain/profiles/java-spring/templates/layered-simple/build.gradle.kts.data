@@ -1,0 +1,29 @@
+// {{context}}-data — 가장 안쪽. 엔티티가 곧 모델이므로 JPA 의존이 여기 있다.
+// application·presentation을 의존하지 않는다(ls.layer-order — data가 안→밖 순서의 첫 항목이다).
+// 플러그인·라이브러리 버전은 대상 프로젝트의 규약(루트 plugins 블록·버전 카탈로그·BOM)을 따른다.
+plugins {
+    // `java`가 아니라 `java-library`인 이유는 아래 `api` 한 줄 때문이다.
+    `java-library`
+}
+
+dependencies {
+    // **`implementation`이 아니라 `api`다.** `{{Context}}Repository`가 `JpaRepository`를 상속하는
+    // 순간 스프링 데이터 타입이 이 모듈의 **공개 API**가 된다 — 서비스가 `findById(...)`를 부르려면
+    // 그 상위 타입이 컴파일 클래스패스에 있어야 하고, `implementation`으로 감추면
+    // `cannot access JpaRepository`로 깨진다 ✅ 실측. 엔티티가 곧 모델인 이 스타일에서는 영속
+    // 기술이 안쪽 레이어의 계약에 그대로 드러나며, 그 사실이 빌드 그래프에도 그대로 나타난다
+    // (`*.domain-pure`가 없는 유일한 스타일 — layered-simple.md R4).
+    api("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Gradle 8+에서는 런처를 테스트 런타임에 명시해야 한다(실측 — 없으면 "Failed to
+    // load JUnit Platform"으로 죽는다). spring-boot-starter-test를 쓰면 이미 들어 있다.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test { useJUnitPlatform() }
+
+// Kotlin 프로파일은 이 자리에서 `plugin.jpa`(no-arg 생성자)와, 연관관계가 생기면
+// `plugin.allopen`(지연 로딩 프록시)까지 켜야 했다. Java에는 둘 다 필요 없다 — 생성자는 엔티티
+// 소스가 직접 갖고(`{{Context}}.java`), 클래스는 기본이 final이 아니다. 대신 **엔티티나 그
+// getter를 `final`로 잠그는 순간** 프록시가 서지 못하는데, 그것은 구조 검사가 보지 못한다.
+// 엔티티가 곧 모델인 스타일이라 이 자리에 가장 먼저 닿는다.

@@ -1,0 +1,18 @@
+// {{context}}-adapter — 가장 바깥. application·domain을 안다.
+// @Entity는 이 모듈 안에서만 선언·참조된다(hex.domain-pure) — JPA 의존이 여기에만 있는 이유다.
+plugins {
+    kotlin("jvm")
+    // `@Entity`는 Hibernate가 no-arg 생성자를 요구한다. 아키텍처 규칙은 이것을 보지 못한다 —
+    // 구조 검사는 통과하고 **부팅에서** 깨지는 자리다.
+    kotlin("plugin.jpa")
+}
+
+dependencies {
+    implementation(project(":{{context}}-application"))
+    implementation(project(":{{context}}-domain"))
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-web")
+}
+
+// 이 모듈에 `@Transactional`·`@Configuration`처럼 스프링이 프록시로 감싸는 대상이 생기면
+// `kotlin("plugin.spring")`을 더한다 — Kotlin 클래스는 기본이 final이다.

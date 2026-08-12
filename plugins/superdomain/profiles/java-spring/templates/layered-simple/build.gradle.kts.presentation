@@ -1,0 +1,20 @@
+// {{context}}-presentation — 컨트롤러와 요청·응답 모델.
+// 엔티티를 컨트롤러가 직접 다루는 것은 이 스타일에서 규칙 위반이 아니다. 그러려면
+// `project(":{{context}}-data")`를 더한다 — 다만 스키마 변경이 곧 API 변경이 된다(스타일 R5).
+plugins {
+    java
+}
+
+dependencies {
+    implementation(project(":{{context}}-application"))
+    implementation("org.springframework.boot:spring-boot-starter-web")
+}
+
+// **Java에서 구조 검사가 보지 못하는 자리 — 파라미터 이름.** Spring 6.1부터 `@PathVariable`·
+// `@RequestParam`·`@ConfigurationProperties` 생성자 바인딩은 이름을 클래스 파일의 MethodParameters
+// 속성에서 읽는다. 그 속성은 `-parameters` 없이는 생기지 않고 ✅ 실측, 없으면 `check_imports`도
+// ArchUnit도 전부 통과한 채 **첫 요청에서** 깨진다(`Name for argument of type [...] not specified`).
+// 부트 플러그인이 이 옵션을 넣어 주는 것은 앱 모듈뿐이므로 컨트롤러가 사는 이 모듈은 직접 켠다.
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-parameters")
+}
