@@ -100,7 +100,7 @@ cat -n docs/architecture/baseline.jsonl
 
 | 어긋남 | 뜻 |
 |---|---|
-| `demoted` 건수 > 매칭 항목 수 | 매칭 키가 (규칙 id, 경로)뿐이라 **한 항목이 같은 파일·같은 규칙의 추가 위반까지 덮는다**(정본: 프로파일 `rule-mappings.md` §7 한계 ①) |
+| `demoted` 건수 > 매칭 항목 수 | 매칭 키가 (규칙 id, 경로)뿐이라 **한 항목이 같은 파일·같은 규칙의 추가 위반까지 덮는다**(정본: 프로파일 `rule-mappings.md` §7의 「매칭 키」 한계 행) |
 | 항목이 `demoted`에 없다 | 해소됐거나, **이번 실행이 그 규칙을 검사하지 않았다** |
 
 **미매칭 항목을 "해소됨"으로 단정하지 않는다.** 그것이 이 스킬이 가장 쉽게 저지를 수 있는 거짓
@@ -275,8 +275,8 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
   init의 권한이다.
 - **`rule`·`path` 값에 역슬래시를 쓰지 않는다**(경로 구분자는 `/`). 생성 테스트의 로더는 정규식으로
   읽어 이스케이프가 든 값을 놓치고 `"path" 값이 없습니다`로 중단하는데, 같은 줄을 `json.loads`로
-  읽는 `check_imports`는 통과해 두 소비자가 갈린다(`rule-mappings.md` §7 한계 ⑤). `note` 값 안의
-  `"path"` 꼴 문자열은 유효 JSON이면 이스케이프되어 오독되지 않는다.
+  읽는 `check_imports`는 통과해 두 소비자가 갈린다(`rule-mappings.md` §7의 「정규식 로더」 한계 행).
+  `note` 값 안의 `"path"` 꼴 문자열은 유효 JSON이면 이스케이프되어 오독되지 않는다.
 - **남길 줄이 하나도 없으면 빈 파일을 쓰지 않는다.** 그대로 7단계로 간다.
 - **건수를 인용한 파생물이 여기서 낡는다.** `docs/architecture/summary.md`의 「전역 핵심 규칙」이
   동결 시점 건수를 문장에 박아 두었으면 축소한 지금 그 문장은 거짓이고, 이 파일은 SessionStart

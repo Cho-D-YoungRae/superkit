@@ -49,7 +49,7 @@ flowchart TB
     init -->|생성| ssot
     scaffold -->|등록| ssot
     ssot -->|resolve_rules.py 유효 규칙| fitness
-    fitness -->|생성| gate
+    fitness -->|아키텍처 테스트 생성| gate
     gate --> review
     ssot -->|선언 ↔ 디스크 대조| sync
     sync -->|드리프트| scaffold
@@ -58,7 +58,7 @@ flowchart TB
     migrate <-->|해소 실측 후 baseline.jsonl 축소| gate
     model --> dom
     dom -->|check_invariants.py 미구현 confirmed| apply
-    apply -->|@Tag 테스트| dom
+    apply -->|"열린 질문 append"| dom
     adr -.-> ssot
     adr -.-> fitness
 ```
