@@ -277,8 +277,7 @@ fun `{{context}} - {{ruleIdSafe}} (참조)`() {
 4. 컨텍스트 범위 밖(어느 레이어 패턴에도 들지 않는 패키지)의 `@Entity`는 이 규칙이 보지 않는다 —
    그건 규약 레이어 검증과 review의 몫이다.
 
-위반 B는 어휘가 이 primitive의 진짜 가치라고 말한 부분이다(§3.3 주의). 1·2가 남아 있으므로
-**완전 검사가 아니며**, 나머지는 review가 본다.
+위반 B가 이 primitive의 진짜 가치이지만(§3.3) 1·2 때문에 완전 검사는 아니다 — 나머지는 review가 본다.
 
 ---
 
@@ -451,16 +450,16 @@ derived.app-confinement — 컨텍스트·공용 코드는 앱 core-api에 의�
 
 `이행` 라벨이 있으면 목표 스타일 기준의 기존 위반이 `docs/architecture/baseline.jsonl`에 동결돼
 있다(정본 §5.1 규칙 8) — 한 줄 JSON `{"rule": …, "path": …}`(`note`는 선택)이고 경로는 git 루트
-상대다. `check_imports`가 만들고 migrate만 줄인다. Konsist에는 `FreezingArchRule`이 없으므로 **생성
-테스트가 어서션 앞에서 대상을 걸러 강등한다**(예외 메시지 파싱은 포맷이 내부 사정이라 버전 업에
-깨진다). 조각은 baseline을 쓰는 생성 파일마다 한 번(§0.2 헬퍼 자리), 나머지는 어서션마다 한 곳씩.
+상대다. **동결은 init이 사용자 확인 뒤에 하고** 축소는 migrate만 한다. Konsist에는
+`FreezingArchRule`이 없으므로 **생성 테스트가 어서션 앞에서 대상을 걸러 강등한다**(예외 메시지는
+파싱하지 않는다 — 포맷이 내부 사정이다). 조각은 파일마다 한 번(§0.2 자리), 합성은 어서션마다 한 곳.
 
 ```kotlin
 private val baselineFile = generateSequence(java.io.File("").absoluteFile) { it.parentFile }
     .map { java.io.File(it, "docs/architecture/baseline.jsonl") }.firstOrNull { it.isFile }
 private val baseline: Set<Pair<String, String>> = baselineFile?.readLines().orEmpty()
     .withIndex().filter { it.value.isNotBlank() }.map { (i, line) ->     // 빈 줄만 건너뛴다
-        fun field(key: String) = Regex(""""$key"\s*:\s*"([^"]+)"""").find(line)?.groupValues?.get(1)
+        fun field(key: String) = Regex("""[{,]\s*"$key"\s*:\s*"([^"\\]+)"""").find(line)?.groupValues?.get(1)
             ?: error("$baselineFile:${i + 1}: \"$key\" 값이 없습니다 — baseline을 믿을 수 없습니다")
         field("rule") to field("path")
     }.toSet()
@@ -477,18 +476,19 @@ private fun demoted(ruleId: String, projectPath: String): Boolean =      // 동�
 | `assertArchitecture { … }` — §1·§2 라우트 A | 수신 스코프에 `.slice { !demoted("{{ruleId}}", it.projectPath) }` |
 
 그 루트는 `.git`·`gradlew` 마커의 최근접 상위이며 baseline의 git 루트와 같다는 것이 전제다(대장) —
-위 셋과 깨진 줄 중단까지 실행으로 확인했다 ✅ 실측. **한계**(침묵 금지): ① 키가 (규칙 id, 경로)뿐이라
-**같은 파일·같은 규칙의 추가 위반도 흡수된다**(`check_imports` 푸터도 같은 고지). ② baseline은 import
-기반 근사가 만들어 **Konsist만 보는 위반은 기존 부채여도 실패**한다. ③ 한 레이어의 파일이 **전부**
-부채면 `slice` 뒤 그 레이어가 비어 §0.3-1의 예외로 죽는다 ✅ 실측 — 규칙을 지우지 말고 migrate로
-갚는다. ④ baseline은 Gradle 입력이 아니라 이 파일만 고쳐 재실행하면 `UP-TO-DATE`다 ✅ 실측.
+아래 ③까지 실행으로 확인했다 ✅ 실측. **한계**(침묵 금지): ① 키가 (규칙 id, 경로)뿐이라 **같은
+파일·같은 규칙의 추가 위반도 흡수된다**(`check_imports` 푸터도 같은 고지). ② baseline은 import 기반
+근사가 만들어 **Konsist만 보는 위반은 기존 부채여도 실패**한다. ③ 앞의 둘과 달리 `slice`는 위반
+여부를 모르는 채 파일을 빼므로 **이미 갚은 부채도 계속 제외·출력되고**, 한 레이어가 통째로 부채면 그
+레이어가 비어 §0.3-1의 예외로 죽는다 — 답은 migrate로 갚아 항목을 지우는 것이다. ④ Gradle 입력이
+아니라 이 파일만 고쳐 재실행하면 `UP-TO-DATE`다. ⑤ `note`에 `, "path": …` 꼴을 손으로 넣으면 오독한다.
 
 ## 8. Spring Modulith
 
-single-module의 **보조** 검증 수단이 될 수 있다(`@ApplicationModule` + `ApplicationModules.of(App::
-class).verify()` — 순환 참조 검출·모듈 문서 생성). **v1의 생성 대상은 Konsist뿐이며 superarchitect는
-Modulith 설정을 만들지 않는다** — ① 경계가 앱 클래스 기준 패키지 트리에 묶여 "컨텍스트 × 레이어 →
-패키지 패턴" 정규화를 표현하지 못하고 ② 경계 선언이 소스로 가 SSOT가 갈라진다. 병행은 자유다.
+single-module의 **보조** 검증 수단이 될 수 있다(`@ApplicationModule` +
+`ApplicationModules.of(App::class).verify()` — 순환 참조 검출·모듈 문서 생성). **v1의 생성 대상은
+Konsist뿐이며 Modulith 설정을 만들지 않는다** — ① 경계가 앱 클래스 기준 패키지 트리에 묶여
+정규화(§6)를 표현하지 못하고 ② 경계 선언이 소스로 가 SSOT가 갈라진다. 이미 쓰면 병행하면 된다.
 
 ## 9. 검증 대장
 
