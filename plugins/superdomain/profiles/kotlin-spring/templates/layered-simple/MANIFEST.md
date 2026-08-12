@@ -32,12 +32,19 @@ fitness가 생성한 Konsist 테스트를 통과한다.**
 `kotlin("plugin.jpa")`가 `build.gradle.kts.data`에,
 `kotlin("plugin.spring")`이 `build.gradle.kts.application`에 근거 주석과 함께 들어 있다.
 
+**그리고 규칙이 보지 못하는 빌드 쪽 한 자리 — `api` vs `implementation`.**
+`{{Context}}Repository`가 `JpaRepository`를 상속하는 순간 스프링 데이터 타입이 `data` 모듈의
+**공개 API**가 된다. `build.gradle.kts.data`가 그 좌표를 `implementation`으로 감추면
+`{{Context}}Service`가 `Cannot access 'JpaRepository' …`로 깨진다 ✅ 실측 — 그래서 그 조각만
+`java-library`(`kotlin("jvm")` 위에 얹는다) + `api`다. **multi-module에서만 드러나는 자리다** —
+single-module은 세 레이어가 한 컴파일 단위라 감춰도 컴파일이 통과한다.
+
 ## 파일 목록
 
 | 템플릿 파일 | 레이어 | 전개 뒤 |
 |---|---|---|
 | `settings.gradle.kts.fragment` | — | 루트 `settings.gradle.kts`에 **추가**(덮어쓰기 아님) |
-| `build.gradle.kts.data` | data | 그 레이어 모듈의 `build.gradle.kts` |
+| `build.gradle.kts.data` | data | 그 레이어 모듈의 `build.gradle.kts` (`java-library` + `api`) |
 | `build.gradle.kts.application` | application | 〃 |
 | `build.gradle.kts.presentation` | presentation | 〃 |
 | `data/{{Context}}.kt` | data | JPA 엔티티 = 모델. 다른 스타일의 애그리거트 스텁 자리 |
@@ -77,8 +84,8 @@ multi-module을 고를 이유는 드물다 — 모듈 구성은 스타일과 직
 | 조각의 요소 | 병합 규칙 |
 |---|---|
 | 주석 | **버리지 않는다 — 위치와 무관하게 전부 보존한다.** 조각 머리의 주석은 레이어 순서대로 파일 맨 위에 모으고, 블록 안(`plugins`·`dependencies`)과 블록 뒤의 근거 주석은 그 항목을 따라 옮긴다. "이 의존을 여기 더하면 어느 규칙이 잡는다"·"이 플러그인이 빠지면 부팅에서 깨진다"는 근거가 사라지면 나중에 아무나 더하고 아무나 지운다 |
-| `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다 |
-| `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`) |
+| `plugins { … }` | 블록은 **하나만.** 안의 항목은 합집합이고 같은 플러그인은 한 번만 적는다. `` `java-library` ``는 `kotlin("jvm")`과 **함께** 남긴다(전자가 후자를 포함하지 않는다) |
+| `dependencies { … }` | 블록 **하나로** 합친다. 같은 좌표가 둘 이상이면 **넓은 configuration 하나만** 남긴다(`api` > `implementation` > `runtimeOnly`, `testImplementation` > `testRuntimeOnly`). 모듈이 하나뿐이면 `api`와 `implementation`의 차이가 사라지지만, 되쪼갤 때 근거를 잃지 않도록 `api` 줄의 주석은 그대로 옮긴다 |
 | `project(":{{context}}:…")` | **지운다** — 모듈이 하나뿐이라 자기 자신을 가리키게 된다 |
 | `tasks.test { useJUnitPlatform() }` | 파일 전체에 **한 번**만 |
 
@@ -125,3 +132,8 @@ single-module이어도 **행은 레이어마다 하나씩**이고 `모듈`·`경
 python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [0건 경고] 없음
 /superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
 ```
+
+**확인한 레이아웃 — multi-module**(Phase 6 T4 재실측: `:{{context}}:application` 컴파일 성공,
+전 모듈 `classes testClasses` BUILD SUCCESSFUL) **와 single-module**(Phase 4). 순서가 이랬던 것이
+문제였다 — single-module만 밟았을 때 위 `api` vs `implementation`이 보이지 않아, 골격을
+multi-module로 전개하는 순간 컴파일에서 깨졌다. **multi-module을 반드시 포함해서 확인한다.**
