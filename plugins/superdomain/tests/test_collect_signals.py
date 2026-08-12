@@ -1,9 +1,10 @@
 import json, os, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from collect_signals import (INTERPRETATION_NOTE, LIMITATION_NOTE, CollectError, collect,
-                             payload, render)
+from collect_signals import (HOTSPOT_TOP, INTERPRETATION_NOTE, LIMITATION_NOTE, PATH_SAMPLES,
+                             CollectError, collect, payload, render)
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -91,6 +92,33 @@ BROKEN_ARCH = """# 깨진 문서
 ## 프로젝트: backend
 - 경로: .
 """
+
+
+def in_project(section, project):
+    """컨텍스트 섹션에 `- 프로젝트:` 라벨을 붙인다 — 프로젝트가 둘 이상이면 필수다."""
+    return section.replace("- 스타일:", f"- 프로젝트: {project}\n- 스타일:", 1)
+
+
+# 모노레포 — 두 프로젝트가 **같은 기본 패키지**를 쓴다. 패키지 패턴만으로는 두 프로젝트가
+# 구분되지 않으므로 귀속을 가르는 것은 경로 접두뿐이고, 접두를 보지 않으면 `services/pay` 아래의
+# 파일이 루트 프로젝트로 새어 들어간다.
+MULTI_ARCH = ("""# 모노레포 — Architecture
+<!-- superarchitect:template v1 -->
+
+## 프로젝트: root
+- 경로: .
+- 프로파일: kotlin-spring
+- 기본 패키지: com.acme
+- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
+
+## 프로젝트: pay
+- 경로: services/pay
+- 프로파일: kotlin-spring
+- 기본 패키지: com.acme
+- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
+"""
+              + in_project(CONTEXT.format(name="claim", classification="core"), "root")
+              + in_project(CONTEXT.format(name="billing", classification="supporting"), "pay"))
 
 
 class SignalsTestCase(unittest.TestCase):
@@ -199,6 +227,25 @@ class ContextFrequencyTest(SignalsTestCase):
 
         self.assertEqual(self.by_key(self.collect()).get("backend:claim"), None)
 
+    def test_multi_project_attribution_follows_the_path_prefix(self):
+        """모노레포에서 프로젝트를 가르는 것은 경로 접두다 — 두 프로젝트가 같은 기본 패키지를
+        쓰면 패턴만으로는 갈리지 않고, 긴 접두가 이겨야 중첩 프로젝트가 루트로 새지 않는다.
+        패턴 소유는 프로젝트 단위이므로 같은 패키지라도 다른 프로젝트에서는 귀속되지 않는다."""
+        self.arch(MULTI_ARCH)
+        self.commit("init")
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("services/pay/billing/domain", "com.acme.billing.domain", "Invoice")
+        # `pay` 아래에 있지만 패키지는 `root`의 claim 것 — 그 패턴의 소유자는 `root`뿐이다.
+        ghost = self.kt("services/pay/billing/domain", "com.acme.claim.domain", "Ghost")
+        self.commit("sources")
+
+        signals = self.collect()
+        table = self.by_key(signals)
+        self.assertEqual(sorted(table), ["pay:billing", "root:claim"])
+        self.assertEqual(table["root:claim"].files, 1)
+        self.assertEqual(table["pay:billing"].files, 1)
+        self.assertIn(str(ghost.relative_to(self.repo)), signals.unattributed.samples)
+
 
 class UnattributedTest(SignalsTestCase):
     def test_non_source_file_goes_to_unattributed_bucket(self):
@@ -252,6 +299,20 @@ class UnattributedTest(SignalsTestCase):
 
         self.assertTrue(any("귀속 불가" in line for line in render(self.collect())))
 
+    def test_sample_paths_are_capped_but_the_count_is_not(self):
+        """`samples`는 예시라 상한이 있고 `files`는 전수다 — 둘이 같아지면 예시가 전부인 줄
+        읽혀 귀속 불가의 크기를 과소평가한다."""
+        self.base()                                  # ARCHITECTURE.md + 스타일 문서 2건
+        for index in range(12):
+            self.write(f"docs/notes/n{index:02d}.md", "note\n")
+        self.commit("notes")
+
+        orphan = self.collect().unattributed
+        self.assertEqual(len(orphan.samples), PATH_SAMPLES)
+        self.assertEqual(orphan.files, 14)
+        self.assertEqual(orphan.samples, sorted(orphan.samples))
+        self.assertEqual(orphan.samples[0], "ARCHITECTURE.md")
+
 
 # ---------------------------------------------------------------------------
 # 신호 ② 핫스팟
@@ -280,6 +341,20 @@ class HotspotTest(SignalsTestCase):
 
         entry = next(h for h in self.collect().hotspots if h.path == "README.md")
         self.assertEqual(entry.key, "")
+
+    def test_hotspot_list_is_capped_but_the_total_is_reported(self):
+        """상한은 표시 상한이지 임계값이 아니다 — 잘린 목록만 남고 전체 파일 수가 사라지면
+        `상위 20`이 '바뀐 파일이 20건'으로 읽힌다."""
+        self.base()                                  # ARCHITECTURE.md + 스타일 문서 2건
+        for index in range(HOTSPOT_TOP + 1):
+            self.kt("claim/domain", "com.acme.claim.domain", f"Type{index:02d}")
+        self.commit("many")
+
+        signals = self.collect()
+        self.assertEqual(len(signals.hotspots), HOTSPOT_TOP)
+        self.assertEqual(signals.span["files"], HOTSPOT_TOP + 3)
+        self.assertIn(f"상위 {HOTSPOT_TOP} (바뀐 파일 {HOTSPOT_TOP + 3}건 중)",
+                      "\n".join(render(signals)))
 
 
 # ---------------------------------------------------------------------------
@@ -408,6 +483,19 @@ class ReviewLogTest(SignalsTestCase):
         signals = self.collect()
         self.assertEqual(signals.review_log.rules[0].severities, [{"severity": "", "count": 1}])
         self.assertIn("(미기재)", "\n".join(render(signals)))
+
+    def test_missing_severity_sorts_first_on_a_tie(self):
+        """`_tally`는 건수 내림차순, 같으면 값 오름차순이다. 빈 문자열이 어떤 값보다 앞서므로
+        동률이면 `(미기재)`가 먼저 나온다 — 표시 순서를 여기서 고정해 둔다."""
+        self.base()
+        self.log(json.dumps({"date": "2026-08-01", "rule": "a.one", "path": CLAIM_KT}),
+                 review_line("a.one", CLAIM_KT, severity="blocker", date="2026-08-02"))
+        self.commit("log")
+
+        signals = self.collect()
+        self.assertEqual(signals.review_log.rules[0].severities,
+                         [{"severity": "", "count": 1}, {"severity": "blocker", "count": 1}])
+        self.assertIn("심각도: (미기재) 1, blocker 1", "\n".join(render(signals)))
 
     def test_empty_rule_value_is_announced_precisely(self):
         self.base()
@@ -586,6 +674,17 @@ class NotCollectableTest(SignalsTestCase):
             self.collect()
         self.assertIn("커밋", str(caught.exception))
 
+    def test_git_executable_is_missing(self):
+        """git은 이 수집기의 유일한 외부 의존이다 — 실행 자체가 안 되면 `OSError`를 흘리지 않고
+        산출 불가로 말한다. 트레이스백이 새면 호출자가 exit 1과 exit 2를 가릴 수 없다."""
+        self.base()
+        empty = self.tmpdir / "nobin"          # git이 없는 PATH
+        empty.mkdir()
+        with mock.patch.dict(os.environ, {"PATH": str(empty)}):
+            with self.assertRaises(CollectError) as caught:
+                self.collect()
+        self.assertIn("git", str(caught.exception))
+
     def test_unresolvable_architecture_document(self):
         self.write("ARCHITECTURE.md", BROKEN_ARCH)
         self.commit("broken")
@@ -653,6 +752,26 @@ class CliTest(SignalsTestCase):
         self.assertEqual(sorted(data["hotspots"][0]), sorted(["path", "commits", "key"]))
         self.assertEqual(sorted(data["range"]), sorted(["commits", "files", "first", "last"]))
         self.assertEqual(sorted(data["since"]), sorted(["given", "kind", "resolved"]))
+        self.assertEqual(sorted(data["unattributed"]),
+                         sorted(["commits", "files", "changes", "samples"]))
+
+    def test_json_shapes_of_the_remaining_signals(self):
+        """`cochanges`·`baseline`은 위 케이스의 트리에서 비어 있어 항목 모양이 고정되지 않는다 —
+        둘 다 채워진 트리에서 따로 못박는다. 주 소비자(evolve)가 키로 읽기 때문이다."""
+        self.base()
+        self.write("docs/architecture/baseline.jsonl",
+                   json.dumps({"rule": "af.no-framework", "path": CLAIM_KT}) + "\n")
+        self.kt("claim/domain", "com.acme.claim.domain", "Claim")
+        self.kt("billing/domain", "com.acme.billing.domain", "Invoice")
+        self.commit("baseline + 두 컨텍스트를 한 커밋에서")
+
+        data = payload(self.collect())
+        self.assertEqual(sorted(data["cochanges"][0]), sorted(["a", "b", "commits"]))
+        self.assertEqual(sorted(data["baseline"]),
+                         sorted(["path", "present", "lines", "rules", "history", "broken"]))
+        self.assertEqual(sorted(data["baseline"]["rules"][0]), sorted(["rule", "count"]))
+        self.assertEqual(sorted(data["baseline"]["history"][0]),
+                         sorted(["commit", "date", "lines", "delta"]))
 
     def test_json_notices_carry_the_standing_notes(self):
         """한계와 '해석은 evolve의 몫' 고지가 텍스트에만 있으면 주 소비자가 못 읽는다."""
