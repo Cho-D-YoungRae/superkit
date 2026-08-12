@@ -166,6 +166,7 @@ python3 <플러그인>/scripts/check_imports.py ARCHITECTURE.md      # exit 0, [
 /superarchitect:fitness                                          # 생성 → 대상 프로젝트 빌드로 실행
 ```
 
-**확인한 레이아웃 — multi-module**(Phase 6 T2: `check_imports` exit 0 · ArchUnit 통과). 모듈
-경계를 넘는 컴파일 가시성처럼 **multi-module에서만 드러나는 실패**가 있으므로, 어느 레이아웃으로
+**확인한 레이아웃 — multi-module**(Phase 6 T2: `check_imports` exit 0 · ArchUnit 통과 — 당시
+모듈 경로는 colon형. 접두형 개편은 이름-only라 검사 축 실측은 유효하고, 접두형 배선은 kotlin
+e2e가 같은 조각 구조로 검증했다). 모듈 경계를 넘는 컴파일 가시성처럼 **multi-module에서만 드러나는 실패**가 있으므로, 어느 레이아웃으로
 밟았는지를 함께 남긴다.
