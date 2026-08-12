@@ -167,6 +167,9 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
    `org.junit.jupiter.api.Test`).
 4. 파일 이름과 같은 이름의 클래스 하나에 `@Test` 함수를 담는다(`class ClaimArchitectureTest { … }`).
 5. 매핑 §0.2의 `matchesPattern` 헬퍼를 파일마다 한 번 넣는다.
+6. **`이행` 중이면**(= git 루트에 `docs/architecture/baseline.jsonl`이 있으면) 매핑 §7의 baseline
+   조각도 파일마다 한 번 넣는다. 파일이 없는 프로젝트에는 넣지 않는다 — 쓰지 않을 코드를 생성물에
+   남기지 않는다.
 
 ### 4-c. 스타일 유래 규칙 — `effective` 항목마다
 
@@ -184,6 +187,10 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
    한 항목이라도 대응 패키지가 인벤토리에 없으면 **라우트 B**다. 외부 라이브러리 패턴
    (`org.springframework..`)은 언제나 0건이므로 항상 B다.
 5. `strict` 인자와 기본값은 매핑 §0.3이 primitive별로 정해 두었다. 통과시키려고 뒤집지 않는다.
+6. **baseline이 있으면 강등 합성을 얹는다**(매핑 §7의 표) — `assertFalse`는 위반식에
+   `&& !demoted("<rule id>", <경로>)`, `assertTrue`는 통과식에 `|| demoted(…)`, `assertArchitecture`는
+   수신 스코프에 `.slice { !demoted(…, it.projectPath) }`. **4-d의 파생 규칙도 같다** — 거기서는 rule
+   id 자리에 `derived.<kind>`를 쓴다. check_imports가 baseline에 그 id로 적기 때문이다.
 
 ### 4-d. 파생 규칙 — `derived` 항목마다
 
@@ -268,11 +275,14 @@ diff -u "<기존 파일>" "<새 내용 임시 파일>"
 6. **이행 중이면 미리 말한다.**
 
    ```bash
-   grep -n '^- 이행:' ARCHITECTURE.md
+   grep -n '^- 이행:' ARCHITECTURE.md; ls docs/architecture/baseline.jsonl
    ```
 
-   > **구현 상태 — baseline 강등은 Phase 5다**(매핑 §7). 지금 생성되는 테스트는 모든 위반을
-   > 실패로 낸다. `이행` 라벨이 있는 컨텍스트라면 첫 실행에서 기존 부채가 전부 실패로 나온다.
+   > **baseline이 있으면 생성된 테스트가 기존 부채를 강등한다**(매핑 §7 — 4-b·4-c에서 이미 넣었다).
+   > 부채는 `[기존 부채] …` 출력으로 나오고 실패는 신규 위반만 낸다. `이행` 라벨은 있는데 baseline이
+   > 없으면 첫 실행에서 기존 부채가 전부 실패로 나오므로, 그 전에 `/superarchitect:init`의 동결을
+   > 끝내라고 말한다. **baseline은 Gradle 태스크 입력이 아니다** — 부채를 갚고 그 파일만 고친 뒤
+   > 테스트를 다시 돌리면 `UP-TO-DATE`로 건너뛴다. `--rerun-tasks`가 필요하다고 함께 알린다.
 7. **커밋은 사용자가 한다.** 명령만 제안한다.
 8. **다음 걸음** — 생성된 테스트가 원리적으로 못 보는 것(같은 패키지 안의 참조, import 없는 FQN
    사용, 리플렉션, 의미론)은 `/superarchitect:review`가 본다. 규칙 자체를 바꾸고 싶으면 테스트가
