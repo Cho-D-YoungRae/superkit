@@ -481,7 +481,7 @@ private fun demoted(ruleId: String, projectPath: String): Boolean =      // 동�
 | ① 매칭 키 | 키가 (규칙 id, 경로)뿐이라 **같은 파일·같은 규칙의 추가 위반도 흡수된다**(`check_imports` 푸터도 같은 고지) |
 | ② 사각 | baseline은 import 기반 근사가 만들어 **Konsist만 보는 위반은 기존 부채여도 실패**한다 |
 | ③ `slice` | 앞의 둘과 달리 위반 여부를 모르는 채 파일을 빼므로 **이미 갚은 부채도 계속 제외·출력되고**, 한 레이어가 통째로 부채면 그 레이어가 비어 §0.3-1의 예외로 죽는다 — 답은 migrate로 갚아 항목을 지우는 것이다 |
-| ④ `UP-TO-DATE` | 이 파일은 소스가 아니라 Gradle이 변화를 보지 못한다. `_shared`의 archtest 조각이 `inputs.files`로 선언해 막는다(실측 — baseline만 고친 재실행이 돌고 무변경은 `UP-TO-DATE`. 단 그 조각 주석대로 `Test.workingDir` 기본값이 전제다). **구판 조각이나 다른 테스트 모듈에는 선언이 없으므로** 그때는 `--rerun-tasks`가 답이다 |
+| ④ `UP-TO-DATE` | 판정을 바꾸는 입력이 **둘 다** 태스크 밖에 있다 — baseline은 소스가 아니고, **검사 대상 소스도** Konsist가 클래스패스가 아니라 소스 트리를 읽는 탓에 의존으로 들어오지 않는다(선언이 없으면 위반 6건을 심어 둔 재실행이 `UP-TO-DATE`로 초록이었다). `_shared`의 archtest 조각이 둘을 `inputs.files`로 선언해 막는다(✅ 실측 — 같은 위반을 심은 재실행이 12건 중 1건 실패로 돌고, baseline만 고친 재실행도 돌며, 무변경은 `UP-TO-DATE`. 단 그 조각 주석대로 `Test.workingDir` 기본값이 전제다). **구판 조각이나 다른 테스트 모듈에는 선언이 없으므로** 그때는 `--rerun-tasks`가 답이다 |
 | ⑤ 정규식 로더 | 값에 이스케이프가 들어가면 정규식이 놓쳐 **`"path" 값이 없습니다`로 중단**하는데, 같은 줄을 `json.loads`로 읽는 `check_imports`는 통과하므로 **두 소비자가 갈린다**(실측: `path`를 윈도 꼴로 쓴 줄) — 그 메시지는 값의 부재가 아니라 형태를 가리킨다. `note` 안의 `, "path": …` 꼴은 유효 JSON이면 `\"`로 이스케이프돼 정규식에 걸리지 않으므로 오독하지 않는다(실측) |
 
 ## 8. Spring Modulith

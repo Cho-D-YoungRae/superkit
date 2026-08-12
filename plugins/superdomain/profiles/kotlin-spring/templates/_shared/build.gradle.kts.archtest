@@ -26,6 +26,16 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Konsist가 읽는 것은 클래스패스가 아니라 **소스 트리**라 검사 대상이 의존으로도 들어오지
+    // 않는다(위 dependencies 블록). 그래서 소스를 여기서 직접 입력으로 선언한다 — 없으면
+    // 프로덕션 소스를 어떻게 고쳐도 이 태스크의 입력이 그대로여서, 위반을 심어 둔 채 재실행해도
+    // `UP-TO-DATE`로 건너뛰고 **건너뛴 초록**이 난다(✅ 실측: 위반 6건이 디스크에 있는데 성공).
+    // 범위는 `scopeFromProduction()`이 보는 것과 같게 — 모든 프로젝트의 `src/main`이다.
+    // baseline과 같은 이유로 없는 경로도 그대로 담고, 판정을 바꾸는 것은 파일 내용과 모듈 안의
+    // 상대 위치뿐이라 저장소 밖 절대 경로에는 민감하지 않다 — RELATIVE.
+    inputs.files(rootProject.allprojects.map { it.file("src/main") })
+        .withPropertyName("productionSources")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // 생성된 규칙 테스트는 실행 중에 `docs/architecture/baseline.jsonl`을 읽어 동결분을 강등한다
     // (rule-mappings.md §7). 그 파일은 소스도 클래스패스도 아니라서 입력으로 선언하지 않으면
     // baseline만 고친 재실행이 `UP-TO-DATE`로 건너뛰고, 건너뛴 초록이 해소의 근거로 쓰인다.
