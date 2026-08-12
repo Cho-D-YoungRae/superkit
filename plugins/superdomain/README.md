@@ -87,7 +87,7 @@ python3 scripts/check_invariants.py ARCHITECTURE.md   # 0=위반 없음, 1=위�
 python3 -m unittest discover -s tests
 ```
 
-307개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
+310개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
 의존하므로 설치할 것이 없다(PyYAML도 쓰지 않는다. frontmatter는 제한 문법 자체 파서로 읽는다).
 
 ## 지식 추가 절차
