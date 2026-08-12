@@ -1,6 +1,6 @@
 ---
 summary: 관계 표에 쓸 수 있는 6종 관계 유형의 정의·선택 시점·안티패턴. 관계 표는 문서가 아니라 컨텍스트 간 참조의 allow-list다
-read_when: [init, review]
+read_when: [init, review, scaffold]
 ---
 
 ## 개념

@@ -6,7 +6,9 @@ description: >
   (summary, ADR)을 생성. 사용자가 "아키텍처 초기화", "아키텍처 셋업", "architecture init",
   "/superarchitect:init"을 요청할 때, 새 프로젝트에 아키텍처 기준을 잡아달라고 할 때, 또는 다른
   superarchitect 스킬이 ARCHITECTURE.md 부재를 발견했을 때 반드시 사용. 이미 초기화된 프로젝트의
-  일상적 검토·수정에는 사용하지 않는다(review/sync 사용).
+  일상적 검토·수정에는 사용하지 않는다(review/sync 사용). 선언된 구조를 실제 코드 골격으로
+  찍어내는 일은 `/superarchitect:scaffold`이고, 이 초기화에서 내린 결정을 그 뒤에 별도 기록물로
+  남기는 일은 `/superarchitect:adr`이다 — 초기화가 만드는 ADR은 7단계에서 함께 나온다.
 ---
 
 # 아키텍처 거버넌스 초기화
@@ -117,7 +119,7 @@ ls "${CLAUDE_PLUGIN_ROOT}/profiles"
 ## 3. 후보 0개 — 그린필드 설계 인터뷰
 
 **오류가 아니다.** 코드가 없어도 `ARCHITECTURE.md`는 설계서로 먼저 성립한다. 프로젝트 섹션의
-`경로`는 아직 없는 **예정 경로**로 선언할 수 있다(코드 생성은 scaffold의 몫).
+`경로`는 아직 없는 **예정 경로**로 선언할 수 있다(코드 생성은 `/superarchitect:scaffold`의 몫).
 
 **한 번에 하나씩 묻는다.** 답을 받을 때마다 지금까지 확정된 것을 두세 줄로 되짚어 준다.
 
@@ -224,7 +226,8 @@ R4 리뷰 체크리스트를 돌린다 — 특히 "core가 절반을 넘는가"�
 - **프리셋이 맞지 않으면 커스텀 스타일을 선언한다.** "프리셋과 비슷한데 조금 다르게"는 선택지가
   아니다 — 선언되지 않은 변형은 강제할 수단이 없어 모든 스킬이 거부한다. 절차는
   `architecture-template.md` §7의 선언 형식과
-  `${CLAUDE_PLUGIN_ROOT}/references/governance/rule-vocabulary.md` §5 체크리스트를 읽고,
+  `${CLAUDE_PLUGIN_ROOT}/references/governance/rule-vocabulary.md` §5(「새 커스텀 스타일을
+  선언할 때」) 체크리스트를 읽고,
   대상 프로젝트의 `docs/architecture/styles/<이름>.md`에 작성한 뒤 컨텍스트에서
   `- 스타일: custom/<이름>`으로 채택한다. 파일명과 이름은 같아야 한다.
 
@@ -273,7 +276,7 @@ R4 리뷰 체크리스트를 돌린다 — 특히 "core가 절반을 넘는가"�
 - **템플릿이 표현하지 못하는 것이 나오면 필드를 발명하지 않는다.** 파서가 모르는 라벨은 오류가
   아니라 침묵이다. 표현할 수 없다는 사실을 사용자에게 말하고, 내용은 자유 서술로 남긴다.
 - **그린필드에서는 표의 경로가 전부 예정 경로다.** 아직 없는 경로도 파서가 허용한다 — 이 표를
-  보고 나중에 scaffold가 실제 골격을 만든다. 관측 대신 5단계의 결정과 인터뷰 답으로 채우되,
+  보고 `/superarchitect:scaffold`가 실제 골격을 만든다. 관측 대신 5단계의 결정과 인터뷰 답으로 채우되,
   **모든 행을 사용자와 확인한다.**
   - `multi-module`·`single-module` → 컨텍스트마다 모듈 표. 행은 모듈 구성과 스타일의 레이어
     목록에서 나온다.
@@ -434,8 +437,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
 2. **git pre-commit 훅은 이 스킬이 설치하지 않는다.** 결정적 검사(`resolve_rules.py`,
    `check_imports.py`)는 실재하지만 훅 설치는 사용자의 결정이므로, 그런 장치를 둘 수 있다는
    안내까지만 한다.
-3. **다음 단계를 알려준다.** `/superarchitect:fitness`로 아키텍처 테스트를 생성하고,
-   `/superarchitect:review`로 변경을 검토할 수 있다. 실행 여부는 사용자가 정한다.
+3. **다음 단계를 알려준다.** 선언만 있고 코드가 없으면(그린필드·예정 경로) `/superarchitect:scaffold`가
+   그 표를 골격으로 옮기고, `/superarchitect:fitness`로 아키텍처 테스트를 생성하고,
+   `/superarchitect:review`로 변경을 검토할 수 있다. 7-d에서 미룬 결정이 있으면
+   `/superarchitect:adr`이 그것을 받는다. 실행 여부는 사용자가 정한다.
 4. **커밋은 사용자가 한다.** 명령만 제안한다.
    ```bash
    git add ARCHITECTURE.md docs/architecture
@@ -458,6 +463,6 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md
 - **템플릿에 없는 라벨·필드를 발명하는 것.** 표현할 수 없으면 그 사실을 말하고 자유 서술로 남긴다.
 - **스택 추측으로 거버넌스 대상을 제외하는 것.** 제외 근거는 프로파일 부재뿐이다.
 - **파생물을 직접 고치도록 유도하는 것.** 항상 SSOT를 고치고 파생물을 다시 만든다.
-- **아직 없는 스킬(scaffold·sync·adr·evolve·migrate)을 있는 것처럼 안내하는 것.**
-  `fitness`·`review`·`model`·`apply`는 실재하므로 안내해도 된다.
+- **아직 없는 스킬(sync·evolve·migrate)을 있는 것처럼 안내하는 것.**
+  `fitness`·`review`·`model`·`apply`·`scaffold`·`adr`는 실재하므로 안내해도 된다.
 - **산출물을 하위 디렉터리에 만드는 것.** `ARCHITECTURE.md`와 `docs/architecture/`는 git 루트다.

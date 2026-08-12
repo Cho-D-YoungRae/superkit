@@ -1,6 +1,6 @@
 ---
 summary: 컨텍스트 경계를 긋는 4가지 휴리스틱(언어·소유권·트랜잭션·데이터)과 경계가 잘못 그어졌을 때의 신호
-read_when: [init, model]
+read_when: [init, model, scaffold]
 ---
 
 ## 개념

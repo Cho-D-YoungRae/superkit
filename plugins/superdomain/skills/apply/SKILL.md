@@ -4,7 +4,8 @@ description: >
   domain 문서의 confirmed 항목을 코드로 옮긴다 — check_invariants.py가 지목한 "확정됐는데
   구현되지 않은" 불변식을 작업 목록으로 받아, 도메인 코어(애그리거트·값 객체와 불변식을 강제하는
   로직) → 불변식마다 `@Tag("INV-<CONTEXT>-NNN")` 테스트 → 필요한 최소한의 퍼사드·포트 순서로
-  inside-out 구현하고, check_invariants와 check_imports 두 결정적 게이트를 통과시킨다.
+  inside-out 구현하고, check_invariants·check_imports 두 결정적 게이트에 더해 새로 쓴 테스트
+  실행과 대상 프로젝트 컴파일까지 초록을 확인한다.
   사용자가 "도메인 문서 적용", "불변식 구현", "확정된 불변식 코드로", "도메인 모델 코드로
   옮겨줘", "apply domain", "implement invariants", "/superarchitect:apply"를 요청할 때,
   `/superarchitect:model` 세션에서 항목을 confirmed로 확정한 직후, 또는 검사·리뷰가 "confirmed
@@ -154,9 +155,8 @@ exit 1이면 stderr의 `경로:라인: 메시지`를 그대로 보여주고 중�
 
 **(가) 스타일이 domain을 선언했다 — 실현만 비었다.** `warnings`의 공허 레이어 고지가 같은
 사실을 말한다. 아래 `all` 예외에 해당하지 않으면 중단하고 알린다: 모듈 표나 패키지 규약에
-domain 레이어를 등록하는 것은 사용자의 몫이고, 골격 생성은 `/superarchitect:scaffold`다.
-
-> **구현 상태 — `scaffold`는 Phase 4다.** 그때까지 없는 모듈·빌드 스크립트는 사용자가 만든다.
+domain 레이어를 등록하는 것은 사용자 확정 사항이고, 그 등록과 모듈·빌드 스크립트 생성을 함께
+하는 것이 `/superarchitect:scaffold`다. 이 스킬은 없는 자리를 만들지 않는다.
 
 **(가)의 예외는 `all` 하나다.** 모듈 표의 `레이어`가 `all`이고 패키지 규약 표가 없으면 정규화
 결과의 키도 `all`이다(패턴은 `<기본 패키지>.<컨텍스트>..`). 레이어를 물리적으로 나누지 않은

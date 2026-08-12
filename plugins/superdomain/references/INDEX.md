@@ -4,11 +4,11 @@
 | key | topic | summary | read_when | rules | draft |
 |---|---|---|---|---|---|
 | aggregates | tactical | 애그리거트 경계를 불변식과 트랜잭션으로 긋는 절차, 크기 판단 체크리스트, 애그리거트 간 ID 참조 원칙과 INV- 불변식 연결 | model, apply, review |  |  |
-| bounded-contexts | strategic | 컨텍스트 경계를 긋는 4가지 휴리스틱(언어·소유권·트랜잭션·데이터)과 경계가 잘못 그어졌을 때의 신호 | init, model |  |  |
+| bounded-contexts | strategic | 컨텍스트 경계를 긋는 4가지 휴리스틱(언어·소유권·트랜잭션·데이터)과 경계가 잘못 그어졌을 때의 신호 | init, model, scaffold |  |  |
 | clean | styles | 4개 동심원(domain, usecase, adapter, framework) 스타일. usecase 레이어까지 프레임워크를 금지하므로 트랜잭션 경계가 바깥으로 나간다 | init, review, fitness, scaffold | cl.deps-inward, cl.domain-pure, cl.domain-no-framework |  |
-| context-mapping | strategic | 관계 표에 쓸 수 있는 6종 관계 유형의 정의·선택 시점·안티패턴. 관계 표는 문서가 아니라 컨텍스트 간 참조의 allow-list다 | init, review |  |  |
+| context-mapping | strategic | 관계 표에 쓸 수 있는 6종 관계 유형의 정의·선택 시점·안티패턴. 관계 표는 문서가 아니라 컨텍스트 간 참조의 allow-list다 | init, review, scaffold |  |  |
 | cqrs | patterns | CQRS 적용 판단 스펙트럼(호출 분리~저장소 분리)과 커맨드/쿼리 분리 규칙 — 기본값은 가장 낮은 단계다 | apply, review, scaffold |  |  |
-| domain-classification | strategic | 컨텍스트를 core·supporting·generic으로 판정하는 4문항 체크리스트와 분류→스타일 기본 매핑(기본값은 순수 도메인 모델) | init, evolve |  |  |
+| domain-classification | strategic | 컨텍스트를 core·supporting·generic으로 판정하는 4문항 체크리스트와 분류→스타일 기본 매핑(기본값은 순수 도메인 모델) | init, scaffold, evolve |  |  |
 | domain-events | tactical | 도메인 이벤트의 발행 위치(애그리거트)와 시점(커밋 경계), 과거형 명명 규칙, 공개 이벤트를 관계 표 계약 칸에 등재하는 절차 | model, apply, review |  |  |
 | event-sourcing | patterns | 대부분의 컨텍스트에는 불필요하다 — 적용 판단 기준, 스냅샷·리플레이·스키마 진화 | apply, review, scaffold |  |  |
 | event-storming | strategic | 텍스트 채팅 기반 이벤트 스토밍 진행 규약 — 과거형 이벤트 나열부터 컨텍스트 경계·핫스팟까지 5단계의 촉진 질문·산출 형식과 결과 반영 규칙 | model, init |  |  |

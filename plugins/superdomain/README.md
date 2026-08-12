@@ -19,9 +19,9 @@ claude --plugin-dir /path/to/superarchitect
 스킬은 `/superarchitect:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
 `plugin.json`·훅·에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
 
-## 현재 상태 (Phase 3까지)
+## 현재 상태 (Phase 4까지)
 
-이 플러그인은 Phase 3(도메인)까지 구현되어 있다. **없는 것을 있는 것처럼 쓰지 않는 것이 이
+이 플러그인은 Phase 4(생성)까지 구현되어 있다. **없는 것을 있는 것처럼 쓰지 않는 것이 이
 플러그인의 제1 원칙이므로, 아래 경계를 그대로 지킨다.**
 
 ### 지금 있는 것
@@ -33,6 +33,8 @@ claude --plugin-dir /path/to/superarchitect
 | `/superarchitect:review` | `skills/review/` | 변경을 결정적 검사로 먼저 거른 뒤 의미론 판단만 `arch-reviewer`에 위임하고, 결과를 `review-log.jsonl`에 append한다 |
 | `/superarchitect:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 도메인 문서를 키운다. 불변식은 `proposed`로 적히고 `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다 |
 | `/superarchitect:apply` | `skills/apply/` | domain 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
+| `/superarchitect:scaffold` | `skills/scaffold/` | 선언을 디스크로 옮긴다 — 프로파일 템플릿의 `MANIFEST.md`대로 모듈·레이어 패키지·최소 스텁을 전개하고, 선언에 없는 프로젝트·컨텍스트는 인터뷰로 확정한 뒤 SSOT에 등록한다. init 다음으로 `ARCHITECTURE.md`를 편집하는 유일한 스킬 |
+| `/superarchitect:adr` | `skills/adr/` | 결정을 MADR로 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 기계 규칙을 함의하면 규칙 예외·스타일 선언·어휘 확장 중 어디로 가는지까지 잇는다 |
 | `arch-reviewer` 에이전트 | `agents/arch-reviewer.md` | 읽기 전용. 전달받은 지식 문서의 규칙 절과 자유 관측 5범주로만 판정한다 |
 | SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/architecture/summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
 | 결정 템플릿 파서 | `scripts/parse_architecture.py` | `ARCHITECTURE.md`의 필수 결정 누락·비정규 값·깨진 참조를 라인 번호와 함께 보고한다 |
@@ -43,6 +45,8 @@ claude --plugin-dir /path/to/superarchitect
 | 인덱스 생성기 | `scripts/build_index.py` | `references/knowledge/`를 스캔해 `references/INDEX.md`를 다시 만든다 |
 | 거버넌스 문서 6종 | `references/governance/` | 결정 템플릿·규칙 어휘·ADR·진화 신호·지식 문서 표준·도메인 문서 표준의 정본 |
 | `kotlin-spring` 프로파일 | `profiles/kotlin-spring/rule-mappings.md` | primitive 5종 + 파생 3종 → Konsist 코드 번역의 정본 |
+| 프리셋 골격 템플릿 4종 | `profiles/kotlin-spring/templates/` | scaffold가 전개하는 골격. 스타일마다 `MANIFEST.md`가 파일 목록·레이아웃 3형 배치·병합 규칙을 정한다. 앱 실행 모듈 조각은 스타일과 무관해 `_shared/`에 하나 |
+| 규칙 예제 | `profiles/kotlin-spring/examples/` | good 3 / bad 2. 나쁜 예는 걸리는 규칙 id와 도구가 실제로 낸 실패 메시지 첫 줄을 주석에 적는다 |
 | 지식 문서 18종 | `references/knowledge/` | 전부 성숙(draft 0). INDEX를 거쳐 필요한 것만 선별해 읽는다 |
 | `study` 스킬 | `.claude/skills/study/` | 이 저장소 전용. 지식 베이스를 키운다(아래 참조) |
 
@@ -61,13 +65,13 @@ python3 scripts/check_invariants.py ARCHITECTURE.md   # 0=위반 없음, 1=위�
 
 ### 아직 없는 것
 
-- **나머지 스킬 다섯 개** — `scaffold`, `adr`, `sync`, `evolve`, `migrate`.
-  지금 노출되는 스킬은 `init`·`fitness`·`review`·`model`·`apply` 다섯이다.
+- **나머지 스킬 세 개**(Phase 5) — `sync`, `evolve`, `migrate`. 지금 노출되는 스킬은
+  `init`·`fitness`·`review`·`model`·`apply`·`scaffold`·`adr` 일곱이다.
 - **`java-spring` 프로파일**(Phase 6) — `profiles/java-spring/`은 빈 디렉터리다. Java 프로젝트를
-  선언할 수는 있지만 fitness는 매핑 부재를 알리고 생성하지 않는다.
+  선언할 수는 있지만 fitness는 매핑 부재를 알리고 생성하지 않는다. 골격 템플릿도 `kotlin-spring`
+  하나에만 있다.
 - **`baseline.jsonl`과 진화 신호 수집**(Phase 5) — `이행`을 선언해도 baseline은 동결되지 않으므로
   생성된 테스트는 기존 위반도 전부 blocker로 다룬다. `collect_signals.py`·`evolve`도 없다.
-- **`templates/`**(Phase 4) — scaffold가 쓸 골격은 어느 프로파일에도 없다.
 
 거버넌스 문서 안에서 "아직 시행되지 않는 조항"은 각 문서의 구현 상태 블록에 모아 두었다
 (`references/governance/architecture-template.md` §5.3이 그 형식의 기준이다). Phase 2에서 그 목록은
@@ -83,7 +87,7 @@ python3 scripts/check_invariants.py ARCHITECTURE.md   # 0=위반 없음, 1=위�
 python3 -m unittest discover -s tests
 ```
 
-300개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
+307개 테스트가 돈다. **`pytest`를 쓰지 않는다** — 스크립트도 테스트도 Python 표준 라이브러리에만
 의존하므로 설치할 것이 없다(PyYAML도 쓰지 않는다. frontmatter는 제한 문법 자체 파서로 읽는다).
 
 ## 지식 추가 절차
@@ -120,7 +124,7 @@ python3 -m unittest discover -s tests
 ```
 .claude-plugin/plugin.json   플러그인 매니페스트
 .claude/skills/study/        이 저장소 전용 스킬 (배포되지 않음)
-skills/init|fitness|review|model|apply/
+skills/init|fitness|review|model|apply|scaffold|adr/
                              /superarchitect:<스킬명>
 agents/arch-reviewer.md      review가 의미론 판단만 위임하는 읽기 전용 에이전트
 hooks/hooks.json             SessionStart 훅 등록
@@ -132,7 +136,7 @@ scripts/
   check_invariants.py        불변식 ↔ 테스트 태그 대조 검사기
   build_index.py             references/INDEX.md 생성기
   session_summary.sh         SessionStart 훅 본체
-profiles/                    kotlin-spring (있음), java-spring (Phase 6)
+profiles/                    kotlin-spring (매핑·검증 대장·템플릿 4종·examples), java-spring (Phase 6)
 references/
   INDEX.md                   생성물 — 직접 고치지 말고 build_index.py를 다시 돌린다
   governance/                결정 템플릿·규칙 어휘·ADR·진화 신호·지식/도메인 문서 표준의 정본

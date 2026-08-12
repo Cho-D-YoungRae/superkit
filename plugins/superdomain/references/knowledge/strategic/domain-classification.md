@@ -1,6 +1,6 @@
 ---
 summary: 컨텍스트를 core·supporting·generic으로 판정하는 4문항 체크리스트와 분류→스타일 기본 매핑(기본값은 순수 도메인 모델)
-read_when: [init, evolve]
+read_when: [init, scaffold, evolve]
 ---
 
 ## 개념
@@ -168,7 +168,7 @@ core로 분류하고 `hexagonal`을 채택하면 그 스타일이 선언한 `con
 - 분류: core
 ## 컨텍스트: notification
 - 분류: core        ← 알림 발송이 왜 차별화인가?
-## 컨텍스트: audit-log
+## 컨텍스트: auditlog
 - 분류: core        ← Q3 답: "로그 수집 제품은 많다" → generic
 ```
 
