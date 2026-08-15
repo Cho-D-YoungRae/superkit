@@ -1,0 +1,27 @@
+{
+  "name": "superarchitect",
+  "owner": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com",
+    "url": "https://github.com/Cho-D-YoungRae"
+  },
+  "metadata": {
+    "description": "superarchitect 배포용 Claude Code 마켓플레이스 — 저장소 자체가 플러그인이자 마켓플레이스다"
+  },
+  "plugins": [
+    {
+      "name": "superarchitect",
+      "source": "./",
+      "description": "문서 기반 아키텍처·도메인 거버넌스 — 질문으로 구조와 도메인을 확정하고, 사람과 Claude가 함께 읽는 문서로 고정하고, 선언된 것을 결정적으로 강제한다",
+      "keywords": [
+        "architecture",
+        "governance",
+        "domain-driven-design",
+        "adr",
+        "fitness-function",
+        "korean"
+      ],
+      "category": "workflow"
+    }
+  ]
+}

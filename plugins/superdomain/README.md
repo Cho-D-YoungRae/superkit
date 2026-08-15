@@ -8,9 +8,45 @@ superarchitect는 그 추측을 없애기 위해 **결정을 문서에 고정하
 확인하게 하고, 의미론적 판단만 LLM에 남긴다.** 구조의 진실은 대상 프로젝트 루트의
 `ARCHITECTURE.md` 한 파일(SSOT)이고, 파서가 그 문서의 유일한 해석기다.
 
-이 저장소가 곧 플러그인이다(루트에 `.claude-plugin/plugin.json`).
+이 저장소가 곧 플러그인이자 그것을 배포하는 마켓플레이스다 — 루트의
+`.claude-plugin/plugin.json`이 플러그인을, `.claude-plugin/marketplace.json`이 마켓플레이스를
+선언하고, 마켓플레이스는 자기 저장소 루트(`"source": "./"`)를 플러그인으로 가리킨다.
 
-## 설치 (로컬 개발)
+## 설치
+
+전제조건은 [Claude Code](https://code.claude.com)와 `python3`뿐이다. 스킬이 부르는 검사
+스크립트는 Python 표준 라이브러리만 쓰므로 따로 설치할 패키지가 없다.
+
+### 마켓플레이스에서 설치 (권장)
+
+Claude Code 세션 안에서:
+
+```
+/plugin marketplace add Cho-D-YoungRae/superarchitect
+/plugin install superarchitect@superarchitect
+```
+
+터미널에서도 같은 일을 할 수 있다.
+
+```bash
+claude plugin marketplace add Cho-D-YoungRae/superarchitect
+```
+
+```bash
+claude plugin install superarchitect@superarchitect
+```
+
+설치되는 것은 스킬 열 개, 서브에이전트 `arch-reviewer`, 세션 시작 훅 하나다. 무엇이 실제로
+잡혔는지는 다음으로 확인한다.
+
+```bash
+claude plugin details superarchitect
+```
+
+갱신은 `claude plugin marketplace update superarchitect`, 제거는
+`claude plugin uninstall superarchitect`다.
+
+### 로컬 개발용 로드
 
 ```bash
 claude --plugin-dir /path/to/superarchitect
@@ -204,6 +240,8 @@ python3 -m unittest discover -s tests
 
 ```
 .claude-plugin/plugin.json   플러그인 매니페스트
+.claude-plugin/marketplace.json
+                             마켓플레이스 매니페스트 — 이 저장소 루트를 플러그인으로 배포한다
 .claude/skills/study/        이 저장소 전용 스킬 (배포되지 않음)
 skills/init|fitness|review|model|apply|scaffold|adr|sync|evolve|migrate/
                              /superarchitect:<스킬명> (10종)

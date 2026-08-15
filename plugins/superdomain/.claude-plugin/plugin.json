@@ -1,5 +1,22 @@
 {
   "name": "superarchitect",
   "version": "0.1.0",
-  "description": "문서 기반 아키텍처·도메인 거버넌스 — 질문으로 구조와 도메인을 확정하고, 사람과 Claude가 함께 읽는 문서로 고정하고, 선언된 것을 결정적으로 강제한다"
+  "description": "문서 기반 아키텍처·도메인 거버넌스 — 질문으로 구조와 도메인을 확정하고, 사람과 Claude가 함께 읽는 문서로 고정하고, 선언된 것을 결정적으로 강제한다",
+  "author": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com",
+    "url": "https://github.com/Cho-D-YoungRae"
+  },
+  "homepage": "https://github.com/Cho-D-YoungRae/superarchitect",
+  "repository": "https://github.com/Cho-D-YoungRae/superarchitect",
+  "keywords": [
+    "architecture",
+    "governance",
+    "domain-driven-design",
+    "bounded-context",
+    "adr",
+    "fitness-function",
+    "claude-code-plugin",
+    "korean"
+  ]
 }
