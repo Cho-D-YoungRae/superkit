@@ -496,7 +496,7 @@ git add skills/adr skills/evolve && git commit -m "refactor(skills): adr·evolve
 - Modify: `skills/review/SKILL.md`
 - Rename+Modify: `agents/arch-reviewer.md` → `agents/domain-reviewer.md`
 
-**review 수술:** 구조(결정적 검사 먼저 → 의미론만 위임 → review-log.jsonl append) 무수정. 결정적 검사 체인을 `check_imports.py`(컨텍스트 격리)+`check_invariants.py` 둘로 재정의 — fitness 생성 테스트·resolve_rules 언급 제거. 위임 대상을 `domain-reviewer`로.
+**review 수술:** 구조(결정적 검사 먼저 → 의미론만 위임 → review-log.jsonl append) 무수정. 결정적 검사 체인을 `check_imports.py`(컨텍스트 격리)+`check_invariants.py` 둘로 재정의 — fitness 생성 테스트·resolve_rules 언급 제거. 위임 대상을 `domain-reviewer`로. **`inherited` 채널 정리** — `skills/review/SKILL.md:165`의 JSON 키 목록에서 `inherited`를 빼고, `:176`의 `| 승계 경고 | ARCHITECTURE.md:<줄>: … (공허 레이어) | 그대로 승계 |` 행을 삭제한다(레이어 소멸로 영원히 비는 자리다).
 
 **domain-reviewer 재정의:** `git mv agents/arch-reviewer.md agents/domain-reviewer.md`. 읽기 전용·"전달받은 지식 문서의 규칙 절로만 판정" 구조 유지(전달원은 이제 strategic·tactical·patterns 12종). 자유 관측 5범주를 다음으로 교체:
 
@@ -530,7 +530,7 @@ git add skills/sync && git commit -m "refactor(skills): sync 대조 축 6→5 �
 **Files:**
 - Modify: `skills/migrate/SKILL.md`
 
-**수술:** ① 부채 종류가 컨텍스트 격리 위반 하나 — 클러스터 정의를 "컨텍스트 쌍(A→B) 단위"로 재정의. ② `이행` 라벨 연동 제거 — 활성 조건은 `baseline.jsonl` 존재. ③ 상환 검증에서 fitness 테스트 재생성 단계를 `check_imports.py` 재실행으로 대체. ④ "한 번에 한 클러스터·삭제 근거는 실측된 해소뿐" 규율 무수정. ⑤ 완료 처리: "빈 파일·`이행` 라벨·완료 ADR 한 묶음"에서 라벨을 빼고 "baseline.jsonl 삭제 + 완료 ADR"로.
+**수술:** ① 부채 종류가 컨텍스트 격리 위반 하나 — 클러스터 정의를 "컨텍스트 쌍(A↔B) 단위"로 재정의(**허용 단위는 쌍이고 방향 구분이 없다**). ② `이행` 라벨 연동 제거 — 활성 조건은 **`docs/domain/baseline.jsonl` 존재**(경로 이관 확정 — Task 4에서 `check_imports.BASELINE_RELATIVE`가 이미 이 값이다. init·migrate·check_imports 세 지점이 같은 경로를 봐야 한다). ⑥ **`inherited[]`·「승계 경고」 행 삭제** — `skills/migrate/SKILL.md:108`의 `inherited[]`(공허 레이어 승계 경고) 언급을 지운다. 그 채널은 레이어 소멸로 영원히 빈 목록이며, 남겨두면 리포트에 채워지지 않는 자리가 생긴다. ③ 상환 검증에서 fitness 테스트 재생성 단계를 `check_imports.py` 재실행으로 대체. ④ "한 번에 한 클러스터·삭제 근거는 실측된 해소뿐" 규율 무수정. ⑤ 완료 처리: "빈 파일·`이행` 라벨·완료 ADR 한 묶음"에서 라벨을 빼고 "baseline.jsonl 삭제 + 완료 ADR"로.
 
 - [ ] **Step 1: 수술** → **Step 2: 게이트 grep + 전체 테스트** → **Step 3: 커밋**
 
@@ -543,7 +543,7 @@ git add skills/migrate && git commit -m "refactor(skills): migrate — 격리 �
 **Files:**
 - Modify: `skills/init/SKILL.md`
 
-**수술:** ① §2 거버넌스 후보 감지의 기준을 "프로파일 매칭"에서 "kt/java 소스 존재"로. ② §4 기존 코드 스캔에서 "실현 형태(모듈 구성) 추정"·"세 표 도출" 삭제, 대신 "패키지 구조에서 컨텍스트 후보 추정 — `{기본 패키지}` 바로 아래 패키지들을 후보로 제시하고 사용자가 확정"으로 대체. ③ §5 인터뷰: 5-a 경계·5-b 분류·5-e 관계 유지, **5-c 스타일·5-d 모듈 구성 삭제**, 새 5-c "패키지 — 규약 기본값과 다른 컨텍스트만 명시"를 추가. "모델이 혼자 정했다면 되돌아간다" 규율 유지. ④ §6 산출을 `DOMAIN.md`로, 파서 게이트를 `python3 scripts/parse_domain.py DOMAIN.md`로. "이행 선언" 절 삭제. ⑤ "baseline 동결" 절 재정의: 브라운필드에서 `check_imports.py` 실측 → 위반 > 0이면 동결 여부를 **사용자에게 질문** → 동결 시 baseline.jsonl 생성. ⑥ §7 파생물: `docs/domain/summary.md` + 컨텍스트 맵 생성 구역. 구조 다이어그램 생성 절 삭제. ⑦ 지식 참조 프로토콜의 대상을 strategic 문서들(bounded-contexts·domain-classification·context-mapping·event-storming)로 갱신.
+**수술:** ① §2 거버넌스 후보 감지의 기준을 "프로파일 매칭"에서 "kt/java 소스 존재"로. ② §4 기존 코드 스캔에서 "실현 형태(모듈 구성) 추정"·"세 표 도출" 삭제, 대신 "패키지 구조에서 컨텍스트 후보 추정 — `{기본 패키지}` 바로 아래 패키지들을 후보로 제시하고 사용자가 확정"으로 대체. ③ §5 인터뷰: 5-a 경계·5-b 분류·5-e 관계 유지, **5-c 스타일·5-d 모듈 구성 삭제**, 새 5-c "패키지 — 규약 기본값과 다른 컨텍스트만 명시"를 추가. "모델이 혼자 정했다면 되돌아간다" 규율 유지. ④ §6 산출을 `DOMAIN.md`로, 파서 게이트를 `python3 scripts/parse_domain.py DOMAIN.md`로. "이행 선언" 절 삭제. ⑤ "baseline 동결" 절 재정의: 브라운필드에서 `check_imports.py` 실측 → 위반 > 0이면 동결 여부를 **사용자에게 질문** → 동결 시 **`docs/domain/baseline.jsonl`** 생성(경로 이관 확정 — `check_imports.BASELINE_RELATIVE`와 migrate가 같은 값을 본다). ⑥ §7 파생물: `docs/domain/summary.md` + 컨텍스트 맵 생성 구역. 구조 다이어그램 생성 절 삭제. ⑦ 지식 참조 프로토콜의 대상을 strategic 문서들(bounded-contexts·domain-classification·context-mapping·event-storming)로 갱신.
 
 - [ ] **Step 1: 수술** → **Step 2: 게이트 grep + 전체 테스트**
 - [ ] **Step 3: Phase 3 검증 게이트 — 스킬·에이전트 전체 죽은 참조 스캔**
