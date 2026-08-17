@@ -36,7 +36,7 @@ claude plugin marketplace add Cho-D-YoungRae/superarchitect
 claude plugin install superarchitect@superarchitect
 ```
 
-설치되는 것은 스킬 열 개, 서브에이전트 `arch-reviewer`, 세션 시작 훅 하나다. 무엇이 실제로
+설치되는 것은 스킬 열 개, 서브에이전트 `domain-reviewer`, 세션 시작 훅 하나다. 무엇이 실제로
 잡혔는지는 다음으로 확인한다.
 
 ```bash
@@ -130,7 +130,7 @@ flowchart TB
 |---|---|---|
 | `/superarchitect:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·스타일·모듈 구성·관계를 확정하고 `ARCHITECTURE.md`와 파생물(`docs/architecture/summary.md`, ADR)을 만든다 |
 | `/superarchitect:fitness` | `skills/fitness/` | 유효 규칙을 프로파일의 `rule-mappings.md`로 번역해 아키텍처 테스트를 생성·갱신한다(도구는 프로파일이 정한다 — Konsist 또는 ArchUnit). 생성까지가 몫이고 실행은 대상 프로젝트의 빌드가 한다 |
-| `/superarchitect:review` | `skills/review/` | 변경을 결정적 검사로 먼저 거른 뒤 의미론 판단만 `arch-reviewer`에 위임하고, 결과를 `review-log.jsonl`에 append한다 |
+| `/superarchitect:review` | `skills/review/` | 변경을 결정적 검사로 먼저 거른 뒤 의미론 판단만 `domain-reviewer`에 위임하고, 결과를 `review-log.jsonl`에 append한다 |
 | `/superarchitect:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 도메인 문서를 키운다. 불변식은 `proposed`로 적히고 `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다 |
 | `/superarchitect:apply` | `skills/apply/` | domain 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
 | `/superarchitect:scaffold` | `skills/scaffold/` | 선언을 디스크로 옮긴다 — 프로파일 템플릿의 `MANIFEST.md`대로 모듈·레이어 패키지·최소 스텁을 전개하고, 선언에 없는 프로젝트·컨텍스트는 인터뷰로 확정한 뒤 SSOT에 등록한다. init 다음으로 `ARCHITECTURE.md`를 편집하는 유일한 스킬 |
@@ -138,7 +138,7 @@ flowchart TB
 | `/superarchitect:sync` | `skills/sync/` | 선언과 디스크를 여섯 축으로 대조해 드리프트를 찾고, 항목마다 [scaffold로 생성 / 코드 수정 / 문서 수정 / 무시]를 제시한다. 방향은 권고하되 확인 없이 확정하지 않고, 대조하지 못한 축은 "0건"이 아니라 "대조하지 않음"으로 남긴다 |
 | `/superarchitect:evolve` | `skills/evolve/` | `collect_signals.py`의 관측에 `evolution-signals.md`의 임계값·해석을 적용해 제안과 `proposed` ADR 초안을 낸다. 임계값을 스스로 만들지 않고, 수락된 제안만 선언·파생물까지 반영한다 |
 | `/superarchitect:migrate` | `skills/migrate/` | `baseline.jsonl`을 클러스터 단위로 갚는다. **부채를 줄이는 유일한 경로**이며 한 번에 한 클러스터, 항목 삭제의 근거는 실측된 해소뿐이다. 비면 파일·`이행` 라벨·완료 ADR을 한 묶음으로 닫는다 |
-| `arch-reviewer` 에이전트 | `agents/arch-reviewer.md` | 읽기 전용. 전달받은 지식 문서의 규칙 절과 자유 관측 5범주로만 판정한다 |
+| `domain-reviewer` 에이전트 | `agents/domain-reviewer.md` | 읽기 전용. 전달받은 지식 문서의 규칙 절과 자유 관측 5범주로만 판정한다 |
 | SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/architecture/summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
 | 결정 템플릿 파서 | `scripts/parse_architecture.py` | `ARCHITECTURE.md`의 필수 결정 누락·비정규 값·깨진 참조를 라인 번호와 함께 보고한다 |
 | 스타일 선언 파서 | `scripts/parse_style.py` | 스타일 문서의 `## 선언` 절을 읽어 레이어 목록과 규칙 인스턴스를 만든다. 규칙 어휘 §2·§2.1의 시행자다 |
@@ -245,7 +245,7 @@ python3 -m unittest discover -s tests
 .claude/skills/study/        이 저장소 전용 스킬 (배포되지 않음)
 skills/init|fitness|review|model|apply|scaffold|adr|sync|evolve|migrate/
                              /superarchitect:<스킬명> (10종)
-agents/arch-reviewer.md      review가 의미론 판단만 위임하는 읽기 전용 에이전트
+agents/domain-reviewer.md    review가 의미론 판단만 위임하는 읽기 전용 에이전트
 hooks/hooks.json             SessionStart 훅 등록
 scripts/
   parse_architecture.py      ARCHITECTURE.md 파서 — 결정 템플릿의 유일한 해석기

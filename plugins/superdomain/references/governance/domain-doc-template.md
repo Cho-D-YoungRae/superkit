@@ -205,7 +205,7 @@ sequenceDiagram
 본다. 상수 간접 참조(`@Tag(INV_CLAIM_001)`)나 FQN 애너테이션은 보이지 않는다 — 태그를 리터럴로 쓰는
 것이 규약이고, 리팩터링으로 상수화하면 그 불변식은 검사에서 사라진다. 그리고 **태그가 달렸다는 것은
 그 테스트가 불변식을 실제로 검증한다는 뜻이 아니다** — 태그만 달린 빈 테스트나 서술과 다른 검증을
-잡는 것은 결정적 검사가 아니라 arch-reviewer의 의미론 범주다(`agents/arch-reviewer.md`).
+잡는 것은 결정적 검사가 아니라 domain-reviewer의 의미론 범주다(`agents/domain-reviewer.md`).
 
 ## 5. 절별 작성 규칙
 

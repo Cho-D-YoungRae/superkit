@@ -109,7 +109,7 @@ read_when: [model, apply, review]
 
 **나머지 셋은 기계가 판정하지 못한다.** 태그가 달렸다는 것은 그 테스트가 불변식을 실제로
 검증한다는 뜻도, 강제가 **루트 안**에 있다는 뜻도 아니기 때문이다. 그 대조는 리뷰의 의미론
-판정으로 남는다(`agents/arch-reviewer.md` C3).
+판정으로 남는다(`agents/domain-reviewer.md` C3).
 
 ### R5. 애그리거트는 도메인 레이어에 산다
 
