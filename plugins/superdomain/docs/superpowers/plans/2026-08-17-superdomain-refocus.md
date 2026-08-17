@@ -61,33 +61,14 @@ Expected: grep 0건, 386 tests OK.
 git commit -m "refactor: fitness·scaffold 스킬 삭제 — 아키텍처 전용 스킬 (superdomain 재편 Phase 1)"
 ```
 
-### Task 2: styles·structure 지식 6종 삭제 + INDEX 재생성
+### Task 2: 폐기 — Task 17로 병합됨
 
-**Files:**
-- Delete: `references/knowledge/styles/` 전체(clean·hexagonal·layered-domain·layered-simple), `references/knowledge/structure/` 전체(module-composition·package-conventions)
-- Modify: `references/INDEX.md` (build_index.py 재생성)
+**실행하지 않는다.** Phase 1 실행 중 두 의존이 실측으로 드러났다:
 
-- [ ] **Step 1: 삭제와 재생성**
+1. `scripts/resolve_rules.py:41`의 `PRESET_STYLE_DIR`이 `references/knowledge/styles/`를 **런타임에 읽는다**(`:196`에서 프리셋 스타일 문서를 로드). `tests/test_parse_style.py:9`도 이 실디렉터리를 읽어 "정확히 4개"를 단언한다. 구 파서 층이 살아 있는 동안은 지울 수 없다 — 삭제 시 36 failures + 1 error.
+2. `scripts/build_index.py:219-222`는 끊어진 위키링크를 하드 에러로 보고 **INDEX를 쓰지 않은 채 exit 1** 한다. 생존 DDD 12종이 삭제 대상을 가리키는 위키링크를 다수 갖고 있어(`[[hexagonal]]` 36건, `[[layered-simple]]` 25건, `[[layered-domain]]` 23건, `[[package-conventions]]` 17건 등) 삭제와 링크 정리를 갈라 놓으면 **초록으로 끝나는 경로가 없다**.
 
-```bash
-git rm -r references/knowledge/styles references/knowledge/structure
-python3 scripts/build_index.py
-```
-
-- [ ] **Step 2: INDEX 확인 + 전체 테스트**
-
-```bash
-grep -c "^| " references/INDEX.md   # 헤더 1행 + 데이터 12행 = 13 (구분선 |---|은 패턴 불일치)
-python3 -m unittest discover -s tests
-```
-
-Expected: INDEX에 지식 12행, 386 tests OK (build_index 테스트는 자체 픽스처 사용).
-
-- [ ] **Step 3: 커밋**
-
-```bash
-git add -A && git commit -m "refactor: styles·structure 지식 6종 삭제, INDEX 재생성 — DDD 12종만 유지"
-```
+따라서 삭제·링크 정리·INDEX 재생성을 Task 17 한 묶음으로 옮긴다(구 파서가 사라진 Phase 4에서 실행). Phase 1은 Task 1로 끝난다.
 
 ---
 
@@ -631,29 +612,44 @@ grep -rn "스타일\|레이어\|fitness\|scaffold\|ARCHITECTURE\.md\|docs/archit
 git add references/governance && git commit -m "docs(governance): 잔여 3종 손질 — 경로 전환·스타일 이행 해석 절제"
 ```
 
-### Task 17: 지식 12종 손질 + INDEX 재생성
+### Task 17: styles·structure 6종 삭제 + DDD 12종 손질 + INDEX 재생성
+
+**Task 2가 여기로 병합됐다** — 삭제·위키링크 정리·INDEX 재생성이 한 커밋에서 끝나야 초록이다(Task 2의 폐기 사유 참조). 이 태스크는 **한 커밋**으로 낸다.
 
 **Files:**
+- Delete: `references/knowledge/styles/` 전체(clean·hexagonal·layered-domain·layered-simple), `references/knowledge/structure/` 전체(module-composition·package-conventions)
 - Modify: `references/knowledge/strategic/*.md`(4), `references/knowledge/tactical/*.md`(5), `references/knowledge/patterns/*.md`(3), `references/INDEX.md`(재생성)
 
-**수술 2종:**
-1. **frontmatter `read_when`** — `fitness`·`scaffold`·`migrate`… 중 죽은 스킬(fitness·scaffold)만 제거. 실측 대상 7파일: bounded-contexts, domain-classification, context-mapping, persistence, event-sourcing, cqrs, outbox. (migrate는 살아 있으므로 유지.)
-2. **본문 표현 완화** — 스타일 문서 링크([[hexagonal]] 등)와 레이어 전제 표현을 도메인 언어로. 집중 대상은 실측된 두 파일: `persistence.md`(31곳 — "어댑터 봉쇄"→"영속 코드 격리", "domain 레이어"→"도메인 모델" 계열) · `repositories-domain-services.md`(10곳). 나머지 10파일은 grep으로 잔존만 확인·정리. **`## 적용 기준`·`## 규칙` 절 구조와 판정 내용은 유지한다 — 표현 수술이지 재작성이 아니다.**
-
-- [ ] **Step 1: 수술** → **Step 2: INDEX 재생성 + 게이트 + 전체 테스트**
+**선행 조건 확인:** Task 8에서 `resolve_rules.py`·`parse_style.py`·`test_parse_style.py`가 삭제됐어야 한다. 남아 있으면 이 태스크는 실행하지 않는다.
 
 ```bash
-python3 scripts/build_index.py
+ls scripts/resolve_rules.py scripts/parse_style.py tests/test_parse_style.py 2>&1   # 전부 No such file 이어야 한다
+```
+
+**수술 3종:**
+
+1. **삭제** — `git rm -r references/knowledge/styles references/knowledge/structure`.
+2. **끊어진 위키링크 정리** — 생존 12종 본문에서 삭제된 6개 key를 가리키는 `[[...]]`를 없앤다. 대상 key: `hexagonal`·`clean`·`layered-domain`·`layered-simple`·`module-composition`·`package-conventions`. **대괄호만 벗기지 말고 문장을 도메인 언어로 고친다** — 예: "[[hexagonal]]에서는 포트를 도메인이 소유한다" → "도메인이 자신이 필요로 하는 인터페이스를 소유한다". 문장 전체가 스타일 선택에만 의미가 있으면 그 문장·절을 지운다. 생존 key끼리의 링크(`[[aggregates]]` 등)는 그대로 둔다.
+3. **frontmatter `read_when`** — 죽은 스킬 `fitness`·`scaffold`만 제거(migrate는 살아 있으므로 유지). 실측 대상 7파일: bounded-contexts, domain-classification, context-mapping, persistence, event-sourcing, cqrs, outbox.
+4. **본문 표현 완화** — 레이어 전제 표현을 도메인 언어로. 집중 대상은 실측된 두 파일: `persistence.md`("어댑터 봉쇄"→"영속 코드 격리", "domain 레이어"→"도메인 모델" 계열) · `repositories-domain-services.md`. **`## 적용 기준`·`## 규칙` 절 구조와 판정 내용은 유지한다 — 표현 수술이지 재작성이 아니다.**
+
+- [ ] **Step 1: 선행 조건 확인 후 삭제·수술**
+
+- [ ] **Step 2: INDEX 재생성 + 게이트 + 전체 테스트**
+
+```bash
+python3 scripts/build_index.py            # exit 0이어야 한다 — 끊어진 링크가 하나라도 남으면 exit 1
+grep -c "^| " references/INDEX.md          # 헤더 1행 + 데이터 12행 = 13
 grep -rn "styles/\|structure/\|fitness\|scaffold\|hexagonal\|layered\|레이어" references/knowledge/
 python3 -m unittest discover -s tests
 ```
 
-Expected: grep 0건(도메인 문맥상 정당한 "레이어" 잔존은 사유 기록), INDEX 12행.
+Expected: build_index exit 0 · INDEX 13행 · grep 0건(도메인 문맥상 정당한 "레이어" 잔존은 사유 기록) · 테스트 전부 OK.
 
 - [ ] **Step 3: 커밋**
 
 ```bash
-git add references && git commit -m "docs(knowledge): DDD 12종 손질 — 죽은 read_when 제거·레이어 전제 표현 완화, INDEX 재생성"
+git add -A && git commit -m "docs(knowledge): styles·structure 6종 삭제, DDD 12종 손질 — 위키링크·read_when·레이어 표현 정리, INDEX 재생성"
 ```
 
 ### Task 18: README 재작성 — Phase 4 게이트
