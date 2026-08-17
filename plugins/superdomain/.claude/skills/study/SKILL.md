@@ -8,7 +8,7 @@ description: >
   INDEX를 재생성하고 커밋 명령을 제안한다(직접 커밋하지 않음). 이 저장소에서 "지식
   추가", "지식 베이스에 반영해줘/넣어줘", "이 문서 보완해줘", "스터디 정리", "/study",
   "add this to the knowledge base", "update this knowledge doc"을 요청할 때 사용한다.
-  대상(target) 프로젝트의 아키텍처 초기화·리뷰·스캐폴딩 작업에는 사용하지 않는다 —
+  대상(target) 프로젝트의 도메인 초기화·모델링·리뷰 작업에는 사용하지 않는다 —
   그건 /superdomain:* 스킬의 몫이다.
 ---
 
