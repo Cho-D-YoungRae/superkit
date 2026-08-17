@@ -544,12 +544,15 @@ class TestTagScan(InvariantTestCase):
         self.assert_seen()
 
     def test_test_tree_outside_the_path_convention_is_not_scanned(self):
-        """`itest/kotlin`에는 `test` 세그먼트가 없다 — 관례 밖이라 스캔되지 않는다.
+        """`itest/kotlin`은 `src` 아래도 아니고 이름에 `test`도 없다 — 관례 밖이라 안 보인다.
 
         구 템플릿에는 `- 아키텍처 테스트 위치:` 라벨이 있어 이런 트리를 선언으로 끌어올 수
-        있었지만 그 라벨은 fitness와 함께 퇴역했다(DOMAIN.md에 쓰면 파서가 거부한다). 이제
-        관례 밖 태그는 보이지 않고, 그 결과는 침묵이 아니라 **거짓 위반**이다 — 사용자가
-        지목된 줄에서 바로 알아채는 쪽의 실패다.
+        있었지만 그 라벨은 fitness와 함께 퇴역했다(DOMAIN.md에 쓰면 파서가 거부한다). 남은
+        관례는 넓다 — `src/integrationTest`도 `architecture-test/src/test/kotlin`도 잡힌다.
+
+        여기서는 관례 안에 다른 테스트 소스가 있는 갈래를 잠근다: 태그가 안 보여 confirmed가
+        **거짓 위반**으로 뜬다. 그 트리가 유일한 테스트 트리인 갈래는 `test_sources` 0건이라
+        검사 불능으로 나간다(`TestBlocked`) — 둘 다 exit 1이고 어느 쪽도 침묵이 아니다.
         """
         self.tagged("INV-CLAIM-001", relpath="itest/kotlin/com/acme/ArchTest.kt")
         self.empty_tests()

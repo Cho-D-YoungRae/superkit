@@ -183,6 +183,25 @@ class ContextFrequencyTest(SignalsTestCase):
 
         self.assertEqual(self.by_key(self.collect()).get("backend:claim"), None)
 
+    def test_sibling_package_prefix_is_not_absorbed(self):
+        """`claim`과 `claiming`은 형제다 — 문자열 접두로만 보면 앞이 뒤를 삼킨다.
+
+        `_package_as_path`가 끝에 `/`를 붙여 세그먼트 경계를 만드는 이유가 이것이다. 경계가
+        없으면 `com/acme/claiming/Policy.kt`가 claim의 변경으로 세어져 그 컨텍스트의 변경
+        빈도·핫스팟·동시 변경이 함께 부풀고, 그 파일은 '귀속 불가' 버킷에서도 사라진다 —
+        오류도 경고도 없이 evolve가 읽는 수치만 틀어지는 채널이라 여기서 못박는다.
+        같은 규칙을 check_imports(`_owning_context`)와 parse_domain(겹침 검사)도 잠그고 있다.
+        """
+        self.base()
+        self.kt("claim", "com.acme.claim", "Claim")
+        legacy = self.kt("claiming", "com.acme.claiming", "Policy")
+        self.commit("claim + claiming")
+
+        signals = self.collect()
+        # claim이 가져가는 것은 자기 패키지의 파일 하나뿐이다.
+        self.assertEqual(self.by_key(signals)["backend:claim"].files, 1)
+        self.assertIn(str(legacy.relative_to(self.repo)), signals.unattributed.samples)
+
     def test_multi_project_attribution_follows_the_path_prefix(self):
         """모노레포에서 프로젝트를 가르는 것은 경로 접두다 — 두 프로젝트가 같은 기본 패키지를
         쓰면 패턴만으로는 갈리지 않고, 긴 접두가 이겨야 중첩 프로젝트가 루트로 새지 않는다.
