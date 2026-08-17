@@ -105,7 +105,7 @@ read_when: [model, apply, review]
 `scripts/check_invariants.py`가 이 체크리스트를 두 지점에서 거든다 — `docs/domain/<컨텍스트>.md`의
 `INV-<CONTEXT>-NNN`과 테스트의 `@Tag("INV-...")`를 대조해 **confirmed인데 태그가 없으면 위반**,
 **`proposed`인데 태그가 있으면 경고**(넷째 항목)를 낸다. 문서에 그 항목을 채우는 것은
-`/superarchitect:model`이고 구현·태깅은 `/superarchitect:apply`다.
+`/superdomain:model`이고 구현·태깅은 `/superdomain:apply`다.
 
 **나머지 셋은 기계가 판정하지 못한다.** 태그가 달렸다는 것은 그 테스트가 불변식을 실제로
 검증한다는 뜻도, 강제가 **루트 안**에 있다는 뜻도 아니기 때문이다. 그 대조는 리뷰의 의미론

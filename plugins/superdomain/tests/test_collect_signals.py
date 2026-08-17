@@ -11,7 +11,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 SCRIPT = ROOT / "scripts" / "collect_signals.py"
 
 HEAD = """# 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
@@ -31,7 +31,7 @@ DOMAIN = (HEAD
 # 컨텍스트들이 나눠 갖지 않는 공용 패키지(`com.acme.web..`)가 있는 트리 — 어느 컨텍스트
 # 패키지에도 들지 않으므로 그 아래 파일은 귀속을 판별할 수 없다.
 SHARED_DOMAIN = """# 공용 패키지 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
@@ -48,7 +48,7 @@ SHARED_DOMAIN = """# 공용 패키지 — Domain
 
 # 필수 라벨(`기본 패키지`)이 없다 — parse_domain이 해석 불가로 거부한다.
 BROKEN_DOMAIN = """# 깨진 문서
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
@@ -64,7 +64,7 @@ def in_project(section, project):
 # 구분되지 않으므로 귀속을 가르는 것은 경로 접두뿐이고, 접두를 보지 않으면 `services/pay` 아래의
 # 파일이 루트 프로젝트로 새어 들어간다.
 MULTI_DOMAIN = ("""# 모노레포 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: root
 - 경로: .

@@ -8,12 +8,12 @@ description: >
   분류(위반|누락|드리프트|추가 논의), 심각도, 근거, 수정 제안을 담은 리포트를 내고
   `docs/domain/review-log.jsonl`에 append한다. 코드는 고치지 않는다 — 제안까지다. 사용자가
   "도메인 리뷰", "이 변경 검토해줘", "도메인 관점에서 봐줘", "리뷰해줘"(도메인 맥락),
-  "domain review", "review this change", "/superarchitect:review"를 요청할 때, PR·커밋 전
+  "domain review", "review this change", "/superdomain:review"를 요청할 때, PR·커밋 전
   점검을 원할 때, 작업 트리나 브랜치·커밋 범위의 변경이 선언을 어겼는지 확인하고 싶을 때
   사용한다. 확정된 불변식을 코드와 태그 테스트로 옮기는 일에는 쓰지 않는다
-  (`/superarchitect:apply`). 결정 문서와 실제 코드의 드리프트를 대조하고 정정하는 일에도 쓰지
-  않는다(`/superarchitect:sync`). 컨텍스트·분류·관계 선언 자체를 세우거나 바꾸는 일에도 쓰지
-  않는다(`/superarchitect:init`) — 이 스킬은 `DOMAIN.md`를 읽기만 하고 절대 고치지 않는다.
+  (`/superdomain:apply`). 결정 문서와 실제 코드의 드리프트를 대조하고 정정하는 일에도 쓰지
+  않는다(`/superdomain:sync`). 컨텍스트·분류·관계 선언 자체를 세우거나 바꾸는 일에도 쓰지
+  않는다(`/superdomain:init`) — 이 스킬은 `DOMAIN.md`를 읽기만 하고 절대 고치지 않는다.
 ---
 
 # 변경분 도메인 검토
@@ -44,7 +44,7 @@ git rev-parse --show-toplevel
 그 경로의 `DOMAIN.md`가 기준이다. 하위 디렉터리에서 시작했어도 여기로 올라와서 작업한다.
 파일이 없으면 아래를 알리고 **중단**한다.
 
-> superarchitect가 초기화되지 않았습니다. `/superarchitect:init`으로 도메인 경계 선언을 먼저 세우세요.
+> superdomain이 초기화되지 않았습니다. `/superdomain:init`으로 도메인 경계 선언을 먼저 세우세요.
 
 있으면 읽는다. 프로젝트 섹션(`- 경로:`·`- 기본 패키지:`)과 컨텍스트별 `- 분류:`·`- 패턴:`·
 `- 패키지:`, 그리고 `### 관계` 표가 이 스킬의 입력 전부다.
@@ -385,7 +385,7 @@ rule id와 심각도만 남기면 왜 그것이 문제인지가 통째로 사라
   잃는다.
 - 추가한 줄 목록을 리포트에 그대로 보여준다.
 
-문서가 없으면 만들지 말고 리포트에 남긴다 — 그 문서를 만드는 것은 `/superarchitect:model`이므로
+문서가 없으면 만들지 말고 리포트에 남긴다 — 그 문서를 만드는 것은 `/superdomain:model`이므로
 그 스킬을 안내한다.
 
 ## 7. `review-log.jsonl`에 append

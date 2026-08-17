@@ -7,13 +7,13 @@ description: >
   inside-out 구현하고, check_invariants·check_imports 두 결정적 게이트에 더해 새로 쓴 테스트
   실행과 대상 프로젝트 컴파일까지 초록을 확인한다.
   사용자가 "도메인 문서 적용", "불변식 구현", "확정된 불변식 코드로", "도메인 모델 코드로
-  옮겨줘", "apply domain", "implement invariants", "/superarchitect:apply"를 요청할 때,
-  `/superarchitect:model` 세션에서 항목을 confirmed로 확정한 직후, 또는 검사·리뷰가 "confirmed
+  옮겨줘", "apply domain", "implement invariants", "/superdomain:apply"를 요청할 때,
+  `/superdomain:model` 세션에서 항목을 confirmed로 확정한 직후, 또는 검사·리뷰가 "confirmed
   불변식에 대응 테스트 태그가 없습니다"를 보고했을 때 사용한다. proposed 항목은 구현하지 않으며
-  불변식을 끌어내 확정하는 인터뷰는 `/superarchitect:model`이 맡는다. 컨텍스트·분류·패키지·관계
-  선언을 세우거나 바꾸는 일에는 쓰지 않고(`/superarchitect:init`), 선언과 디스크의 어긋남을
-  대조·처분하는 일에도 쓰지 않는다(`/superarchitect:sync`). 변경분을 검토하고 리포트만 내는 일은
-  `/superarchitect:review`다.
+  불변식을 끌어내 확정하는 인터뷰는 `/superdomain:model`이 맡는다. 컨텍스트·분류·패키지·관계
+  선언을 세우거나 바꾸는 일에는 쓰지 않고(`/superdomain:init`), 선언과 디스크의 어긋남을
+  대조·처분하는 일에도 쓰지 않는다(`/superdomain:sync`). 변경분을 검토하고 리포트만 내는 일은
+  `/superdomain:review`다.
 ---
 
 # domain 문서를 코드로
@@ -24,7 +24,7 @@ description: >
 
 1. **`confirmed`만 구현한다.** `proposed`는 사용자가 아직 맞다고 하지 않은 후보다. 확정 전에
    코드로 굳히면 문서가 코드를 따라가게 되고, 그 순간 "문서가 SSOT"라는 전제가 뒤집힌다.
-   목록에 있으면 구현하지 말고 `/superarchitect:model`로 확정을 먼저 받으라고 안내한다.
+   목록에 있으면 구현하지 말고 `/superdomain:model`로 확정을 먼저 받으라고 안내한다.
 2. **안쪽부터 만든다.** 도메인 코어 → 불변식 태그 테스트 → 최소한의 퍼사드·포트. 어댑터나
    컨트롤러를 먼저 만들면 도메인이 그 모양에 맞춰 휘고, 불변식은 강제되는 게 아니라 어딘가에
    흩어진다.
@@ -47,7 +47,7 @@ description: >
   포트·도메인 서비스면 `repositories-domain-services`, 영속이 얽히면 `persistence`.
 - 대상 컨텍스트가 `- 패턴:`으로 선언한 문서(`cqrs`·`outbox`·`event-sourcing`). 선언되지 않은
   패턴을 이번 구현으로 들이지 않는다 — 패턴 채택은 대안이 오가는 결정이므로 근거를 남기고 편집
-  자리를 짚는 `/superarchitect:adr`의 일이다.
+  자리를 짚는 `/superdomain:adr`의 일이다.
 - 대상 프로젝트의 `docs/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 INDEX의 `draft` 칸이 찬 문서는 구현 규칙의 근거로 인용하지 않는다.
@@ -63,7 +63,7 @@ git rev-parse --show-toplevel
 그 경로의 `DOMAIN.md`가 기준이다. 하위 디렉터리에서 시작했어도 여기로 올라와 작업한다.
 파일이 없으면 아래를 알리고 **중단**한다.
 
-> superarchitect가 초기화되지 않았습니다. `/superarchitect:init`으로 도메인 경계 선언을 먼저 세우세요.
+> superdomain이 초기화되지 않았습니다. `/superdomain:init`으로 도메인 경계 선언을 먼저 세우세요.
 
 ## 1. 대상 컨텍스트와 domain 문서
 
@@ -78,7 +78,7 @@ domain 문서는 `docs/domain/<컨텍스트>.md`, 컨텍스트가 하나뿐인 �
 **문서가 없으면 만들지 않고 중단한다.**
 
 > `<컨텍스트>`의 domain 문서가 없습니다. 무엇을 구현해야 하는지가 아직 어디에도 적혀 있지
-> 않습니다. `/superarchitect:model <컨텍스트>`로 불변식을 먼저 확정하세요.
+> 않습니다. `/superdomain:model <컨텍스트>`로 불변식을 먼저 확정하세요.
 
 있으면 읽는다. 불변식 표, 애그리거트·값 객체·도메인 이벤트·도메인 서비스 절, 열린 질문이 이
 스킬의 입력 전부다.
@@ -116,7 +116,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context 
 - `violations`도 `blocked`도 비면 **구현할 것이 없다.** 그 사실과 집계(`checked`·`confirmed`·
   `proposed`)를 보고하고 끝낸다. 없는 일을 만들지 않는다.
 - `invariants[]`의 `proposed` 항목은 목록에서 **뺀다.** 몇 건인지와 함께 "확정은
-  `/superarchitect:model`"을 안내한다(불변 1).
+  `/superdomain:model`"을 안내한다(불변 1).
 
 ### 2-a. 구현 전 스냅샷 — 새 위반을 가려내는 유일한 방법
 
@@ -152,7 +152,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 - 디렉터리·패키지는 만들어도 된다. **빌드 모듈(빌드 스크립트·`settings.gradle`의 `include`)은
   만들지 않는다** — 없으면 그 사실을 알린다.
 - 컨텍스트 절을 읽어도 프로젝트나 기본 패키지가 정해지지 않으면 **자리를 지어내지 말고 중단한다.**
-  그 상태는 선언의 결함이고 고치는 곳은 `/superarchitect:init`이다(파서도 같은 이유로 거부한다).
+  그 상태는 선언의 결함이고 고치는 곳은 `/superdomain:init`이다(파서도 같은 이유로 거부한다).
 
 ### 3-a. 언어·빌드 도구·테스트 관례는 대상 코드베이스에서 감지한다
 
@@ -201,7 +201,7 @@ grep -rnE '\b(class|interface|object|record|enum)[[:space:]]+(Claim|Money|ClaimN
   침묵한다는 사실이 허가는 아니다.
 - **다른 컨텍스트의 타입을 도메인 코어로 끌어들이지 않는다.** 그 쌍이 `### 관계` 표에 없으면
   6-b가 새 위반으로 잡는다. 그 결합이 정말 필요하다고 판단되면 **관계를 여는 결정은
-  `/superarchitect:adr`로 근거를 남기고, 선언 편집은 그 절차(§8)가 어느 줄인지 짚는다** —
+  `/superdomain:adr`로 근거를 남기고, 선언 편집은 그 절차(§8)가 어느 줄인지 짚는다** —
   쌍이 열리면 두 컨텍스트 사이의 격리 검사가 영구히 꺼지므로 근거가 남아야 한다. **`init`은
   경계 자체를 다시 긋는 경우에만 간다** — 관계 표 한 줄을 여는 것은 재초기화가 아니다.
   어느 쪽이든 이번 구현에서는 그 자리를 남긴다(5단계).
@@ -285,7 +285,7 @@ JSON 항목의 `path`·`line`·`rule_id`·`message`와 같은 값이다. `[0건 
 
 **이 게이트가 보는 것은 컨텍스트 격리 하나다.** 도메인 순수성·네이밍 규약·컨텍스트 안쪽의 의존
 방향은 판정되지 않으므로 "초록 = 설계가 옳다"로 읽지 않는다. 의미론 판정은
-`/superarchitect:review`의 몫이고, 그 사실을 보고에 그대로 적는다.
+`/superdomain:review`의 몫이고, 그 사실을 보고에 그대로 적는다.
 
 ### 6-c. 새로 쓴 테스트는 실제로 돌린다
 
@@ -340,8 +340,8 @@ cd "<프로젝트 경로>" && ./gradlew compileKotlin compileTestKotlin   # 또�
    git commit -m "feat: <컨텍스트> 불변식 <ID 목록> 구현"
    ```
 
-7. **다음 걸음** — 남은 proposed가 있으면 `/superarchitect:model`, 의미론 검토는
-   `/superarchitect:review`, 선언과 디스크가 어긋난 것을 발견했으면 `/superarchitect:sync`.
+7. **다음 걸음** — 남은 proposed가 있으면 `/superdomain:model`, 의미론 검토는
+   `/superdomain:review`, 선언과 디스크가 어긋난 것을 발견했으면 `/superdomain:sync`.
 
 ---
 
@@ -354,8 +354,8 @@ cd "<프로젝트 경로>" && ./gradlew compileKotlin compileTestKotlin   # 또�
 - **domain 문서의 `confirmed` 서술을 고치거나 상태를 낮추는 것.** 이 스킬이 그 문서에 쓰는 것은
   `## 열린 질문` append 하나뿐이다.
 - **`DOMAIN.md`를 고치는 것.** 게이트가 막히면 어디를 고쳐야 하는지 알리고 멈춘다. 보내는 곳이
-  갈린다 — **관계 표에 쌍을 여는 것은 `/superarchitect:adr`**(근거를 남기고 그 절차가 편집 자리를
-  짚는다), **경계·분류·패키지 선언 자체를 다시 정하는 것은 `/superarchitect:init`**이다.
+  갈린다 — **관계 표에 쌍을 여는 것은 `/superdomain:adr`**(근거를 남기고 그 절차가 편집 자리를
+  짚는다), **경계·분류·패키지 선언 자체를 다시 정하는 것은 `/superdomain:init`**이다.
 - **선언된 컨텍스트 패키지 밖에 도메인 코어를 두는 것.** 귀속되지 않은 코드는 격리 검사에서
   통째로 사라진다.
 - **언어·빌드 도구·테스트 프레임워크를 감지하지 않고 가정하는 것**(3-a). 관측할 것이 없으면

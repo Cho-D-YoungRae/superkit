@@ -27,9 +27,9 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# 템플릿 마커. Phase 5의 개명(superarchitect → superdomain)이 이 상수 하나만 바꾸면 되도록
-# 문자열 리터럴을 여기 한 번만 둔다 — 마커를 찾는 정규식도 이 상수에서 만든다.
-MARKER_TEMPLATE = "superarchitect:template"
+# 템플릿 마커. 개명이 이 상수 하나만 바꾸면 끝나도록 문자열 리터럴을 여기 한 번만 둔다
+# — 마커를 찾는 정규식도 이 상수에서 만든다.
+MARKER_TEMPLATE = "superdomain:template"
 TEMPLATE_VERSION = "v1"
 
 # 정규 값 집합
@@ -686,7 +686,7 @@ def parse_domain(path) -> Domain:
         return Domain(errors=[ParseError(
             0,
             f"'{path.name}' 파일을 읽을 수 없습니다. 경로를 확인하거나 "
-            f"/superarchitect:init으로 초기화하세요.",
+            f"/superdomain:init으로 초기화하세요.",
         )])
 
     domain = _parse_document(text)

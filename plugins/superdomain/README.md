@@ -1,10 +1,10 @@
-# superarchitect
+# superdomain
 
 문서 기반 **도메인 거버넌스**(DDD) Claude Code 플러그인.
 
 LLM은 세션마다 프로젝트의 도메인을 처음부터 다시 추측한다. 어제 합의한 컨텍스트 경계도, 왜 이
 컨텍스트가 `core`인지도, 주문이 언제 확정으로 넘어가는지도 다음 세션에는 남아 있지 않아 매번
-그럴듯하지만 조금씩 다른 답이 나온다. superarchitect는 그 추측을 없애기 위해 **결정을 문서에
+그럴듯하지만 조금씩 다른 답이 나온다. superdomain은 그 추측을 없애기 위해 **결정을 문서에
 고정하고, 기계로 확인할 수 있는 것은 기계가 확인하게 하고, 의미론적 판단만 LLM에 남긴다.**
 도메인 경계의 진실은 대상 프로젝트 루트의 `DOMAIN.md` 한 파일(SSOT)이고, `parse_domain.py`가 그
 문서의 유일한 해석기다.
@@ -28,37 +28,37 @@ LLM은 세션마다 프로젝트의 도메인을 처음부터 다시 추측한�
 Claude Code 세션 안에서:
 
 ```
-/plugin marketplace add Cho-D-YoungRae/superarchitect
-/plugin install superarchitect@superarchitect
+/plugin marketplace add Cho-D-YoungRae/superdomain
+/plugin install superdomain@superdomain
 ```
 
 터미널에서도 같은 일을 할 수 있다.
 
 ```bash
-claude plugin marketplace add Cho-D-YoungRae/superarchitect
+claude plugin marketplace add Cho-D-YoungRae/superdomain
 ```
 
 ```bash
-claude plugin install superarchitect@superarchitect
+claude plugin install superdomain@superdomain
 ```
 
 설치되는 것은 스킬 여덟 개, 서브에이전트 `domain-reviewer`, 세션 시작 훅 하나다. 무엇이 실제로
 잡혔는지는 다음으로 확인한다.
 
 ```bash
-claude plugin details superarchitect
+claude plugin details superdomain
 ```
 
-갱신은 `claude plugin marketplace update superarchitect`, 제거는
-`claude plugin uninstall superarchitect`다.
+갱신은 `claude plugin marketplace update superdomain`, 제거는
+`claude plugin uninstall superdomain`이다.
 
 ### 로컬 개발용 로드
 
 ```bash
-claude --plugin-dir /path/to/superarchitect
+claude --plugin-dir /path/to/superdomain
 ```
 
-스킬은 `/superarchitect:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
+스킬은 `/superdomain:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
 `plugin.json`·훅·에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
 
 ## 워크플로
@@ -146,14 +146,14 @@ flowchart TB
 
 | 산출물 | 위치 | 하는 일 |
 |---|---|---|
-| `/superarchitect:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·패키지·관계를 확정하고 `DOMAIN.md`와 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역·ADR)을 만든다. 기존 코드의 격리 위반은 실측해 **동결할지 묻고**, 동결하면 `docs/domain/baseline.jsonl`을 만든다 |
-| `/superarchitect:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 컨텍스트 문서를 키운다. 불변식은 `INV-<CONTEXT>-NNN`으로 채번되고 `proposed` → `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다. `DOMAIN.md`는 읽기만 한다 |
-| `/superarchitect:apply` | `skills/apply/` | 컨텍스트 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
-| `/superarchitect:adr` | `skills/adr/` | 결정을 MADR로 `docs/decisions/NNNN-slug.md`에 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 SSOT를 함의하면 고칠 자리를 짚고 파서 게이트 재실행을 권한다 |
-| `/superarchitect:review` | `skills/review/` | 변경을 결정적 검사 둘로 먼저 거른 뒤 의미론 판단만 `domain-reviewer`에 위임하고, 결과를 `docs/domain/review-log.jsonl`에 append한다. 코드는 고치지 않는다 |
-| `/superarchitect:sync` | `skills/sync/` | 선언과 디스크를 다섯 축으로 대조해 드리프트를 찾고, 항목마다 [패키지 생성 / 코드 수정 / 문서 수정 / 무시]를 제시한다. 방향은 권고하되 확인 없이 확정하지 않고, 대조하지 못한 축은 "0건"이 아니라 "대조하지 않음"으로 남긴다 |
-| `/superarchitect:evolve` | `skills/evolve/` | `collect_signals.py`의 관측에 `evolution-signals.md`의 임계값·해석을 적용해 **경계 재획정·분류 변경·관계 추가/삭제** 세 갈래의 제안과 `proposed` ADR 초안을 낸다. 임계값을 스스로 만들지 않고, 수락된 제안만 선언·파생물까지 반영한다 |
-| `/superarchitect:migrate` | `skills/migrate/` | `baseline.jsonl`을 **컨텍스트 쌍 단위 클러스터**로 갚는다. **부채를 줄이는 유일한 경로**이며 한 번에 한 클러스터, 항목 삭제의 근거는 `check_imports.py` 두 실행으로 실측된 해소뿐이다. 비면 파일을 지우고 상환 완료 ADR로 닫는다 |
+| `/superdomain:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·패키지·관계를 확정하고 `DOMAIN.md`와 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역·ADR)을 만든다. 기존 코드의 격리 위반은 실측해 **동결할지 묻고**, 동결하면 `docs/domain/baseline.jsonl`을 만든다 |
+| `/superdomain:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 컨텍스트 문서를 키운다. 불변식은 `INV-<CONTEXT>-NNN`으로 채번되고 `proposed` → `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다. `DOMAIN.md`는 읽기만 한다 |
+| `/superdomain:apply` | `skills/apply/` | 컨텍스트 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
+| `/superdomain:adr` | `skills/adr/` | 결정을 MADR로 `docs/decisions/NNNN-slug.md`에 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 SSOT를 함의하면 고칠 자리를 짚고 파서 게이트 재실행을 권한다 |
+| `/superdomain:review` | `skills/review/` | 변경을 결정적 검사 둘로 먼저 거른 뒤 의미론 판단만 `domain-reviewer`에 위임하고, 결과를 `docs/domain/review-log.jsonl`에 append한다. 코드는 고치지 않는다 |
+| `/superdomain:sync` | `skills/sync/` | 선언과 디스크를 다섯 축으로 대조해 드리프트를 찾고, 항목마다 [패키지 생성 / 코드 수정 / 문서 수정 / 무시]를 제시한다. 방향은 권고하되 확인 없이 확정하지 않고, 대조하지 못한 축은 "0건"이 아니라 "대조하지 않음"으로 남긴다 |
+| `/superdomain:evolve` | `skills/evolve/` | `collect_signals.py`의 관측에 `evolution-signals.md`의 임계값·해석을 적용해 **경계 재획정·분류 변경·관계 추가/삭제** 세 갈래의 제안과 `proposed` ADR 초안을 낸다. 임계값을 스스로 만들지 않고, 수락된 제안만 선언·파생물까지 반영한다 |
+| `/superdomain:migrate` | `skills/migrate/` | `baseline.jsonl`을 **컨텍스트 쌍 단위 클러스터**로 갚는다. **부채를 줄이는 유일한 경로**이며 한 번에 한 클러스터, 항목 삭제의 근거는 `check_imports.py` 두 실행으로 실측된 해소뿐이다. 비면 파일을 지우고 상환 완료 ADR로 닫는다 |
 | `domain-reviewer` 에이전트 | `agents/domain-reviewer.md` | 읽기 전용(Read·Grep·Glob). 전달받은 지식 문서의 `## 규칙` 절과 자유 관측 5범주(경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 정합·관계 유형 위반)로만 판정한다 |
 | SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/domain-summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
 | 도메인 선언 파서 | `scripts/parse_domain.py` | `DOMAIN.md`의 필수 결정 누락·비정규 값·깨진 참조·퇴역 라벨을 라인 번호와 함께 보고한다. **도메인 선언의 유일한 해석기**이고, `DOMAIN.md`를 읽는 나머지 셋은 전부 이 모듈로만 문서를 읽는다 |
@@ -271,7 +271,7 @@ python3 -m unittest discover -s tests
                              마켓플레이스 매니페스트 — 이 저장소 루트를 플러그인으로 배포한다
 .claude/skills/study/        이 저장소 전용 스킬 (배포되지 않음)
 skills/init|model|apply|adr|review|sync|evolve|migrate/
-                             /superarchitect:<스킬명> (8종)
+                             /superdomain:<스킬명> (8종)
 agents/domain-reviewer.md    review가 의미론 판단만 위임하는 읽기 전용 에이전트
 hooks/hooks.json             SessionStart 훅 등록
 scripts/

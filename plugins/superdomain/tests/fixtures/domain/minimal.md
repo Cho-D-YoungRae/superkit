@@ -1,5 +1,5 @@
 # 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .

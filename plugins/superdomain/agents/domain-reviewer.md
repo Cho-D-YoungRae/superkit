@@ -3,7 +3,7 @@ name: domain-reviewer
 description: >
   변경분의 도메인 의미론을 읽기 전용으로 검토하고 JSON 배열 하나만 반환한다 — 전달받은 문서의
   규칙 절 위반, 그리고 경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 정합·관계 유형
-  위반이라는 자유 관측 5범주만 본다. `/superarchitect:review`가 결정적 검사
+  위반이라는 자유 관측 5범주만 본다. `/superdomain:review`가 결정적 검사
   (check_imports·check_invariants)를 먼저 돌린 뒤 남은 의미론 검토를 위임할 때 사용한다 —
   domain-summary.md 내용, 대상 컨텍스트의 관계 표, 검토 대상 파일/diff 목록, 선별된 지식 문서
   경로 목록, 해당 컨텍스트 domain 문서를 갖춰 전달할 때. 판정 근거는 전달받은 문서의

@@ -6,18 +6,18 @@ description: >
   allow-list)를 확정해 루트 `DOMAIN.md`와 파생물(`docs/domain-summary.md`·컨텍스트 맵·ADR)을
   만든다. 기존 코드에 컨텍스트 격리 위반이 있으면 실측해 **동결할지 묻고**, 동결하면
   `docs/domain/baseline.jsonl`을 만든다. 사용자가 "도메인 초기화", "컨텍스트 경계 잡아줘",
-  "도메인 셋업", "바운디드 컨텍스트 나눠줘", "domain init", "/superarchitect:init"을 요청할 때,
+  "도메인 셋업", "바운디드 컨텍스트 나눠줘", "domain init", "/superdomain:init"을 요청할 때,
   새 프로젝트에 도메인 기준을 세울 때, 다른 스킬이 `DOMAIN.md` 부재를 발견했을 때, 그리고
-  `/superarchitect:evolve`가 경계를 다시 긋는 제안을 넘겨 왔을 때 반드시 사용. **관계 표에 쌍
+  `/superdomain:evolve`가 경계를 다시 긋는 제안을 넘겨 왔을 때 반드시 사용. **관계 표에 쌍
   하나를 여닫거나 패턴을 채택하는 결정뿐이라면 이 스킬이 아니다** — 근거를 남기고 편집 자리를 짚는
-  것은 `/superarchitect:adr`이고, 여기로 오는 것은 경계 자체를 다시 긋는 경우다. 일상적 검토는
-  `/superarchitect:review`, 드리프트 대조·정정은 `/superarchitect:sync`, 동결된 격리 위반 상환은
-  `/superarchitect:migrate`, 불변식·애그리거트 문서는 `/superarchitect:model`이다.
+  것은 `/superdomain:adr`이고, 여기로 오는 것은 경계 자체를 다시 긋는 경우다. 일상적 검토는
+  `/superdomain:review`, 드리프트 대조·정정은 `/superdomain:sync`, 동결된 격리 위반 상환은
+  `/superdomain:migrate`, 불변식·애그리거트 문서는 `/superdomain:model`이다.
 ---
 
 # 도메인 경계 선언 초기화
 
-이 스킬이 쓰는 `DOMAIN.md`는 이후 모든 superarchitect 스킬이 읽는 도메인 SSOT다. 여기서 틀리게
+이 스킬이 쓰는 `DOMAIN.md`는 이후 모든 superdomain 스킬이 읽는 도메인 SSOT다. 여기서 틀리게
 적힌 것은 이후 스킬들이 성실하게 강제한다. 그래서 이 스킬에는 어길 수 없는 불변 두 가지가 있다.
 
 1. **도메인 결정은 전부 사용자의 것이다.** 확정 대상의 정본 목록은 **5-e**이고, 그중 무엇도 사용자
@@ -66,8 +66,8 @@ git rev-parse --show-toplevel
 3. 세 선택지를 제시하고 **사용자가 고르게 한다.**
    - 그대로 두고 종료 (기본값)
    - 처음부터 다시 작성 — 기존 내용은 사라진다
-   - 일부만 고치기 → init의 일이 아니다. 선언이 현실과 어긋난 것이면 `/superarchitect:sync`로,
-     관계 표의 쌍 하나를 여닫는 것이면 `/superarchitect:adr`로 보내고, 표기만 손보는 편집이면
+   - 일부만 고치기 → init의 일이 아니다. 선언이 현실과 어긋난 것이면 `/superdomain:sync`로,
+     관계 표의 쌍 하나를 여닫는 것이면 `/superdomain:adr`로 보내고, 표기만 손보는 편집이면
      사용자가 직접 고친 뒤 6단계의 파서 게이트만 실행해도 된다. 어느 쪽인지 안내하고 종료한다.
 
 ## 2. 거버넌스 후보 감지
@@ -111,13 +111,13 @@ find . -maxdepth 3 \
   ② **`- 기본 패키지:`는 파서가 프로젝트마다 무조건 요구하므로 물어서 확정한다** — 비-JVM
   프로젝트에는 그런 값이 없고, 지어낸 값은 불변 1 위반이면서 **어떤 소스에도 매칭되지 않는
   프로젝트를 조용히 거버넌스에 올린다.** 그 사실을 `### 근거`에 남기고, 자리를 만드는 것은
-  `/superarchitect:sync`의 [패키지 생성]임을 안내한다.
+  `/superdomain:sync`의 [패키지 생성]임을 안내한다.
 
 ## 3. 후보 0개 — 그린필드 설계 인터뷰
 
 **오류가 아니다.** 코드가 없어도 `DOMAIN.md`는 설계서로 먼저 성립한다. 프로젝트 절의 `- 경로:`는
 아직 없는 **예정 경로**로 선언할 수 있고, 그 자리를 실제 디렉터리로 만드는 것은
-`/superarchitect:sync`다.
+`/superdomain:sync`다.
 
 **한 번에 하나씩 묻는다.** 답을 받을 때마다 지금까지 확정된 것을 두세 줄로 되짚어 준다.
 
@@ -138,10 +138,10 @@ find . -maxdepth 3 \
 2번 질문에서 영역을 하나도 못 고르거나 용어가 계속 흔들리면, 경계를 억지로 긋지 말고 이벤트
 스토밍을 먼저 권한다. 진행 규약의 정본은
 `${CLAUDE_PLUGIN_ROOT}/references/knowledge/strategic/event-storming.md`이고 세션은
-`/superarchitect:model`의 스토밍 모드가 진행한다 — **이 스킬이 대신 진행하지 않는다.** 선택은
+`/superdomain:model`의 스토밍 모드가 진행한다 — **이 스킬이 대신 진행하지 않는다.** 선택은
 사용자에게 맡긴다.
 
-- 도메인이 정리될 때까지 init을 중단하고 `/superarchitect:model`을 권한다(권장). 스토밍이 내는
+- 도메인이 정리될 때까지 init을 중단하고 `/superdomain:model`을 권한다(권장). 스토밍이 내는
   것은 경계 **후보**이고 그것을 컨텍스트 선언으로 바꾸는 것은 돌아온 이 스킬의 일이다
   (`event-storming.md` R3 — 스토밍 세션은 `DOMAIN.md`를 고치지 않는다).
 - 또는 컨텍스트 하나로 시작하고 경계가 드러나면 그때 나눈다. 이 선택은 근거 절에 기록한다.
@@ -236,7 +236,7 @@ R4 리뷰 체크리스트를 돌린다 — 특히 "core가 절반을 넘는가"�
   규약 기본값이 **그 프로젝트의 `기본 패키지`**로 만들어지므로 엉뚱한 쪽에 붙이면 격리 검사가
   0건을 매칭한 채 통과한다. 프로젝트가 하나뿐이면 파서가 자동 귀속하므로 적지 않는다.
 - **코드를 옮기는 처방은 여기서 하지 않는다.** 선언과 디스크가 갈렸다는 관측은
-  `/superarchitect:sync`, 경계를 넘는 참조를 끊는 것은 `/superarchitect:migrate`다.
+  `/superdomain:sync`, 경계를 넘는 참조를 끊는 것은 `/superdomain:migrate`다.
 
 ### 5-d. 관계
 
@@ -247,7 +247,7 @@ R4 리뷰 체크리스트를 돌린다 — 특히 "core가 절반을 넘는가"�
 - **허용 단위는 쌍이고 방향을 구분하지 않는다.** 한쪽 컨텍스트에만 적어도 양쪽이 열리고, 유형
   (customer-supplier·acl 등)은 허용 방향을 바꾸지 않고 계약의 성격만 적는다.
 - **한 줄이 그 두 컨텍스트 사이의 격리 검사를 영구히 끈다.** 그래서 초기화 이후에 새 쌍을 여는
-  결정은 ADR이 필수이고(`skills/adr/SKILL.md` 3-b) 진입점은 `/superarchitect:adr`이다. 여기서 여는
+  결정은 ADR이 필수이고(`skills/adr/SKILL.md` 3-b) 진입점은 `/superdomain:adr`이다. 여기서 여는
   쌍도 7-d의 ADR 대상이다.
 - **"지금 참조하고 있다"와 "참조해도 된다"는 다르다.** 4단계 관측에서 넘나드는 참조가 보여도 그것을
   근거로 표를 채우지 않는다 — 열지 않기로 한 쌍의 기존 참조는 6단계의 baseline 동결이 받는다.
@@ -328,7 +328,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 
 | 선택 | 뜻 |
 |---|---|
-| **동결한다** | 지금의 위반이 `[기존 부채]`로 강등돼 exit 코드에서 빠지고, 그 뒤의 새 위반만 blocker가 된다. 갚는 경로는 `/superarchitect:migrate` 하나다 |
+| **동결한다** | 지금의 위반이 `[기존 부채]`로 강등돼 exit 코드에서 빠지고, 그 뒤의 새 위반만 blocker가 된다. 갚는 경로는 `/superdomain:migrate` 하나다 |
 | **동결하지 않는다** | 지금부터 이 위반들이 전부 blocker다. 경계를 방금 그은 브라운필드에서는 첫 리뷰부터 빨강이 된다 |
 
 - **순서는 하나뿐이다 — 요약 제시 → 명시 승인 → 실행.** "동결하겠습니다"는 통보지 확인이 아니다.
@@ -347,7 +347,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
   읽는다(`BASELINE_RELATIVE`). **`2>/dev/null`을 빠뜨리지 않는다** — 동결한 적 없는 프로젝트에는
   `docs/` 자체가 없는 것이 정상이고, 그대로 두면 오류 문면이 나와 사용자가 실패로 읽는다. 히트가
   위 경로 밖이면 그것을 보여주고, 지금 동결하면 파일이 둘이 되며 검사는 새 경로만 읽는다는 사실을
-  알린 뒤 처분(옮기기 / 그대로 두기)을 확정받는다. `/superarchitect:migrate`도 §0에서 같은 탐지를
+  알린 뒤 처분(옮기기 / 그대로 두기)을 확정받는다. `/superdomain:migrate`도 §0에서 같은 탐지를
   하므로 두 스킬이 같은 사실을 같은 문면으로 말해야 한다.
 - **승인 전에는 동결을 완료형으로 적지 않는다.** `### 근거`를 포함해 "위반 전량을 동결했다"류는
   파일이 실제로 생긴 뒤에 쓴다 — 거부되면 문서만 거짓말을 한 채 남는다.
@@ -355,13 +355,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
   파일에서 같은 규칙을 어긴 **새 위반도 부채로 흡수된다**, ② 이 검사는 import 방향과 이름만 보므로
   **같은 패키지 안의 참조와 완전 수식 이름(FQN)은 애초에 세지 않았다** — 동결 목록에 없는 위반이
   있을 수 있다.
-- **init은 baseline을 줄이지 않는다.** 축소 경로는 `/superarchitect:migrate` 하나뿐이다.
+- **init은 baseline을 줄이지 않는다.** 축소 경로는 `/superdomain:migrate` 하나뿐이다.
 
 ### 게이트가 잡지 않는 것
 
 게이트 통과는 "선언이 해석된다"는 뜻이지 "선언이 옳다"는 뜻이 아니다 — 정규 값을 지킨 오답은
 기계가 잡지 못한다. 특히 **이름과 실제 패키지의 어긋남**은 파서도 격리 검사도 오류로 만들지
-않는다. 그 자리를 보는 것은 `/superarchitect:sync`의 대조 축이다.
+않는다. 그 자리를 보는 것은 `/superdomain:sync`의 대조 축이다.
 
 ## 7. 파생물 생성
 
@@ -369,7 +369,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 둘 다 사람이 쓰는 문서다.
 
 ```
-<!-- GENERATED by superarchitect from DOMAIN.md — 직접 수정 금지, 결정 템플릿 또는 SSOT 문서를 수정할 것 -->
+<!-- GENERATED by superdomain from DOMAIN.md — 직접 수정 금지, 결정 템플릿 또는 SSOT 문서를 수정할 것 -->
 ```
 
 ### 7-a. `docs/domain-summary.md`
@@ -384,7 +384,7 @@ SessionStart 훅이 이 파일을 **파싱하지 않고 통째로 주입**한다
   표에 있는 쌍만 열린다, 각 컨텍스트의 코드는 선언된 패키지 아래 산다, `confirmed` 불변식은
   대응 `@Tag` 테스트를 갖는다 등). 일반론·훈계는 적지 않는다. **고른 목록을 사용자에게 보여주고
   확인받는다** — 매 세션 자동 주입되는 유일한 산출물이라 여기 적힌 것이 상시 규칙이 된다.
-- 마지막 줄: `상세: DOMAIN.md · 검토: /superarchitect:review`
+- 마지막 줄: `상세: DOMAIN.md · 검토: /superdomain:review`
 - 검증: `wc -l docs/domain-summary.md` → **30 이하**. 넘으면 규칙 개수를 줄인다.
 - **건수를 문장에 박아 두지 않는다.** 동결 건수 같은 숫자는 migrate가 줄이는 순간 거짓이 되고,
   기계 대조가 성립하지 않는 자유 서술이라 아무도 잡아 주지 않는다.
@@ -460,9 +460,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
 2. **git pre-commit 훅은 이 스킬이 설치하지 않는다.** 결정적 검사(`parse_domain.py`·
    `check_imports.py`·`check_invariants.py`)는 실재하지만 훅 설치는 사용자의 결정이므로 그런
    장치를 둘 수 있다는 안내까지만 한다.
-3. **다음 단계를 알려준다.** 불변식·애그리거트를 말로 정리하는 것은 `/superarchitect:model`,
-   변경 검토는 `/superarchitect:review`, 선언만 있고 패키지 자리가 없으면 `/superarchitect:sync`,
-   동결했으면 갚는 것은 `/superarchitect:migrate`, 7-d에서 미룬 결정은 `/superarchitect:adr`이
+3. **다음 단계를 알려준다.** 불변식·애그리거트를 말로 정리하는 것은 `/superdomain:model`,
+   변경 검토는 `/superdomain:review`, 선언만 있고 패키지 자리가 없으면 `/superdomain:sync`,
+   동결했으면 갚는 것은 `/superdomain:migrate`, 7-d에서 미룬 결정은 `/superdomain:adr`이
    받는다. 실행 여부는 사용자가 정한다.
 4. **커밋은 사용자가 한다.** 명령만 제안한다. 실제로 쓴 파일만 넣는다.
    ```bash

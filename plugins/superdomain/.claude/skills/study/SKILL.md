@@ -1,7 +1,7 @@
 ---
 name: study
 description: >
-  superarchitect 플러그인 저장소 자체의 지식 베이스(references/knowledge/)를 스터디
+  superdomain 플러그인 저장소 자체의 지식 베이스(references/knowledge/)를 스터디
   결과로 성장시킨다. 대화 내용·URL·붙여넣은 노트를 references/INDEX.md와 대조해
   기존 문서와 겹치면 보완(병합 — draft 스텁에 "## 적용 기준"·"## 규칙"을 채워 성숙으로
   승격시키는 경로 포함)하고, 겹치지 않으면 새 문서를 만든다. 이후 build_index.py로
@@ -9,12 +9,12 @@ description: >
   추가", "지식 베이스에 반영해줘/넣어줘", "이 문서 보완해줘", "스터디 정리", "/study",
   "add this to the knowledge base", "update this knowledge doc"을 요청할 때 사용한다.
   대상(target) 프로젝트의 아키텍처 초기화·리뷰·스캐폴딩 작업에는 사용하지 않는다 —
-  그건 /superarchitect:* 스킬의 몫이다.
+  그건 /superdomain:* 스킬의 몫이다.
 ---
 
 # 지식 베이스 성장 (추가·보완)
 
-이 스킬은 `superarchitect` 저장소 자신의 지식 베이스를 키우는 저장소 로컬 도구다.
+이 스킬은 `superdomain` 저장소 자신의 지식 베이스를 키우는 저장소 로컬 도구다.
 문서 형식·frontmatter 문법·성숙(draft 해제) 판정 규칙·분량 규칙은 전부
 `references/governance/knowledge-doc-template.md`에 정본이 있다 — 여기서는
 반복하지 않는다. 작업 전에 그 문서를 먼저 읽는다.

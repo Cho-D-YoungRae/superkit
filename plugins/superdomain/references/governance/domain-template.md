@@ -58,7 +58,7 @@
 
 ```markdown
 # <제품명> — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 이 문서는 도메인 경계 선언의 SSOT다. generated 마커로 감싼 구역은 스킬이 갱신하므로 손으로
 고치지 않는다. 그 밖의 문단은 전부 자유 서술이고 파서가 무시한다.
@@ -72,8 +72,8 @@
 - 기본 패키지: com.acme.batch
 
 ## 컨텍스트 맵
-<!-- superarchitect:generated:context-map -->
-<!-- /superarchitect:generated -->
+<!-- superdomain:generated:context-map -->
+<!-- /superdomain:generated -->
 
 ## 컨텍스트: claim
 - 프로젝트: backend                  (프로젝트가 1개뿐이면 생략 가능 — 파서가 유일 프로젝트로 귀속)
@@ -202,7 +202,7 @@ v1의 표는 하나뿐이다. 컨텍스트 섹션 안, 소제목 `### 관계` �
 
 | 구역 | 여는 마커 | 닫는 마커 |
 |---|---|---|
-| 컨텍스트 맵 | `<!-- superarchitect:generated:context-map -->` | `<!-- /superarchitect:generated -->` |
+| 컨텍스트 맵 | `<!-- superdomain:generated:context-map -->` | `<!-- /superdomain:generated -->` |
 
 - **이 절은 마커 문자열의 정본이다.** 그 구역을 어떻게 갱신하는가 — 이미 있는 쌍의 처리, 짝 없는
   마커의 처분 — 는 `skills/init/SKILL.md` 7-b가 정본이고 여기서 다시 정하지 않는다. 두 곳이 각자
@@ -215,7 +215,7 @@ v1의 표는 하나뿐이다. 컨텍스트 섹션 안, 소제목 `### 관계` �
 - **파서는 두 줄을 다른 주석과 똑같이 무시하고, 섹션 상태도 건드리지 않는다.** 구역이 컨텍스트 섹션
   한가운데 있어도 그 뒤의 라벨과 표는 여전히 같은 컨텍스트에 붙는다.
 
-문서 상단의 **템플릿 버전 마커**(`<!-- superarchitect:template v1 -->`)는 생성 구역이 아니라 문서 전체의
+문서 상단의 **템플릿 버전 마커**(`<!-- superdomain:template v1 -->`)는 생성 구역이 아니라 문서 전체의
 판을 선언하는 별개의 줄이다 — §6이 정본이다.
 
 ---
@@ -432,9 +432,9 @@ python3 scripts/check_imports.py DOMAIN.md [--json]
 
 | 무엇 | 누가 | 규율 |
 |---|---|---|
-| 동결(생성) | `/superarchitect:init` | 실측한 뒤 **사용자에게 묻는다.** 위반 0건이면 파일을 만들지 않는다 — 빈 baseline은 래칫이 있는 척하는 상태라 더 나쁘다. 이미 있으면 덮어쓰지 않는다 |
+| 동결(생성) | `/superdomain:init` | 실측한 뒤 **사용자에게 묻는다.** 위반 0건이면 파일을 만들지 않는다 — 빈 baseline은 래칫이 있는 척하는 상태라 더 나쁘다. 이미 있으면 덮어쓰지 않는다 |
 | 소비 | `check_imports.py` | 매칭 위반을 `[기존 부채]`로 강등한다. 리포트에는 남지만 exit 코드에는 신규 위반만 반영된다 |
-| 축소 | `/superarchitect:migrate` | **줄이는 권한은 여기 하나뿐이다.** 비면 파일을 지운다 |
+| 축소 | `/superdomain:migrate` | **줄이는 권한은 여기 하나뿐이다.** 비면 파일을 지운다 |
 
 ---
 
@@ -443,7 +443,7 @@ python3 scripts/check_imports.py DOMAIN.md [--json]
 문서 상단에 마커를 둔다. 없으면 파서가 문서 전체 수준의 오류로 거부한다.
 
 ```
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 ```
 
 - **관례상 제목 바로 다음 줄에 두지만 파서는 위치를 보지 않는다** — 문서 어디에 있어도 첫 매칭이

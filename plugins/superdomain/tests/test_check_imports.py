@@ -11,7 +11,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 SCRIPT = ROOT / "scripts" / "check_imports.py"
 
 HEAD = """# 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
@@ -52,7 +52,7 @@ MULTI_PACKAGE = """
 
 # 프로젝트 2개 — 컨텍스트가 각 프로젝트에 하나씩 붙는다.
 MULTI_PROJECT = """# 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: backend

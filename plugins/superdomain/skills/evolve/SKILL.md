@@ -8,14 +8,14 @@ description: >
   `proposed` ADR 초안을 붙인다. 사용자가 "도메인 진화", "아키텍처 진화", "진화 신호",
   "신호 분석", "경계가 낡았는지 봐줘", "리뷰 로그 분석", "반복 위반 정리", "이 분류가 지금도
   맞나", "컨텍스트를 나눠야 하나", "evolve", "domain evolution",
-  "/superarchitect:evolve"를 요청할 때, 분기·릴리스 회고처럼 구조를 되돌아보는 자리에서,
+  "/superdomain:evolve"를 요청할 때, 분기·릴리스 회고처럼 구조를 되돌아보는 자리에서,
   또는 같은 지적이 리뷰마다 반복된다고 느낄 때 사용한다.
   무단 적용은 없다 — 반영되는 것은 사용자가 수락한 제안뿐이고, 수락된 것은 선언 편집부터 파서
   게이트·파생물 재생성까지 끝낸다. domain 문서·코드·테스트는
   고치지 않는다. 방금 만든 변경을 검토하는 일에는 쓰지
-  않고(`/superarchitect:review`), 선언과 코드의 불일치를 대조하는 일은
-  `/superarchitect:sync`, baseline에 동결된 격리 위반을 실제로 줄이는 일은
-  `/superarchitect:migrate`, 이미 내려진 결정 하나를 기록하는 일은 `/superarchitect:adr`이다.
+  않고(`/superdomain:review`), 선언과 코드의 불일치를 대조하는 일은
+  `/superdomain:sync`, baseline에 동결된 격리 위반을 실제로 줄이는 일은
+  `/superdomain:migrate`, 이미 내려진 결정 하나를 기록하는 일은 `/superdomain:adr`이다.
 ---
 
 # 도메인 진화 신호 — 관측하고 제안한다
@@ -64,7 +64,7 @@ description: >
 
 **정본이 정의한 신호 중 이 셋으로 착지하지 않는 것은 판정하지 않고 관측만 넘긴다.** 수집기가
 내는 값 중 baseline 추이와 review-log의 의미론 지적이 그렇다 — 리포트에 관측으로 싣되 제안을
-만들지 않고, 처분은 각각 `/superarchitect:migrate`(baseline 축소)와 `/superarchitect:review`·
+만들지 않고, 처분은 각각 `/superdomain:migrate`(baseline 축소)와 `/superdomain:review`·
 `docs/conventions/`(반복되는 의미론 지적)로 넘긴다. **넘겼다는 사실을 리포트에서 빼지 않는다** —
 조용히 빠진 관측은 다음 실행이 같은 것을 다시 수집하게 만든다.
 
@@ -79,7 +79,7 @@ git rev-parse --show-toplevel
 그 경로의 `DOMAIN.md`가 기준이다. 하위 디렉터리에서 시작했어도 여기로 올라와서 작업한다.
 파일이 없으면 아래를 알리고 **중단**한다.
 
-> superarchitect가 초기화되지 않았습니다. `/superarchitect:init`으로 도메인 경계 선언을 먼저 세우세요.
+> superdomain이 초기화되지 않았습니다. `/superdomain:init`으로 도메인 경계 선언을 먼저 세우세요.
 
 ## 1. 해석 정본을 읽는다 — 관측보다 먼저다
 
@@ -158,7 +158,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --since <�
 | `hotspots[]` | 분류 변경 | 입력이자 **제안에 첨부하는 근거 파일 목록**. `key`가 빈 문자열이면 귀속 불가다. migrate의 우선순위도 같은 값을 쓴다 |
 | `review_log.rules[]` | 관계 추가/삭제 | `rule` 값의 **형태**로 가른다(아래). 의미론 축은 제안 범위 밖이다 |
 | `cochanges[]` | 없음 | 정본 대응 표에 행이 없다. 5단계 참조 |
-| `baseline` | 없음 | 제안 범위 밖 — 관측만 싣고 처분은 `/superarchitect:migrate`로 넘긴다 |
+| `baseline` | 없음 | 제안 범위 밖 — 관측만 싣고 처분은 `/superdomain:migrate`로 넘긴다 |
 
 **`rule` 값의 형태가 축을 가른다**(형태의 정본은 `skills/review/SKILL.md` 5-c). 파생 규칙 id
 (`derived.context-isolation`)와 불변식 ID(`INV-...`)는 규칙 축이고, `semantic.*` 범주 태그는
@@ -170,7 +170,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --since <�
 - **불변식 ID의 반복은 도메인 모델 쪽 안건이다.** 관측으로 싣고 다음 모델링 세션(9단계 표)으로
   넘긴다 — 불변식은 이 스킬이 제안하는 셋 중 어디에도 착지하지 않는다.
 - **`semantic.*`는 제안 범위 밖이다.** 반복 주제를 관측으로 싣고 처분(`docs/conventions/` 승격
-  여부)은 사용자와 `/superarchitect:review`에 넘긴다. `semantic.unspecified`는 **범주 태그 없이 온
+  여부)은 사용자와 `/superdomain:review`에 넘긴다. `semantic.unspecified`는 **범주 태그 없이 온
   항목**이라는 뜻이므로 주제를 지어내지 말고 `notes`로 후보만 제시한다.
 
 `review_log.rules[]`의 칸을 정본 조건에 옮길 때 아래를 지킨다. 전부 계약을 잘못 읽기 쉬운 자리다.
@@ -306,7 +306,7 @@ git worktree remove <임시 경로>
   로 **목록 전체**를 보고 `NNNN-slug.md` 꼴 4자리 접두의 최대 + 1. 빈 번호를 메우지 않고, 같은
   번호가 둘 이상이면 멈추고 알린다. 한 실행에서 여럿 쓰면 쓸 때마다 다시 관측한다.
 - **상태는 언제나 `proposed`다**(`adr-template.md` §3). `accepted` 전이는 이 스킬이 하지 않는다 —
-  경로는 `/superarchitect:adr`의 승인 단계다.
+  경로는 `/superdomain:adr`의 승인 단계다.
 - **「검토한 대안」 — 정본의 선택지는 그 자체로 대안 표가 되지 않는다.** 표에 들어갈 자격은
   하나다: 그 선택지를 **사용자가 보고 기각했을 것.** 기각 이유도 사용자가 말한 것만 적는다.
   이유를 모르면 묻는다. 확인된 것이 없으면 표를 지우고 `**검토한 대안** — 검토한 대안 없음.`
@@ -328,10 +328,10 @@ git worktree remove <임시 경로>
 |---|---|---|
 | 수락한 제안의 ADR 초안 | `docs/decisions/NNNN-slug.md`(`proposed`) | **이 스킬**(8단계) |
 | `- 분류:` 라벨, `### 관계` 표 행 | `DOMAIN.md`의 그 줄·그 표 → 파생물 | **이 스킬**(9-a → 9-b) |
-| 컨텍스트 **신설·병합·분리** — 경계를 새로 긋는 것 | 경계·분류·패키지·관계를 다시 정하는 인터뷰 → 선언 등록 → 게이트 → 파생물 | **`/superarchitect:init`** |
-| 선언은 섰는데 디스크에 패키지가 없다 | 드리프트 처분(패키지 생성 포함) | **`/superarchitect:sync`** |
-| 도메인 모델 재편(용어·추상화·애그리거트) | `docs/domain/<context>.md` | **`/superarchitect:model` 세션** |
-| baseline 축소 | 코드에서 격리 위반 해소 | **`/superarchitect:migrate`** — 축소는 이 경로로만 |
+| 컨텍스트 **신설·병합·분리** — 경계를 새로 긋는 것 | 경계·분류·패키지·관계를 다시 정하는 인터뷰 → 선언 등록 → 게이트 → 파생물 | **`/superdomain:init`** |
+| 선언은 섰는데 디스크에 패키지가 없다 | 드리프트 처분(패키지 생성 포함) | **`/superdomain:sync`** |
+| 도메인 모델 재편(용어·추상화·애그리거트) | `docs/domain/<context>.md` | **`/superdomain:model` 세션** |
+| baseline 축소 | 코드에서 격리 위반 해소 | **`/superdomain:migrate`** — 축소는 이 경로로만 |
 
 - **`- 패키지:` 라벨은 이 스킬이 고치지 않는다.** 패키지가 바뀌면 컨텍스트의 귀속 범위가 통째로
   바뀌어 이번 관측의 분모 자체가 달라진다 — 그 결정은 경계 인터뷰의 일부이므로 `init`으로 넘긴다.
@@ -387,7 +387,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
    그대로 인용한다. 아무것도 쓰지 않았으면 그렇게 적는다.
 5. **넘긴 것과 남은 일** — `init`(경계 신설·병합·분리)·`sync`(선언과 디스크의 어긋남)·
    `model`(도메인 재편)·`migrate`(baseline 축소)·`review`(반복되는 의미론 지적)로 넘긴 항목과
-   권하는 명령, `proposed` ADR의 승인 경로(`/superarchitect:adr`).
+   권하는 명령, `proposed` ADR의 승인 경로(`/superdomain:adr`).
 6. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
 
    ```bash

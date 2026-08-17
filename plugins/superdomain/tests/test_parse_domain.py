@@ -146,9 +146,9 @@ class TestParseDomainFull(DomainTextCase):
 class TestGeneratedZoneInsideSection(DomainTextCase):
     """생성 구역 마커는 섹션 상태를 건드리지 않는다 — 그 뒤의 라벨이 여전히 같은 컨텍스트에 붙는다."""
 
-    ZONE = ("<!-- superarchitect:generated:structure:claim -->\n"
+    ZONE = ("<!-- superdomain:generated:structure:claim -->\n"
             "```mermaid\ngraph LR\n  a --> b\n```\n"
-            "<!-- /superarchitect:generated -->\n")
+            "<!-- /superdomain:generated -->\n")
 
     def test_label_after_zone_still_binds_to_the_same_context(self):
         d = self._parse_text(MINIMAL + self.ZONE + "- 패키지: com.acme.claiming..\n")
@@ -231,7 +231,7 @@ class TestPackageLabel(DomainTextCase):
 class TestPackageOverlap(DomainTextCase):
     """컨텍스트 패키지가 서로 접두로 겹치면 소스의 귀속이 모호해진다 — 오류다."""
 
-    HEAD = ("# 샘플 — Domain\n<!-- superarchitect:template v1 -->\n\n"
+    HEAD = ("# 샘플 — Domain\n<!-- superdomain:template v1 -->\n\n"
             "## 프로젝트: backend\n- 경로: .\n- 기본 패키지: com.acme\n")
 
     def _two_contexts(self, first, second):
@@ -330,7 +330,7 @@ class TestValidationRequiredLabels(DomainTextCase):
         self.assertHasError(d, "'분류'")
 
     def test_no_project_section_is_error(self):
-        text = "# 샘플 — Domain\n<!-- superarchitect:template v1 -->\n\n## 컨텍스트: claim\n- 분류: core\n"
+        text = "# 샘플 — Domain\n<!-- superdomain:template v1 -->\n\n## 컨텍스트: claim\n- 분류: core\n"
         d = self._parse_text(text)
         self.assertHasError(d, "프로젝트 섹션이 없습니다")
 
@@ -416,25 +416,25 @@ class TestTemplateMarker(DomainTextCase):
     """마커가 없으면 거부하고, 파서가 아는 것보다 높은 버전도 거부한다(침묵 금지)."""
 
     def test_marker_constants(self):
-        self.assertEqual(pd.MARKER_TEMPLATE, "superarchitect:template")
+        self.assertEqual(pd.MARKER_TEMPLATE, "superdomain:template")
         self.assertEqual(pd.TEMPLATE_VERSION, "v1")
 
     def test_missing_marker_is_error(self):
-        d = self._parse_text(MINIMAL.replace("<!-- superarchitect:template v1 -->\n", ""))
+        d = self._parse_text(MINIMAL.replace("<!-- superdomain:template v1 -->\n", ""))
         self.assertHasError(d, "템플릿 마커")
         self.assertHasError(d, "없습니다")
 
     def test_marker_without_version_is_a_format_error_not_a_missing_error(self):
         # 마커가 '깨진 것'과 '아예 없는 것'은 고칠 자리가 다르다.
-        d = self._parse_text(MINIMAL.replace("<!-- superarchitect:template v1 -->",
-                                             "<!-- superarchitect:template -->"))
+        d = self._parse_text(MINIMAL.replace("<!-- superdomain:template v1 -->",
+                                             "<!-- superdomain:template -->"))
         self.assertHasError(d, "형식이 올바르지 않습니다")
         self.assertFalse(any("없습니다" in e.message and "템플릿 마커" in e.message
                              for e in d.errors), self._messages(d))
 
     def test_malformed_marker_error_points_at_that_line(self):
-        d = self._parse_text(MINIMAL.replace("<!-- superarchitect:template v1 -->",
-                                             "<!-- superarchitect:template v1 --> 초안"))
+        d = self._parse_text(MINIMAL.replace("<!-- superdomain:template v1 -->",
+                                             "<!-- superdomain:template v1 --> 초안"))
         error = next(e for e in d.errors if "형식이 올바르지 않습니다" in e.message)
         self.assertEqual(error.line, 2)
 

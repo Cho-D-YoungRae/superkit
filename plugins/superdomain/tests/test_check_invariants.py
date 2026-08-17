@@ -10,7 +10,7 @@ SCRIPT = ROOT / "scripts" / "check_invariants.py"
 TEMPLATE = ROOT / "references" / "governance" / "domain-doc-template.md"
 
 HEAD = """# 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
@@ -34,7 +34,7 @@ HYPHEN_DOMAIN = HEAD + context_section("core") \
     + context_section("core-api", "com.acme.coreapi..")
 # 첫 프로젝트의 경로는 아직 없고 태그는 둘째 프로젝트에만 있다 — 스캔이 프로젝트를 다 돌아야 한다.
 TWO_PROJECT_DOMAIN = """# 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: absent
 - 경로: absent
@@ -49,7 +49,7 @@ OVERLAP_DOMAIN = TWO_PROJECT_DOMAIN.replace("## 프로젝트: absent\n- 경로: 
                                             "## 프로젝트: root\n- 경로: .")
 # 필수 라벨(`기본 패키지`)이 없는 프로젝트 — parse_domain이 해석 불가로 거부한다.
 BROKEN_DOMAIN = """# 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .

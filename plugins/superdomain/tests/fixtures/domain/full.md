@@ -1,5 +1,5 @@
 # 샘플 — Domain
-<!-- superarchitect:template v1 -->
+<!-- superdomain:template v1 -->
 
 ## 프로젝트: backend
 - 경로: backend
@@ -10,13 +10,13 @@
 - 기본 패키지: com.acme.batch
 
 ## 컨텍스트 맵
-<!-- superarchitect:generated:context-map -->
+<!-- superdomain:generated:context-map -->
 ```mermaid
 graph LR
   claim["claim · core"] -- customer-supplier --> admin["admin · generic"]
   billing["billing · supporting"]
 ```
-<!-- /superarchitect:generated -->
+<!-- /superdomain:generated -->
 
 ## 컨텍스트: claim
 - 프로젝트: backend

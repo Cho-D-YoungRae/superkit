@@ -7,14 +7,14 @@ description: >
   코드 변경을 수행하고, `check_imports.py` 두 실행으로 해소를 실측한 뒤 baseline에서 그 항목을
   지운다. baseline이 비면 파일을 지우고 상환 완료 ADR로 닫는다. 사용자가 "부채 갚기",
   "baseline 줄이기", "격리 위반 정리", "컨텍스트 결합 끊기", "마이그레이션", "레거시 구조 정리",
-  "migrate", "/superarchitect:migrate"를 요청할 때, `docs/domain/baseline.jsonl`이 있는
-  프로젝트에서 동결된 부채를 실제로 줄이려 할 때, 또는 `/superarchitect:evolve`가 "baseline
+  "migrate", "/superdomain:migrate"를 요청할 때, `docs/domain/baseline.jsonl`이 있는
+  프로젝트에서 동결된 부채를 실제로 줄이려 할 때, 또는 `/superdomain:evolve`가 "baseline
   감소가 정체됐다"고 보고했을 때 사용한다. **baseline을 줄이는 유일한 스킬**이며(동결은
-  `/superarchitect:init`, `check_imports.py`는 읽기만 한다) 빅뱅 리팩터링 계획은 제시하지
-  않는다. 선언과 디스크의 드리프트를 대조·처분하는 일은 `/superarchitect:sync`, 컨텍스트·분류·
-  패키지 선언 자체를 세우거나 바꾸는 일은 `/superarchitect:init`, 관계 표를 열 근거를 남기는
-  일은 `/superarchitect:adr`, 변경분을 검토하고 리포트만 내는 일은 `/superarchitect:review`,
-  도메인 문서의 불변식을 코드와 태그 테스트로 옮기는 일은 `/superarchitect:apply`다.
+  `/superdomain:init`, `check_imports.py`는 읽기만 한다) 빅뱅 리팩터링 계획은 제시하지
+  않는다. 선언과 디스크의 드리프트를 대조·처분하는 일은 `/superdomain:sync`, 컨텍스트·분류·
+  패키지 선언 자체를 세우거나 바꾸는 일은 `/superdomain:init`, 관계 표를 열 근거를 남기는
+  일은 `/superdomain:adr`, 변경분을 검토하고 리포트만 내는 일은 `/superdomain:review`,
+  도메인 문서의 불변식을 코드와 태그 테스트로 옮기는 일은 `/superdomain:apply`다.
   `docs/domain/baseline.jsonl`이 없으면 이 스킬은 할 일이 없다.
 ---
 
@@ -37,8 +37,8 @@ description: >
    상대 컨텍스트로 옮기면 방향만 뒤집힌 같은 위반이 되고, baseline이 덮지 않는 **새 경로의
    신규 위반**이 된다. 그 상태는 진척이 아니라 후퇴다.
 4. **`DOMAIN.md`를 고치지 않는다.** 분류·패키지 라벨도, `### 관계` 표의 행도 이 스킬의 편집 범위
-   밖이다 — 쌍을 여는 결정은 `/superarchitect:adr`이 근거를 남기고 편집 자리를 짚으며, 경계 자체를
-   다시 긋는 것은 `/superarchitect:init`이다.
+   밖이다 — 쌍을 여는 결정은 `/superdomain:adr`이 근거를 남기고 편집 자리를 짚으며, 경계 자체를
+   다시 긋는 것은 `/superdomain:init`이다.
 
 ## 지식 참조 프로토콜
 
@@ -64,7 +64,7 @@ ls -l docs/domain/baseline.jsonl
 
 git 루트가 작업 기준이다. `DOMAIN.md`가 없으면 아래를 알리고 **중단**한다.
 
-> superarchitect가 초기화되지 않았습니다. `/superarchitect:init`으로 도메인 경계 선언을 먼저 세우세요.
+> superdomain이 초기화되지 않았습니다. `/superdomain:init`으로 도메인 경계 선언을 먼저 세우세요.
 
 **`docs/domain/baseline.jsonl`의 존재가 이 스킬의 입장 조건 전부다.** 선언에는 부채를 가리키는
 라벨이 없다 — 파일이 있으면 동결된 부채가 있는 것이고, 없으면 없는 것이다. 세 지점(init의 동결,
@@ -72,7 +72,7 @@ git 루트가 작업 기준이다. `DOMAIN.md`가 없으면 아래를 알리고 
 
 | 상태 | 처분 |
 |---|---|
-| 파일 없음 | **"동결된 부채가 없습니다"**로 종료. 정상 상태다 — 그 프로젝트는 격리 위반 없이 출발했거나 동결하지 않기로 했다. 지금 위반이 있는지는 `check_imports.py`가 답하고, 동결할지는 `/superarchitect:init`이 정한다(**이 스킬은 동결하지 않는다**) |
+| 파일 없음 | **"동결된 부채가 없습니다"**로 종료. 정상 상태다 — 그 프로젝트는 격리 위반 없이 출발했거나 동결하지 않기로 했다. 지금 위반이 있는지는 `check_imports.py`가 답하고, 동결할지는 `/superdomain:init`이 정한다(**이 스킬은 동결하지 않는다**) |
 | 파일 있고 항목 있음 | 1단계로 |
 | 파일 있는데 빈 줄뿐 | 갚을 것이 없는데 래칫이 있는 척하는 상태다. **7단계(상환 종료)로 바로 간다** — 이 경로의 완료 ADR은 "갚은 클러스터 0"이므로, 무엇이 왜 0이었는지(동결 시점부터 비어 있었는지, 다른 경로로 해소됐는지)를 사용자에게 확인해 7-b의 재료로 넘긴다 |
 
@@ -175,7 +175,7 @@ baseline 항목의 `rule` 값이 그것이 아니면 **그 항목은 어떤 실�
   쌍이 나오면 한 클러스터로 묶지 않는다 — 빌드 명령과 소스 루트가 프로젝트마다 다르고, 5-c의
   `cd "<프로젝트 경로>"`가 어느 쪽인지 정해지지 않아 컴파일 확인 자체가 성립하지 않는다. 그 쌍은
   **경계가 프로젝트를 가로지른다는 관측**으로 보고하고, 처분(어느 쪽으로 코드를 모을지, 관계를
-  열지)은 `/superarchitect:adr`·`/superarchitect:init`으로 넘긴다.
+  열지)은 `/superdomain:adr`·`/superdomain:init`으로 넘긴다.
 - **한 항목이 여러 쌍에 걸칠 수 있다.** 한 파일이 두 컨텍스트를 각각 참조하면 그 파일의 baseline
   항목 하나가 두 클러스터에 나타난다. **클러스터는 작업 단위이고 항목 삭제 단위는 `(rule, path)`다**
   — 그 파일이 `demoted[]`에서 통째로 사라지기 전에는 이번 쌍을 다 갚았어도 항목을 지우지 않는다.
@@ -264,8 +264,8 @@ grep -rln '<A의 패키지 접두>' "<프로젝트 경로>" --include='*.kt' --i
 - 그 접두 아래에 하위 패키지를 새로 만드는 것은 이 클러스터의 일부다 — 파일을 옮기면 디렉터리가
   따라 생긴다.
 - **컨텍스트 자체가 디스크에 없으면 이 스킬이 만들지 않는다.** 그것은 선언과 디스크의 드리프트이고
-  처분은 `/superarchitect:sync`다. 그쪽을 돌리고 오라고 안내한다.
-- **새 컨텍스트를 세워 해결하는 처방은 상환이 아니라 `/superarchitect:init`의 안건이다.** 경계·
+  처분은 `/superdomain:sync`다. 그쪽을 돌리고 오라고 안내한다.
+- **새 컨텍스트를 세워 해결하는 처방은 상환이 아니라 `/superdomain:init`의 안건이다.** 경계·
   분류·패키지를 다시 정하는 인터뷰가 필요하다.
 
 ### 5-b. 코드 변경 — 위반을 없애는 변경만이 상환이다
@@ -284,7 +284,7 @@ grep -rln '<A의 패키지 접두>' "<프로젝트 경로>" --include='*.kt' --i
 - **도메인 의미가 갈리는 자리에서는 멈춘다.** "이 두 타입은 같은 개념인가"는 이동으로 답할 문제가
   아니다. 그 자리에서 묻고, 즉답이 어려우면 그 부분을 클러스터에서 빼고 이유를 보고에 남긴다.
 - **`DOMAIN.md`·domain 문서를 고치지 않는다.** 경계가 낡았다고 판단되면 그것은 상환이 아니라
-  `/superarchitect:adr`과 `/superarchitect:init`의 안건이다.
+  `/superdomain:adr`과 `/superdomain:init`의 안건이다.
 
 ### 5-c. 컴파일 초록을 먼저 본다
 
@@ -353,7 +353,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
   문장에 박아 두었으면 축소한 지금 그 문장은 거짓이고, 이 파일은 SessionStart 훅이 통째로 주입하는
   유일한 산출물이라 낡은 숫자가 매 세션 사실로 읽힌다. 불변 4에 따라 이 스킬이 고치지 않는다 —
   **`grep -n baseline docs/domain-summary.md`로 확인해 걸리면 새 건수와 함께 8단계 4항에 고지하고
-  `/superarchitect:sync`를 권한다**(자유 서술이라 sync도 기계 대조는 하지 않고 사용자 확인으로
+  `/superdomain:sync`를 권한다**(자유 서술이라 sync도 기계 대조는 하지 않고 사용자 확인으로
   넘긴다: sync 3-d).
 
 ### 6-c. 제거 후 — 보호가 걷힌 상태에서 다시 본다
@@ -396,7 +396,7 @@ git rm docs/domain/baseline.jsonl     # 커밋 전이면 rm
 **`DOMAIN.md`에서 지울 것은 없다.** 부채를 가리키는 라벨이 선언에 없기 때문이다 — 이 스킬이 SSOT를
 건드리지 않는 이유이자(불변 4), 활성 조건을 파일 존재 하나로 둔 이유다.
 
-### 7-b. 상환 완료 ADR — `/superarchitect:adr` 경유
+### 7-b. 상환 완료 ADR — `/superdomain:adr` 경유
 
 **이 스킬이 ADR을 직접 쓰지 않는다.** 채번(최대+1)·형식·상태 전이의 정본은 그 스킬과
 `${CLAUDE_PLUGIN_ROOT}/references/governance/adr-template.md`다. 넘길 재료는 다섯이다.
@@ -439,8 +439,8 @@ git rm docs/domain/baseline.jsonl     # 커밋 전이면 rm
    동결이 풀렸는데 해소가 없는 이력이 박힌다.
 
 8. **다음 걸음** — 다음 클러스터는 **다시 불러야 시작된다.** 경계 자체가 낡아 보이면
-   `/superarchitect:evolve`, 의미론 검토는 `/superarchitect:review`, 이번 변경으로 선언과 디스크가
-   갈렸으면 `/superarchitect:sync`다.
+   `/superdomain:evolve`, 의미론 검토는 `/superdomain:review`, 이번 변경으로 선언과 디스크가
+   갈렸으면 `/superdomain:sync`다.
 
 ---
 
