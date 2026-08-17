@@ -1,6 +1,6 @@
 ---
 summary: 트랜잭션적 이벤트 발행(outbox) 패턴 — 적용 시점, 릴레이 방식 비교, at-least-once와 멱등 소비
-read_when: [apply, review, scaffold]
+read_when: [apply, review]
 ---
 
 ## 개념
@@ -88,8 +88,9 @@ CDC를 고를 이유로 "언젠가 지연이 문제가 될 것"을 쓰지 않는
 
 ## 규칙
 
-**리뷰 판정 도구**다(기계 규칙 id는 스타일이 소유한다 —
-`references/governance/rule-vocabulary.md` §1). 아래는 diff 위에서 판정할 수 있도록 적었다.
+**리뷰 판정 도구**다 — 이 플러그인의 유일한 기계 강제 규칙(`derived.context-isolation`)은
+컨텍스트 사이의 참조만 보므로 아래를 아무것도 잡지 않는다. 아래는 diff 위에서 판정할 수 있도록
+적었다.
 
 ### R1. outbox 삽입은 상태 변경과 같은 트랜잭션 안에 있다
 
@@ -138,17 +139,16 @@ CDC를 고를 이유로 "언젠가 지연이 문제가 될 것"을 쓰지 않는
 
 **보고**: `type=violation`, `severity=warn`. (b)로 금액·수량이 이중 반영되면 `blocker`.
 
-### R4. outbox는 어댑터에 격리된다
+### R4. outbox는 영속 코드 쪽에 격리된다
 
-**어디를 보는가**: outbox 테이블 엔티티·DTO를 import하는 파일의 레이어.
+**어디를 보는가**: outbox 테이블 엔티티·DTO를 import하는 파일의 위치.
 
-**위반 문형**: domain·application이 `OutboxMessage`·`OutboxRepository` 타입을 참조한다,
-애플리케이션 서비스가 직렬화 형식(JSON 문자열)을 직접 만든다, 포트 이름이 발행 수단을 드러낸다
-(`OutboxPublishPort` — 안쪽이 알아야 할 것은 "이벤트를 발행한다"뿐이다).
+**위반 문형**: 도메인·유스케이스 코드가 `OutboxMessage`·`OutboxRepository` 타입을 참조한다,
+애플리케이션 서비스가 직렬화 형식(JSON 문자열)을 직접 만든다, 인터페이스 이름이 발행 수단을
+드러낸다(`OutboxPublishPort` — 도메인이 알아야 할 것은 "이벤트를 발행한다"뿐이다).
 
-**기계와 리뷰의 분담**: `@Entity`로 선언된 outbox 엔티티가 어댑터 밖으로 새는 것은
-`*.domain-pure`(`confine-type`)가 잡는다([[persistence]]). 이 규칙이 보는 것은 그것이 잡지 못하는
-쪽이다 — **이름과 시그니처로 새는 누수**.
+**기계는 이것을 잡지 않는다.** outbox 엔티티가 도메인으로 새는 것도, 이름과 시그니처로 새는
+것도 전부 리뷰의 몫이다([[persistence]] R2).
 
 **보고**: `type=violation`, `severity=warn`.
 
@@ -266,6 +266,6 @@ outbox 행을 해석하지 않는다.
 - [[cqrs]] — L3의 리드 모델 동기화 경로에서 유실을 막는 수단
 - [[event-sourcing]] — 이벤트 스토어가 outbox를 겸할 수 있는 경우와 그렇지 않은 경우
 - [[context-mapping]] — 발행 이벤트의 페이로드는 관계 표의 `계약`이다
-- [[persistence]] — outbox 엔티티를 어댑터에 가두는 것은 `*.domain-pure`가 기계로 잡는다
+- [[persistence]] — outbox 엔티티를 영속 코드 쪽에 가두는 근거와 누수 형태 목록
 - [[aggregates]] — 파티션 키의 단위이자 순서 보장의 단위
-- [[hexagonal]] — 발행 포트를 안쪽이 소유하고 outbox를 어댑터에 두는 배치
+- [[repositories-domain-services]] — 발행 인터페이스를 도메인이 소유하는 방향
