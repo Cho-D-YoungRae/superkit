@@ -230,8 +230,9 @@ def context_packages(domain, context) -> list[str]:
     base_package로 [f"{base}.{context.name}.."]. base_package가 없으면 LocatedError."""
 
 def isolation_allowlist(domain) -> dict[str, frozenset[str]]:
-    """관계 표에서 컨텍스트별 열린 상대 집합. 관계는 선언 방향 기준 —
-    양방향 허용은 양쪽 컨텍스트에 각각 선언해야 한다(기존 의미 유지)."""
+    """관계 표에서 컨텍스트별 열린 상대 집합. **허용 단위는 쌍이고 방향을 구분하지 않는다** —
+    한 줄을 쓰면 그 쌍의 참조가 양방향으로 열리고, 유형은 허용 방향을 바꾸지 않는다.
+    정본은 context-mapping.md 37·114행과 구 resolve_rules._relation_partners(양방향 등록)."""
 ```
 
 **이관하는 것:** `resolve_rules.py`의 `LocatedError`·`format_error`를 parse_domain.py로 복사한다(resolve_rules는 아직 살아 있으므로 원본은 건드리지 않는다 — Task 8에서 삭제).
@@ -575,7 +576,7 @@ git add skills/init && git commit -m "refactor(skills): init — 인터뷰에서
 2. **§2 템플릿 스켈레톤** — 그대로 복사해 `parse_domain.py`를 통과하는 완본(Task 3의 full.md와 동형: 프로젝트 2·컨텍스트 3·명시/복수 패키지·관계 표·생성 구역). **작성 후 실제로 파서에 통과시켜 검증한다(Step 2).**
 3. **§3 라벨·표 사전** — 프로젝트(경로·기본 패키지), 컨텍스트(프로젝트·분류·패턴·패키지), 관계 표 3열(상대·유형·계약)과 6종 유형, 괄호 주석 규칙, 생성 구역 마커 2종(template 버전·context-map).
 4. **§4 파싱 계약** — 필수 라벨, 정규 값, 오류 목록(상대 미존재·패키지 접두 겹침·구 라벨 거부·버전 초과 거부), exit 규약.
-5. **§5 컨텍스트 격리 규칙과 baseline** (rule-vocabulary에서 흡수) — `derived.context-isolation` 정의(관계 표 = allow-list, 선언 방향 기준), 패키지 규약 기본값 `{기본 패키지}.{컨텍스트}..`, baseline.jsonl 문법(위반 지문 필드 — 기존 rule-vocabulary §의 해당 정의를 그대로 이관)·동결(init)/소비(check_imports)/축소(migrate) 경로.
+5. **§5 컨텍스트 격리 규칙과 baseline** (rule-vocabulary에서 흡수) — `derived.context-isolation` 정의(관계 표 = allow-list, **허용 단위는 쌍이고 방향 구분 없음** — 유형이 방향 해석을 바꾸지 않는다. context-mapping.md 37·114행과 정합), **컨텍스트 이름은 유효한 패키지 세그먼트여야 한다**(규약 기본값을 쓰는 컨텍스트에 한함 — 아니면 매칭 0건 패턴이 조용히 통과한다), 패키지 규약 기본값 `{기본 패키지}.{컨텍스트}..`, baseline.jsonl 문법(위반 지문 필드 — 기존 rule-vocabulary §의 해당 정의를 그대로 이관)·동결(init)/소비(check_imports)/축소(migrate) 경로.
 6. **§6 버전 관리** — 마커 버전 규칙(초과 버전 거부, 침묵하지 않음).
 7. **§7 관련 문서** — domain-doc-template·adr-template·evolution-signals·knowledge-doc-template.
 
