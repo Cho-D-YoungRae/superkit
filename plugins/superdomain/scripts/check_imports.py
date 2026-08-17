@@ -18,12 +18,22 @@
 유형(`customer-supplier`·`acl` 등)은 허용 방향을 바꾸지 않는다 — 유형은 설계 의도의 기록이지
 강제의 입력이 아니다(정본: `references/knowledge/strategic/context-mapping.md` R1).
 
-**이 검사기는 강제의 정본이 아니다.** import 문 없이 쓰이는 참조 — 같은 패키지 안의 타입,
-완전 수식 이름(FQN)을 본문에 그대로 쓴 참조 — 를 보지 못한다. 그래서 리포트는 그 한계를
-푸터에 함께 출력한다(`LIMITATION_NOTE`는 언제나, `BASELINE_MATCH_NOTE`는 그 파일이 이번
-실행에 실제로 관여했을 때만 — 푸터의 한 줄은 읽는 사람에게 '언제나 참'이어야 한다).
+**이 검사기가 보는 것이 경계의 전부가 아니다.** import 문 없이 쓰이는 참조 — 같은 패키지 안의
+타입, 완전 수식 이름(FQN)을 본문에 그대로 쓴 참조 — 를 보지 못한다. 위반 0건은 경계 누수
+0건이 아니고, 이 사각을 대신 덮어 줄 다른 강제 장치도 없다. 그래서 리포트는 그 한계를 푸터에
+함께 출력한다(`LIMITATION_NOTE`는 언제나, `BASELINE_MATCH_NOTE`는 그 파일이 이번 실행에
+실제로 관여했을 때만 — 푸터의 한 줄은 읽는 사람에게 '언제나 참'이어야 한다).
 
-**브라운필드의 기존 부채는 별도 채널로 나간다.** `docs/architecture/baseline.jsonl`이 있으면
+**소스는 원문 그대로 읽는다 — 주석·문자열 리터럴을 지우지 않는다.** 두 방향의 대가가 정반대라
+한 방향만 보고 정할 수 없다. `import` 쪽에서 이 선택은 **오탐**을 만든다(블록 주석이나 raw
+string 안의 `import`도 위반이 된다) — 시끄러운 실패이고, 사용자는 지목된 줄을 열면 바로 안다.
+`package` 쪽에서는 반대로 **미탐**을 만든다: 선언은 첫 매칭이 귀속을 정하므로 주석 처리된 옛
+선언이 앞에 있으면 파일이 통째로 엉뚱한 컨텍스트에 귀속되고, 그 파일의 위반은 어느 채널에도
+나타나지 않는다 ✅ 실측. 마스킹 함수를 되살리면 그 함수의 결함 하나가 import를 통째로 삼켜
+같은 침묵을 만들므로, 대신 **선언을 세어 2건 이상이면 그 사실 자체를 고지한다**
+(`AmbiguousPackage`) — 조용한 오귀속을 시끄러운 고지로 바꾸는 값싼 수선이다.
+
+**브라운필드의 기존 부채는 별도 채널로 나간다.** `docs/domain/baseline.jsonl`이 있으면
 플래그 없이 읽어 매칭 위반을 `[기존 부채]`로 강등한다 — 리포트에는 남지만 exit 코드에는
 반영되지 않고 신규 위반만 1을 만든다. 매칭 키는 (규칙 id, 경로)뿐이고 그 대가는 푸터가 밝힌다.
 깨진 줄 하나면 어느 위반이 동결분인지 전체를 알 수 없으므로 **해석 불가(exit 2)로 다룬다** —
@@ -37,6 +47,8 @@
 |---|---|---|
 | 0건 경고 | 컨텍스트 패키지에 귀속된 소스가 0건이다 | `[0건 경고] <rule id>: ...` |
 | 생략 | 검사가 성립하지 않았다(프로젝트 경로·소스·컨텍스트 부재) | 푸터의 `생략:` 줄 |
+| 귀속 불신 | `package` 선언이 여럿이라 어느 컨텍스트의 파일인지 믿을 수 없다 | 푸터의 `package 선언이 여러 건인 소스` 줄 |
+| 읽지 못함 | 소스를 파싱하지 못했다(인코딩·권한) | 푸터의 `읽지 못한 소스` 줄 |
 """
 
 from __future__ import annotations
@@ -74,7 +86,7 @@ ZERO_MATCH_REASON = "귀속된 소스 0건 — 컨텍스트 패키지와 실제 
 
 # 동결된 기존 부채. 경로는 DOMAIN.md가 있는 디렉터리(= git 루트) 기준이라 위반의 표시 경로와
 # 같은 기준이고, 그래서 (규칙 id, 경로)로 바로 맞춰 볼 수 있다.
-BASELINE_RELATIVE = "docs/architecture/baseline.jsonl"
+BASELINE_RELATIVE = "docs/domain/baseline.jsonl"
 BASELINE_MATCH_NOTE = (
     "한계: 부채 매칭 키는 (규칙 id, 경로)뿐입니다 — 줄 번호를 키에 넣지 않아 리팩터링에는 견디는 "
     "대신, 같은 파일에서 같은 규칙을 어긴 추가 위반도 기존 부채로 함께 흡수됩니다. 그 파일의 "
@@ -98,7 +110,8 @@ class Import:
 class SourceFile:
     path: Path
     display: str     # 리포트에 쓰는 경로 — DOMAIN.md의 디렉터리 기준 상대경로
-    package: str
+    package: str     # 첫 `package` 선언 — 귀속에 실제로 쓴 값
+    package_lines: tuple  # 모든 `package` 매칭의 줄 번호(2건 이상이면 귀속을 믿을 수 없다)
     imports: tuple
 
 
@@ -129,6 +142,20 @@ class Skip:
 
 
 @dataclass(frozen=True)
+class AmbiguousPackage:
+    """`package` 선언이 여러 건인 소스 — 그 파일의 귀속(따라서 판정)을 믿을 수 없다.
+
+    `.kt`/`.java` 파일의 선언은 정확히 하나다. 둘 이상 잡혔다는 것은 주석 처리된 옛 선언이나
+    문자열 리터럴이 섞였다는 뜻이고, 귀속은 **첫 매칭**이 정하므로 그 파일의 위반이 통째로
+    사라질 수 있다. 오류가 아니고 exit 코드를 바꾸지 않는다 — 고칠 자리를 지목할 뿐이다.
+    """
+
+    path: str
+    count: int
+    package: str     # 첫 매칭 — 이번 실행이 실제로 귀속에 쓴 값
+
+
+@dataclass(frozen=True)
 class Baseline:
     """동결된 기존 부채 목록. 매칭 키는 (규칙 id, 경로)뿐이다 — 줄 번호는 리팩터링에 취약하다."""
 
@@ -146,6 +173,7 @@ class Report:
     inherited: list = field(default_factory=list)
     skipped: list = field(default_factory=list)
     unreadable: list = field(default_factory=list)  # 읽지 못한 소스 — 검사에서 빠진 사각지대
+    ambiguous_package: list = field(default_factory=list)   # [AmbiguousPackage] — 귀속 불신
     checked: int = 0                                # 검사한 컨텍스트 수
     errors: list = field(default_factory=list)      # 비어 있지 않으면 해석 불가(exit 2)
     baseline: object = None                         # Baseline | None — 자동 감지 결과
@@ -213,15 +241,18 @@ def _read_source(path, display):
     except (OSError, UnicodeDecodeError):
         return None
 
-    package_match = RE_PACKAGE.search(text)
-    package = package_match.group(1) if package_match else ""
+    # 선언을 **세어 둔다**. 귀속은 예전처럼 첫 매칭이 정하지만, 2건 이상이면 그 사실을 고지해
+    # 조용한 오귀속(주석 처리된 옛 선언이 앞에 있는 경우 ✅ 실측)을 시끄러운 고지로 바꾼다.
+    matches = list(RE_PACKAGE.finditer(text))
+    package = matches[0].group(1) if matches else ""
+    package_lines = tuple(_line_of(text, match.start(1)) for match in matches)
 
     imports = []
     for match in RE_IMPORT.finditer(text):
         raw = match.group(1)
         fqn = raw[:-2] if raw.endswith(".*") else raw
         imports.append(Import(raw, fqn, _line_of(text, match.start(1))))
-    return SourceFile(path, display, package, tuple(imports))
+    return SourceFile(path, display, package, package_lines, tuple(imports))
 
 
 def _load_sources(root, base) -> tuple:
@@ -245,7 +276,7 @@ def _load_sources(root, base) -> tuple:
 # ---------------------------------------------------------------------------
 
 def _load_baseline(base) -> tuple:
-    """`docs/architecture/baseline.jsonl`을 자동 감지한다 — (Baseline|None, [LocatedError]).
+    """`docs/domain/baseline.jsonl`을 자동 감지한다 — (Baseline|None, [LocatedError]).
 
     **플래그를 두지 않는다.** 파일이 있다는 것은 그 프로젝트가 이행 중이라는 선언이고, 그때
     부채와 신규를 가르지 않은 판정은 언제나 틀린 판정이다 — 켜고 끌 대상이 아니다.
@@ -314,6 +345,26 @@ def _scopes(domain, errors) -> list:
     return scopes
 
 
+def _barren_reason(project, root, unreadable) -> str:
+    """검사를 세우지 못한 사유. **고칠 자리가 다르므로 네 갈래를 뭉뚱그리지 않는다.**
+
+    경로가 없는 것(`- 경로:`를 고치거나 코드가 생기길 기다린다), 경로가 디렉터리가 아닌 것
+    (`- 경로:`가 파일을 가리킨다), 소스가 없는 것(코드가 아직 없다), 있는 소스를 전부 읽지
+    못한 것(인코딩·권한을 고친다)은 서로 다른 상태다. 특히 마지막 갈래를 "소스가 없습니다"로
+    말하면 바로 아래 `읽지 못한 소스 N건` 줄과 정면으로 모순된다.
+    """
+    where = f"프로젝트 '{project.name}'의 경로 '{project.path}'"
+    if not root.exists():
+        return f"{where} 아래 검사할 .kt/.java 소스가 없습니다 (경로가 아직 없습니다)"
+    if not root.is_dir():
+        return (f"{where}가 디렉터리가 아닙니다 — 그 아래를 걸을 수 없습니다 "
+                f"('- 경로:'는 프로젝트 루트 디렉터리를 가리켜야 합니다)")
+    if unreadable:
+        return (f"{where} 아래에서 찾은 .kt/.java 소스 {len(unreadable)}건을 **전부 읽지 "
+                f"못했습니다** — 인코딩(UTF-8)과 권한을 확인하세요 (아래 '읽지 못한 소스' 줄 참조)")
+    return f"{where} 아래 검사할 .kt/.java 소스가 없습니다"
+
+
 def _collect(report, domain, base) -> tuple:
     """프로젝트별로 소스를 걷는다 — ([소스], {소스가 0건인 프로젝트명: 사유}).
 
@@ -329,15 +380,16 @@ def _collect(report, domain, base) -> tuple:
                 seen_unreadable.add(item)
                 report.unreadable.append(item)
         if not loaded:
-            barren[project.name] = (
-                f"프로젝트 '{project.name}'의 경로 '{project.path}' 아래 검사할 .kt/.java "
-                f"소스가 없습니다" + ("" if root.is_dir() else " (경로가 아직 없습니다)"))
+            barren[project.name] = _barren_reason(project, root, unreadable)
             continue
         for source in loaded:
             if source.path in seen:
                 continue
             seen.add(source.path)
             sources.append(source)
+            if len(source.package_lines) > 1:
+                report.ambiguous_package.append(AmbiguousPackage(
+                    source.display, len(source.package_lines), source.package))
     return sources, barren
 
 
@@ -442,6 +494,13 @@ def render(report) -> list:
             f"이번 실행의 위반과 매칭됐습니다. 나머지는 해소됐거나 이번 실행이 검사하지 않은 "
             f"규칙입니다 — 축소는 migrate만 합니다)")
     lines += [f"생략: {s.rule_id} ({s.subject}): {s.reason}" for s in report.skipped]
+    if report.ambiguous_package:
+        detail = ", ".join(f"{a.path}({a.count}건 → '{a.package}'로 귀속)"
+                           for a in report.ambiguous_package)
+        lines.append(
+            f"package 선언이 여러 건인 소스 {len(report.ambiguous_package)}건 — 첫 선언으로 "
+            f"귀속했으므로 이 파일들의 판정은 믿을 수 없습니다(주석 처리된 옛 선언을 "
+            f"확인하세요): {detail}")
     if report.unreadable:
         lines.append(f"읽지 못한 소스 {len(report.unreadable)}건 — 이 파일들은 검사하지 "
                      f"않았습니다: {', '.join(report.unreadable)}")
@@ -458,6 +517,8 @@ def _payload(report) -> dict:
         "inherited": list(report.inherited),
         "skipped": [asdict(s) for s in report.skipped],
         "unreadable": list(report.unreadable),
+        # 텍스트 리포트에만 두면 `--json`을 읽는 소비자(스킬)에게서 이 고지가 사라진다.
+        "ambiguous_package": [asdict(a) for a in report.ambiguous_package],
         "checked": report.checked,
         # 강등 채널은 violations와 겹치지 않는다 — 저쪽이 exit 1을 만드는 신규 위반이다.
         "baseline": {

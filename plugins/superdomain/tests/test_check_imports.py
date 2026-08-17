@@ -3,7 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from check_imports import (BASELINE_MATCH_NOTE, BASELINE_RELATIVE, LIMITATION_NOTE, RULE_ID,
-                           ZERO_MATCH_REASON, _owning_context, check, render)
+                           SKIP_DIRS, SOURCE_SUFFIXES, SRC_DIR, ZERO_MATCH_REASON,
+                           _owning_context, check, render)
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -105,7 +106,7 @@ class CheckTestCase(unittest.TestCase):
         return self.src(relpath, "\n".join(lines) + "\n")
 
     def baseline(self, *lines):
-        """`docs/architecture/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리."""
+        """`docs/domain/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리."""
         path = self.tmpdir / BASELINE_RELATIVE
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
@@ -378,6 +379,124 @@ class TestSourceParsing(CheckTestCase):
         self.assert_no_violation(self.check())
 
 
+class TestRawTextScanning(CheckTestCase):
+    """주석·문자열을 지우지 않고 원문을 읽는 선택의 **특성화 테스트**.
+
+    두 방향의 대가가 정반대다. `import` 쪽은 오탐(시끄러운 실패)이라 그대로 두고, `package`
+    쪽은 미탐(조용한 실패)이라 고지로 막는다. 의식적 판단이므로 여기 못 박는다 — 다음 사람이
+    한 방향만 보고 뒤집지 않도록.
+    """
+
+    def test_import_inside_a_block_comment_is_reported(self):
+        # **의도된 오탐이다.** 주석 마스킹을 되살리면 그 함수의 결함 하나가 import를 통째로
+        # 삼켜 검사가 조용해진다 — 오탐(시끄러움)이 미탐(조용함)보다 안전하다는 판단.
+        self.two_contexts()
+        self.src("app/src/main/kotlin/com/acme/claim/Commented.kt",
+                 "package com.acme.claim\n"
+                 "\n"
+                 "/*\n"
+                 "import com.acme.admin.AdminUser\n"
+                 "*/\n"
+                 "class Commented\n")
+        violation = self.assert_violation(self.check(), needle="com.acme.admin.AdminUser", count=1)
+        self.assertEqual(violation.line, 4)
+
+    def test_import_inside_a_raw_string_is_reported(self):
+        # 같은 판단의 다른 얼굴 — raw string 안의 코드 예시도 위반으로 보고된다.
+        self.two_contexts()
+        self.src("app/src/main/kotlin/com/acme/claim/Snippet.kt",
+                 "package com.acme.claim\n"
+                 "\n"
+                 'val SAMPLE = """\n'
+                 "import com.acme.admin.AdminUser\n"
+                 '"""\n')
+        self.assert_violation(self.check(), needle="com.acme.admin.AdminUser", count=1)
+
+    def test_multiple_package_declarations_are_announced(self):
+        # 주석 처리된 옛 선언이 앞에 있으면 귀속이 통째로 뒤집혀 위반이 사라진다 ✅ 실측.
+        # 위반으로 만들 수는 없으므로(어느 선언이 진짜인지 이 검사기는 모른다) 그 사실을 고지한다.
+        self.two_contexts()
+        self.src("app/src/main/kotlin/com/acme/claim/Leaky.kt",
+                 "/*\n"
+                 "package com.acme.admin\n"
+                 "*/\n"
+                 "package com.acme.claim\n"
+                 "\n"
+                 "import com.acme.admin.AdminUser\n"
+                 "\n"
+                 "class Leaky\n")
+        report = self.check()
+        self.assertEqual(len(report.ambiguous_package), 1, report.ambiguous_package)
+        notice = report.ambiguous_package[0]
+        self.assertEqual(notice.path, LEAKY)
+        self.assertEqual(notice.count, 2)
+        self.assertEqual(notice.package, "com.acme.admin")   # 첫 매칭이 귀속을 정했다
+        line = next(l for l in render(report) if l.startswith("package 선언이 여러 건인 소스"))
+        self.assertIn(LEAKY, line)
+        self.assertIn("믿을 수 없습니다", line)
+
+    def test_the_announcement_does_not_change_the_exit_code(self):
+        # 경고성 고지이므로 기존 규율대로 exit을 바꾸지 않는다.
+        self.two_contexts()
+        self.src("app/src/main/kotlin/com/acme/claim/Leaky.kt",
+                 "/*\npackage com.acme.admin\n*/\npackage com.acme.claim\n\n"
+                 "import com.acme.admin.AdminUser\n")
+        result = subprocess.run([sys.executable, str(SCRIPT), str(self.domain_path)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("package 선언이 여러 건인 소스 1건", result.stdout)
+
+    def test_a_single_package_declaration_is_not_announced(self):
+        self.two_contexts()
+        self.assertEqual(self.check().ambiguous_package, [])
+
+    def test_json_carries_the_announcement(self):
+        self.two_contexts()
+        self.src("app/src/main/kotlin/com/acme/claim/Leaky.kt",
+                 "/*\npackage com.acme.admin\n*/\npackage com.acme.claim\n")
+        result = subprocess.run([sys.executable, str(SCRIPT), str(self.domain_path), "--json"],
+                                capture_output=True, text=True)
+        payload = json.loads(result.stdout)
+        self.assertEqual(sorted(payload["ambiguous_package"][0]),
+                         ["count", "package", "path"])
+        self.assertEqual(payload["ambiguous_package"][0]["path"], LEAKY)
+
+
+class TestSourceTreeContract(CheckTestCase):
+    """`SKIP_DIRS`·`SOURCE_SUFFIXES`·`SRC_DIR`은 check_invariants와 공유하는 불변 계약이다."""
+
+    def test_constants_are_unchanged(self):
+        self.assertEqual(SOURCE_SUFFIXES, (".kt", ".java"))
+        self.assertEqual(SRC_DIR, "src")
+        self.assertEqual(sorted(SKIP_DIRS),
+                         [".git", ".gradle", ".idea", ".kotlin", ".settings", ".venv",
+                          "build", "node_modules", "out", "target"])
+
+    def test_every_skip_dir_is_pruned(self):
+        self.two_contexts()
+        for index, name in enumerate(sorted(SKIP_DIRS)):
+            self.src(f"app/{name}/Gen{index}.kt",
+                     "package com.acme.claim\n\nimport com.acme.admin.AdminUser\n")
+        self.assert_no_violation(self.check())
+
+    def test_suffixed_test_source_set_is_not_walked(self):
+        # `src/androidTest`는 `endswith("Test")` 갈래다 — `test*` 갈래와 함께 걷지 않는다.
+        self.two_contexts()
+        self.src("app/src/androidTest/kotlin/com/acme/claim/UiTest.kt",
+                 "package com.acme.claim\n\nimport com.acme.admin.AdminUser\n")
+        self.src("app/src/integrationTest/kotlin/com/acme/claim/ItTest.kt",
+                 "package com.acme.claim\n\nimport com.acme.admin.AdminUser\n")
+        self.assert_no_violation(self.check())
+
+    def test_a_test_named_directory_outside_src_is_still_walked(self):
+        # 제외는 `src/` 바로 아래의 소스셋 이름에만 걸린다 — 그 밖의 `testing` 패키지는
+        # 프로덕션 코드일 수 있으므로 걷는다.
+        self.two_contexts()
+        self.src("app/src/main/kotlin/com/acme/claim/testkit/Fixture.kt",
+                 "package com.acme.claim.testkit\n\nimport com.acme.admin.AdminUser\n")
+        self.assert_violation(self.check(), needle="com.acme.admin.AdminUser", count=1)
+
+
 class TestSilenceGuards(CheckTestCase):
     def test_context_with_zero_sources_warns(self):
         self.domain(HEAD + CLAIM + ADMIN)
@@ -431,6 +550,33 @@ class TestSilenceGuards(CheckTestCase):
         self.assertEqual(len(report.skipped), 2, report.skipped)
         self.assertNotIn("경로가 아직 없습니다", report.skipped[0].reason)
         self.assertIn(".kt/.java", report.skipped[0].reason)
+
+    def test_unreadable_only_project_says_so_instead_of_no_sources(self):
+        # 소스는 있는데 전부 읽지 못한 것이다. "소스가 없습니다"라고 말하면 바로 아래
+        # `읽지 못한 소스 1건` 줄과 정면으로 모순된다 — 사용자가 엉뚱한 데를 본다.
+        self.domain(HEAD + CLAIM + ADMIN)
+        path = self.tmpdir / "app/src/main/kotlin/com/acme/claim/Cp949.kt"
+        path.parent.mkdir(parents=True)
+        path.write_bytes("package com.acme.claim\n\n// 주석\nclass Odd\n".encode("euc-kr"))
+        report = self.check()
+        self.assertEqual(len(report.skipped), 2, report.skipped)
+        reason = report.skipped[0].reason
+        self.assertIn("전부 읽지 못했습니다", reason)
+        self.assertIn("인코딩", reason)
+        self.assertNotIn("소스가 없습니다", reason)
+        self.assertEqual(len(report.unreadable), 1, report.unreadable)
+        lines = render(report)
+        self.assertTrue(any("읽지 못한 소스 1건" in line for line in lines), lines)
+
+    def test_project_path_pointing_at_a_file_says_so(self):
+        # 경로는 있고 종류가 틀렸다 — "경로가 아직 없습니다"라고 하면 없는 것을 찾게 만든다.
+        self.domain(HEAD.replace("- 경로: .", "- 경로: backend.txt") + CLAIM + ADMIN)
+        (self.tmpdir / "backend.txt").write_text("파일이다\n", encoding="utf-8")
+        report = self.check()
+        self.assertEqual(len(report.skipped), 2, report.skipped)
+        reason = report.skipped[0].reason
+        self.assertIn("디렉터리가 아닙니다", reason)
+        self.assertNotIn("경로가 아직 없습니다", reason)
 
     def test_only_the_barren_projects_contexts_are_skipped(self):
         self.domain(MULTI_PROJECT)
@@ -605,8 +751,8 @@ class TestCli(CheckTestCase):
         self.assertEqual(result.returncode, 1)
         payload = json.loads(result.stdout)
         self.assertEqual(sorted(payload),
-                         ["baseline", "checked", "inherited", "skipped", "unreadable",
-                          "violations", "zero_match"])
+                         ["ambiguous_package", "baseline", "checked", "inherited", "skipped",
+                          "unreadable", "violations", "zero_match"])
         self.assertEqual(sorted(payload["violations"][0]),
                          ["line", "message", "path", "rule_id"])
         self.assertEqual(payload["violations"][0]["rule_id"], RULE_ID)
