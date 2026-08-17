@@ -10,83 +10,44 @@ ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
 SCRIPT = ROOT / "scripts" / "collect_signals.py"
 
-# 규칙 하나만 선언한 커스텀 스타일. 이 스크립트가 쓰는 것은 규칙의 판정이 아니라 그 규칙이
-# 실어 오는 layer_patterns뿐이므로, 프리셋이 바뀌어도 흔들리지 않게 최소 선언만 둔다.
-STYLE_FULL = """# full
-
-## 선언
-
-- 레이어: domain, application, adapter
-
-| 규칙 id | primitive | 파라미터 |
-|---|---|---|
-| af.no-framework | forbid-import | from=domain; to=org.springframework.. |
-"""
-
-HEAD = """# 샘플 — Architecture
+HEAD = """# 샘플 — Domain
 <!-- superarchitect:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme
-- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
 """
 
 CONTEXT = """
 ## 컨텍스트: {name}
 - 분류: {classification}
-- 스타일: custom/full
-- 모듈 구성: multi-module
-
-| 모듈 | 경로 | 레이어 |
-|---|---|---|
-| {name}-domain | {name}/domain | domain |
-| {name}-application | {name}/application | application |
-| {name}-adapter | {name}/adapter | adapter |
 """
 
-# 컨텍스트 둘 — 기본 패키지 관례로 `com.acme.<컨텍스트>.<레이어>..` 패턴이 나온다.
-ARCH = (HEAD
-        + CONTEXT.format(name="claim", classification="core")
-        + CONTEXT.format(name="billing", classification="supporting"))
+# 컨텍스트 둘 — 명시 `- 패키지:`가 없으므로 규약 기본값 `com.acme.<컨텍스트>..`가 쓰인다.
+DOMAIN = (HEAD
+          + CONTEXT.format(name="claim", classification="core")
+          + CONTEXT.format(name="billing", classification="supporting"))
 
-# app-embedded — `패키지 규약`의 `{앱}` 행이 컨텍스트로 분할되지 않는 레이어를 만든다.
-# 그 패턴은 두 컨텍스트의 layer_patterns에 함께 들어가므로 귀속을 판별하지 못한다.
-APP_ARCH = """# 앱 임베디드 — Architecture
+# 컨텍스트들이 나눠 갖지 않는 공용 패키지(`com.acme.web..`)가 있는 트리 — 어느 컨텍스트
+# 패키지에도 들지 않으므로 그 아래 파일은 귀속을 판별할 수 없다.
+SHARED_DOMAIN = """# 공용 패키지 — Domain
 <!-- superarchitect:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme
-- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
-
-### 애플리케이션
-| 이름 | 모듈 경로 | 포함 컨텍스트 |
-|---|---|---|
-| web | app/web | claim |
-| batch | app/batch | billing |
-
-### 패키지 규약
-| 레이어 | 패턴 |
-|---|---|
-| domain | com.acme.core.domain.{컨텍스트}.. |
-| application | com.acme.core.application.{컨텍스트}.. |
-| adapter | com.acme.{앱}.. |
 
 ## 컨텍스트: claim
 - 분류: core
-- 스타일: custom/full
-- 모듈 구성: app-embedded
+- 패키지: com.acme.core.domain.claim..
 
 ## 컨텍스트: billing
 - 분류: supporting
-- 스타일: custom/full
-- 모듈 구성: app-embedded
+- 패키지: com.acme.core.domain.billing..
 """
 
-BROKEN_ARCH = """# 깨진 문서
+# 필수 라벨(`기본 패키지`)이 없다 — parse_domain이 해석 불가로 거부한다.
+BROKEN_DOMAIN = """# 깨진 문서
 <!-- superarchitect:template v1 -->
 
 ## 프로젝트: backend
@@ -96,29 +57,25 @@ BROKEN_ARCH = """# 깨진 문서
 
 def in_project(section, project):
     """컨텍스트 섹션에 `- 프로젝트:` 라벨을 붙인다 — 프로젝트가 둘 이상이면 필수다."""
-    return section.replace("- 스타일:", f"- 프로젝트: {project}\n- 스타일:", 1)
+    return section.replace("- 분류:", f"- 프로젝트: {project}\n- 분류:", 1)
 
 
 # 모노레포 — 두 프로젝트가 **같은 기본 패키지**를 쓴다. 패키지 패턴만으로는 두 프로젝트가
 # 구분되지 않으므로 귀속을 가르는 것은 경로 접두뿐이고, 접두를 보지 않으면 `services/pay` 아래의
 # 파일이 루트 프로젝트로 새어 들어간다.
-MULTI_ARCH = ("""# 모노레포 — Architecture
+MULTI_DOMAIN = ("""# 모노레포 — Domain
 <!-- superarchitect:template v1 -->
 
 ## 프로젝트: root
 - 경로: .
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme
-- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
 
 ## 프로젝트: pay
 - 경로: services/pay
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme
-- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
 """
-              + in_project(CONTEXT.format(name="claim", classification="core"), "root")
-              + in_project(CONTEXT.format(name="billing", classification="supporting"), "pay"))
+                + in_project(CONTEXT.format(name="claim", classification="core"), "root")
+                + in_project(CONTEXT.format(name="billing", classification="supporting"), "pay"))
 
 
 class SignalsTestCase(unittest.TestCase):
@@ -126,7 +83,7 @@ class SignalsTestCase(unittest.TestCase):
         self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
         self.repo = self.tmpdir / "repo"
         self.repo.mkdir()
-        self.arch_path = self.repo / "ARCHITECTURE.md"
+        self.domain_path = self.repo / "DOMAIN.md"
         subprocess.run(["git", "-c", "init.defaultBranch=main", "init", "-q", str(self.repo)],
                        check=True, capture_output=True)
         for key, value in (("user.email", "t@example.com"), ("user.name", "T"),
@@ -148,9 +105,8 @@ class SignalsTestCase(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def arch(self, text=ARCH):
-        self.write("ARCHITECTURE.md", text)
-        self.write("docs/architecture/styles/full.md", STYLE_FULL)
+    def domain(self, text=DOMAIN):
+        self.write("DOMAIN.md", text)
 
     def kt(self, module, package, name, marker="1"):
         relpath = f"{module}/src/main/kotlin/{package.replace('.', '/')}/{name}.kt"
@@ -167,14 +123,14 @@ class SignalsTestCase(unittest.TestCase):
         return self.git("rev-parse", "HEAD").strip()
 
     def base(self):
-        """ARCHITECTURE.md와 스타일 문서만 담긴 첫 커밋. 반환값은 그 커밋 해시다."""
-        self.arch()
+        """DOMAIN.md 하나만 담긴 첫 커밋. 반환값은 그 커밋 해시다."""
+        self.domain()
         return self.commit("init")
 
     # ---- 실행 도우미 ------------------------------------------------------
 
     def collect(self, since=None):
-        return collect(self.arch_path, since=since)
+        return collect(self.domain_path, since=since)
 
     def run_cli(self, *args, cwd=None):
         result = subprocess.run([sys.executable, str(SCRIPT), *args],
@@ -231,7 +187,7 @@ class ContextFrequencyTest(SignalsTestCase):
         """모노레포에서 프로젝트를 가르는 것은 경로 접두다 — 두 프로젝트가 같은 기본 패키지를
         쓰면 패턴만으로는 갈리지 않고, 긴 접두가 이겨야 중첩 프로젝트가 루트로 새지 않는다.
         패턴 소유는 프로젝트 단위이므로 같은 패키지라도 다른 프로젝트에서는 귀속되지 않는다."""
-        self.arch(MULTI_ARCH)
+        self.domain(MULTI_DOMAIN)
         self.commit("init")
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.kt("services/pay/billing/domain", "com.acme.billing.domain", "Invoice")
@@ -267,10 +223,14 @@ class UnattributedTest(SignalsTestCase):
                       signals.unattributed.samples)
         self.assertEqual(self.by_key(signals).get("backend:claim"), None)
 
-    def test_context_unsplit_pattern_cannot_attribute(self):
-        """두 컨텍스트가 함께 쓰는 패턴은 판별력이 없다 — 아무 쪽에도 넣지 않는다."""
-        self.write("ARCHITECTURE.md", APP_ARCH)
-        self.write("docs/architecture/styles/full.md", STYLE_FULL)
+    def test_package_shared_by_no_context_cannot_attribute(self):
+        """컨텍스트들이 나눠 갖지 않는 공용 패키지는 판별력이 없다 — 아무 쪽에도 넣지 않는다.
+
+        구 모델의 app-embedded는 `{앱}` 행으로 컨텍스트 비분할 패턴을 만들어 같은 상태를
+        만들었다. 새 모델에서는 컨텍스트 패키지가 서로 겹치면 파서가 오류를 내므로, 남은
+        갈래는 '어느 컨텍스트 패키지에도 들지 않는 공용 코드'다.
+        """
+        self.domain(SHARED_DOMAIN)
         self.commit("init")
         self.kt("app/web", "com.acme.web", "Controller")
         self.kt("core", "com.acme.core.domain.claim", "Claim")
@@ -283,8 +243,7 @@ class UnattributedTest(SignalsTestCase):
 
     def test_project_outside_the_repository_is_announced(self):
         """저장소 밖 프로젝트는 영구 0건이다 — 사유 없이 조용히 빼면 '변경 없음'과 구분되지 않는다."""
-        self.write("ARCHITECTURE.md", ARCH.replace("- 경로: .", "- 경로: ../바깥"))
-        self.write("docs/architecture/styles/full.md", STYLE_FULL)
+        self.write("DOMAIN.md", DOMAIN.replace("- 경로: .", "- 경로: ../바깥"))
         self.commit("init")
 
         signals = self.collect()
@@ -302,16 +261,16 @@ class UnattributedTest(SignalsTestCase):
     def test_sample_paths_are_capped_but_the_count_is_not(self):
         """`samples`는 예시라 상한이 있고 `files`는 전수다 — 둘이 같아지면 예시가 전부인 줄
         읽혀 귀속 불가의 크기를 과소평가한다."""
-        self.base()                                  # ARCHITECTURE.md + 스타일 문서 2건
+        self.base()                                  # DOMAIN.md 1건
         for index in range(12):
             self.write(f"docs/notes/n{index:02d}.md", "note\n")
         self.commit("notes")
 
         orphan = self.collect().unattributed
         self.assertEqual(len(orphan.samples), PATH_SAMPLES)
-        self.assertEqual(orphan.files, 14)
+        self.assertEqual(orphan.files, 13)
         self.assertEqual(orphan.samples, sorted(orphan.samples))
-        self.assertEqual(orphan.samples[0], "ARCHITECTURE.md")
+        self.assertEqual(orphan.samples[0], "DOMAIN.md")
 
 
 # ---------------------------------------------------------------------------
@@ -345,15 +304,15 @@ class HotspotTest(SignalsTestCase):
     def test_hotspot_list_is_capped_but_the_total_is_reported(self):
         """상한은 표시 상한이지 임계값이 아니다 — 잘린 목록만 남고 전체 파일 수가 사라지면
         `상위 20`이 '바뀐 파일이 20건'으로 읽힌다."""
-        self.base()                                  # ARCHITECTURE.md + 스타일 문서 2건
+        self.base()                                  # DOMAIN.md 1건
         for index in range(HOTSPOT_TOP + 1):
             self.kt("claim/domain", "com.acme.claim.domain", f"Type{index:02d}")
         self.commit("many")
 
         signals = self.collect()
         self.assertEqual(len(signals.hotspots), HOTSPOT_TOP)
-        self.assertEqual(signals.span["files"], HOTSPOT_TOP + 3)
-        self.assertIn(f"상위 {HOTSPOT_TOP} (바뀐 파일 {HOTSPOT_TOP + 3}건 중)",
+        self.assertEqual(signals.span["files"], HOTSPOT_TOP + 2)
+        self.assertIn(f"상위 {HOTSPOT_TOP} (바뀐 파일 {HOTSPOT_TOP + 2}건 중)",
                       "\n".join(render(signals)))
 
 
@@ -396,7 +355,7 @@ CLAIM_KT = "claim/domain/src/main/kotlin/com/acme/claim/domain/Claim.kt"
 
 class ReviewLogTest(SignalsTestCase):
     def log(self, *lines):
-        self.write("docs/architecture/review-log.jsonl", "".join(f"{line}\n" for line in lines))
+        self.write("docs/domain/review-log.jsonl", "".join(f"{line}\n" for line in lines))
 
     def test_counts_per_rule_with_file_and_review_spread(self):
         self.base()
@@ -435,7 +394,7 @@ class ReviewLogTest(SignalsTestCase):
         signals = self.collect()
         self.assertEqual(len(signals.review_log.broken), 1)
         self.assertTrue(signals.review_log.broken[0].startswith(
-            "docs/architecture/review-log.jsonl:2:"))
+            "docs/domain/review-log.jsonl:2:"))
         self.assertEqual(signals.review_log.rules[0].count, 2)
         self.assertIn(signals.review_log.broken[0], signals.notices)
 
@@ -508,7 +467,7 @@ class ReviewLogTest(SignalsTestCase):
     def test_unreadable_file_is_announced_not_raised(self):
         """읽지 못한 입력은 예외로 터지지 않고 고지로 남는다 — 침묵도 중단도 아니다."""
         self.base()
-        path = self.write("docs/architecture/review-log.jsonl",
+        path = self.write("docs/domain/review-log.jsonl",
                           review_line("a.one", "x.kt") + "\n")
         self.commit("log")
         path.chmod(0o000)
@@ -541,7 +500,7 @@ def baseline_line(rule, path, note=None):
 
 class BaselineTest(SignalsTestCase):
     def baseline(self, *lines):
-        self.write("docs/architecture/baseline.jsonl", "".join(f"{line}\n" for line in lines))
+        self.write("docs/domain/baseline.jsonl", "".join(f"{line}\n" for line in lines))
 
     def test_line_count_trend_over_commits(self):
         self.base()
@@ -583,7 +542,7 @@ class BaselineTest(SignalsTestCase):
 
         broken = self.collect().baseline.broken
         self.assertEqual(len(broken), 1)
-        self.assertTrue(broken[0].startswith("docs/architecture/baseline.jsonl:2:"))
+        self.assertTrue(broken[0].startswith("docs/domain/baseline.jsonl:2:"))
 
 
 # ---------------------------------------------------------------------------
@@ -618,7 +577,7 @@ class SinceTest(SignalsTestCase):
     def test_review_log_window_follows_since_date(self):
         self.base()
         claim = "claim/domain/src/main/kotlin/com/acme/claim/domain/Claim.kt"
-        self.write("docs/architecture/review-log.jsonl",
+        self.write("docs/domain/review-log.jsonl",
                    review_line("old.rule", claim, date="2026-01-05") + "\n"
                    + review_line("new.rule", claim, date="2026-06-05") + "\n")
         self.commit("log", date="2026-06-01T00:00:00+00:00")
@@ -630,7 +589,7 @@ class SinceTest(SignalsTestCase):
     def test_window_and_reported_dates_share_the_committer_axis(self):
         """git의 --since는 커밋터 날짜로 거른다 — 표시 날짜가 작성자 날짜면 rebase·squash
         이력에서 관측 범위가 요청한 창 밖으로 나간다."""
-        self.arch()
+        self.domain()
         self.commit("init", date="2026-01-01T00:00:00+00:00",
                     committed="2026-07-01T00:00:00+00:00")
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
@@ -658,18 +617,15 @@ class NotCollectableTest(SignalsTestCase):
         """저장소 밖이어야 하므로 tests/ 아래(플러그인 저장소 안)를 쓸 수 없다."""
         outside = Path(tempfile.mkdtemp())
         try:
-            (outside / "ARCHITECTURE.md").write_text(ARCH, encoding="utf-8")
-            style = outside / "docs" / "architecture" / "styles" / "full.md"
-            style.parent.mkdir(parents=True, exist_ok=True)
-            style.write_text(STYLE_FULL, encoding="utf-8")
+            (outside / "DOMAIN.md").write_text(DOMAIN, encoding="utf-8")
             with self.assertRaises(CollectError) as caught:
-                collect(outside / "ARCHITECTURE.md")
+                collect(outside / "DOMAIN.md")
             self.assertIn("git", str(caught.exception))
         finally:
             shutil.rmtree(outside, ignore_errors=True)
 
     def test_repository_without_commits(self):
-        self.arch()
+        self.domain()
         with self.assertRaises(CollectError) as caught:
             self.collect()
         self.assertIn("커밋", str(caught.exception))
@@ -685,8 +641,8 @@ class NotCollectableTest(SignalsTestCase):
                 self.collect()
         self.assertIn("git", str(caught.exception))
 
-    def test_unresolvable_architecture_document(self):
-        self.write("ARCHITECTURE.md", BROKEN_ARCH)
+    def test_unresolvable_domain_document(self):
+        self.write("DOMAIN.md", BROKEN_DOMAIN)
         self.commit("broken")
         with self.assertRaises(CollectError):
             self.collect()
@@ -700,13 +656,13 @@ class CliTest(SignalsTestCase):
 
     def test_usage_error_on_unknown_flag(self):
         self.base()
-        code, _, err = self.run_cli("ARCHITECTURE.md", "--nope")
+        code, _, err = self.run_cli("DOMAIN.md", "--nope")
         self.assertEqual(code, 2)
         self.assertIn("사용법", err)
 
     def test_usage_error_when_since_has_no_value(self):
         self.base()
-        code, _, err = self.run_cli("ARCHITECTURE.md", "--since")
+        code, _, err = self.run_cli("DOMAIN.md", "--since")
         self.assertEqual(code, 2)
         self.assertIn("사용법", err)
 
@@ -714,28 +670,28 @@ class CliTest(SignalsTestCase):
         self.base()
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.commit("claim")
-        code, out, _ = self.run_cli("ARCHITECTURE.md")
+        code, out, _ = self.run_cli("DOMAIN.md")
         self.assertEqual(code, 0)
         self.assertIn("backend:claim", out)
 
     def test_exit_one_when_not_collectable(self):
-        self.arch()
-        code, _, err = self.run_cli("ARCHITECTURE.md")
+        self.domain()
+        code, _, err = self.run_cli("DOMAIN.md")
         self.assertEqual(code, 1)
-        self.assertRegex(err, r"ARCHITECTURE\.md:\d+: ")
+        self.assertRegex(err, r"DOMAIN\.md:\d+: ")
 
     def test_resolve_error_is_reported_with_path_and_line(self):
-        self.write("ARCHITECTURE.md", BROKEN_ARCH)
+        self.write("DOMAIN.md", BROKEN_DOMAIN)
         self.commit("broken")
-        code, _, err = self.run_cli("ARCHITECTURE.md")
+        code, _, err = self.run_cli("DOMAIN.md")
         self.assertEqual(code, 1)
-        self.assertRegex(err, r"ARCHITECTURE\.md:\d+: ")
+        self.assertRegex(err, r"DOMAIN\.md:\d+: ")
 
     def test_json_top_level_keys(self):
         self.base()
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.commit("claim")
-        code, out, _ = self.run_cli("ARCHITECTURE.md", "--json")
+        code, out, _ = self.run_cli("DOMAIN.md", "--json")
         self.assertEqual(code, 0)
         data = json.loads(out)
         self.assertEqual(sorted(data), sorted([
@@ -759,7 +715,7 @@ class CliTest(SignalsTestCase):
         """`cochanges`·`baseline`은 위 케이스의 트리에서 비어 있어 항목 모양이 고정되지 않는다 —
         둘 다 채워진 트리에서 따로 못박는다. 주 소비자(evolve)가 키로 읽기 때문이다."""
         self.base()
-        self.write("docs/architecture/baseline.jsonl",
+        self.write("docs/domain/baseline.jsonl",
                    json.dumps({"rule": "af.no-framework", "path": CLAIM_KT}) + "\n")
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.kt("billing/domain", "com.acme.billing.domain", "Invoice")
@@ -784,7 +740,7 @@ class CliTest(SignalsTestCase):
 
     def test_json_review_rule_shape(self):
         self.base()
-        self.write("docs/architecture/review-log.jsonl", review_line("a.one", CLAIM_KT) + "\n")
+        self.write("docs/domain/review-log.jsonl", review_line("a.one", CLAIM_KT) + "\n")
         self.commit("log")
         rule = payload(self.collect())["review_log"]["rules"][0]
         self.assertEqual(sorted(rule), sorted(

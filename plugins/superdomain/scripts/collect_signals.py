@@ -1,12 +1,12 @@
 """진화 신호 수집기 — 관측만 하고 판정하지 않는다.
 
-    사용법: python3 collect_signals.py <ARCHITECTURE.md 경로> [--since <rev|날짜>] [--json]
+    사용법: python3 collect_signals.py <DOMAIN.md 경로> [--since <rev|날짜>] [--json]
 
 **exit 계약: 0 = 산출, 1 = 산출 불가, 2 = 사용법 오류.**
-`check_imports.py`(1 = 위반 발견)와도 `resolve_rules.py`(1 = 해석 오류)와도 뜻이 다르다. 이
+`check_imports.py`(1 = 위반 발견)와도 `parse_domain.py`(1 = 해석 오류)와도 뜻이 다르다. 이
 스크립트는 아무것도 판정하지 않으므로 1은 언제나 "신호를 만들지 못했다"이고, 그 사유는
 `경로:라인: ` 형식으로 stderr에 나간다 — git 부재·비 저장소·관측 창에 커밋 0건·
-ARCHITECTURE.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때만 쓴다.
+DOMAIN.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때만 쓴다.
 
 **이 스크립트에는 임계값도 해석도 없다.** "몇 건부터 신호인가", "무엇을 의심할 것인가"의
 정본은 `references/governance/evolution-signals.md`이고 그 문서를 읽어 적용하는 것은 `evolve`
@@ -19,16 +19,22 @@ ARCHITECTURE.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때�
 | ① | 컨텍스트별 변경 빈도(커밋 수·파일 수) | `git log --numstat` |
 | ② | 핫스팟 파일 상위 20 | 같은 로그 |
 | ③ | 컨텍스트 쌍 동시 변경(한 커밋이 두 컨텍스트를 건드림) | 같은 로그 |
-| ④ | review-log 반복 위반(rule id별 건수) | `docs/architecture/review-log.jsonl` |
-| ⑤ | baseline 추이(줄 수 변화) | `docs/architecture/baseline.jsonl`의 git 이력 |
+| ④ | review-log 반복 위반(rule id별 건수) | `docs/domain/review-log.jsonl` |
+| ⑤ | baseline 추이(줄 수 변화) | `docs/domain/baseline.jsonl`의 git 이력 |
 
-**파일 → 컨텍스트 귀속.** `resolve_rules.resolve_document()`의 정규화 패턴을 그대로 쓴다 —
-유효 규칙의 `layer_patterns`와 파생 규칙 `context-isolation`의 `detail["from"]`을 합쳐
-(프로젝트, 패키지 패턴) → 컨텍스트 표를 만들고, **두 컨텍스트 이상을 가리키는 패턴은 버린다**
-(컨텍스트 비분할 레이어의 패턴은 판별력이 없다). 파일 경로에서 패키지를 얻는 관례는
-`check_imports.py`와 같다: `src` 아래 첫 디렉터리가 소스셋이고(`test*`·`*Test`는 프로덕션
-소스가 아니다), 그 다음이 `kotlin`·`java`면 언어 디렉터리이며, 나머지가 패키지다. 어느 규칙에도
-걸리지 않은 파일은 침묵으로 사라지지 않고 **'귀속 불가' 버킷**에 담겨 리포트에 나온다.
+**파일 → 컨텍스트 귀속.** `parse_domain.context_packages()`가 준 컨텍스트 패키지를 **경로형**
+(`com.acme.claim..` → `com/acme/claim/`)으로 바꿔, 변경 파일의 패키지 경로가 그 접두로 시작하면
+그 컨텍스트로 귀속시킨다. 여럿에 걸리면 최장 일치가 이긴다(`parse_domain`이 컨텍스트 패키지의
+겹침을 이미 오류로 막으므로 오늘의 문서에서 동률은 나올 수 없지만, 그 보장이 흔들려도 귀속이
+매칭 순서에 좌우되지 않게 한다). **패턴 소유는 프로젝트 단위다** — 두 프로젝트가 같은 기본
+패키지를 써도 경로 접두가 프로젝트를 먼저 가른다.
+
+파일 경로에서 패키지를 얻는 관례는 `check_imports.py`와 같다: `src` 아래 첫 디렉터리가
+소스셋이고(`test*`·`*Test`는 프로덕션 소스가 아니다), 그 다음이 `kotlin`·`java`면 언어
+디렉터리이며, 나머지가 패키지다. **경로형 매칭이 이 관례를 건너뛰지 않는다** — 건너뛰면
+`src/test/.../com/acme/claim/ClaimTest.kt`가 claim의 변경으로 세어져 프로덕션 변경 빈도가
+테스트 활동으로 부풀고, 두 검사기의 소스 경계도 갈라진다. 어느 컨텍스트 패키지에도 걸리지 않은
+파일은 침묵으로 사라지지 않고 **'귀속 불가' 버킷**에 담겨 리포트에 나온다.
 
 **`--json` 계약.** 최상위 키는 열이고, 순서는 아래와 같다.
 
@@ -71,11 +77,13 @@ from dataclasses import asdict, dataclass, field
 from itertools import combinations
 from pathlib import Path
 
-# resolve_rules.py가 해석의 정본이다. 정규화 패턴을 다시 만들지 않고 그 산출만 읽는다.
-from resolve_rules import KIND_CONTEXT_ISOLATION, format_error, resolve_document
+# 동결된 기존 부채 파일의 경로는 check_imports가 정본이다 — 그 파일을 쓰는 쪽과 읽는 쪽이
+# 경로를 따로 적으면 반드시 갈라지고, 갈라진 순간 항목 ⑤가 조용히 '없음'이 된다.
+from check_imports import BASELINE_RELATIVE as BASELINE
+# parse_domain.py가 해석의 정본이다. 패키지 패턴을 다시 만들지 않고 그 산출만 읽는다.
+from parse_domain import LocatedError, context_packages, format_error, parse_domain
 
-REVIEW_LOG = "docs/architecture/review-log.jsonl"
-BASELINE = "docs/architecture/baseline.jsonl"
+REVIEW_LOG = "docs/domain/review-log.jsonl"
 
 INPUT_SENTINEL = "(input)"   # review-log의 "파일을 지목할 수 없음" 표식(review SKILL 5-b)
 
@@ -97,9 +105,10 @@ INTERPRETATION_NOTE = (
     "몫입니다 — 이 스크립트는 관측만 합니다."
 )
 LIMITATION_NOTE = (
-    "한계: 귀속은 정규화 패키지 패턴과 경로 관례(src/<소스셋>/<언어>/<패키지>)로만 합니다 — "
-    "소스가 아닌 파일과 두 컨텍스트가 함께 쓰는 패턴에 든 파일은 '귀속 불가'로 갑니다. "
-    "병합 커밋·리네임은 세지 않고, review-log의 '리뷰'는 서로 다른 날짜 수로 근사합니다."
+    "한계: 귀속은 컨텍스트 패키지의 경로형과 경로 관례(src/<소스셋>/<언어>/<패키지>)로만 "
+    "합니다 — 소스가 아닌 파일과 어느 컨텍스트 패키지에도 들지 않는 파일은 '귀속 불가'로 "
+    "갑니다. 병합 커밋·리네임은 세지 않고, review-log의 '리뷰'는 서로 다른 날짜 수로 "
+    "근사합니다."
 )
 
 
@@ -271,12 +280,13 @@ def _log(root, extra) -> list:
 # 파일 → 컨텍스트 귀속
 # ---------------------------------------------------------------------------
 
-def _matches_package(package, pattern) -> bool:
-    """`..`로 끝나면 그 패키지와 모든 하위, 아니면 정확히 그 패키지(어휘 §2)."""
-    if pattern.endswith(".."):
-        base = pattern[:-2]
-        return package == base or package.startswith(base + ".")
-    return package == pattern
+def _package_as_path(package) -> str:
+    """`'com.acme.claim..'` → `'com/acme/claim/'`. 접미 `..`를 떼고 경로 구분자로 바꾼다.
+
+    끝의 `/`가 세그먼트 경계를 만든다 — 없으면 `com/acme/claim`이 `com/acme/claiming/...`의
+    접두로 읽혀 형제 컨텍스트의 코드가 남의 것으로 귀속된다.
+    """
+    return package.rstrip(".").replace(".", "/") + "/"
 
 
 def _is_test_dir(name) -> bool:
@@ -301,38 +311,43 @@ def _package_of(relpath):
 
 
 class _Attributor:
-    """정규화 패턴으로 git 경로를 `<프로젝트>:<컨텍스트>` 키에 귀속시킨다."""
+    """컨텍스트 패키지의 경로형으로 git 경로를 `<프로젝트>:<컨텍스트>` 키에 귀속시킨다.
 
-    def __init__(self, resolution, arch_dir, root, notices=None):
+    귀속은 두 단계다. 먼저 **경로 접두**가 프로젝트를 가르고(긴 접두 우선 — 모노레포에서
+    `services/pay` 아래 파일이 루트 프로젝트로 새지 않게 한다), 그다음 그 프로젝트에 속한
+    컨텍스트의 패키지 경로형 중 최장 일치가 컨텍스트를 정한다. 패턴 소유가 프로젝트 단위라
+    두 프로젝트가 같은 기본 패키지를 써도 서로의 코드를 가져가지 않는다.
+
+    `context_packages()`가 패키지를 정하지 못하면 `LocatedError`를 던진다 — 빈 목록으로
+    넘기면 그 컨텍스트가 영구 0건이 되고 '변경 없음'과 구분되지 않는다. 호출자가 잡아
+    산출 불가로 말한다.
+    """
+
+    def __init__(self, domain, domain_dir, root, notices=None):
         self._prefixes = []          # [(저장소 기준 접두, 프로젝트명)] — 긴 접두 우선
         notices = [] if notices is None else notices
-        for project in resolution.projects:
-            target = Path(os.path.normpath(Path(arch_dir) / project["path"]))
+        for project in domain.projects:
+            target = Path(os.path.normpath(Path(domain_dir) / project.path))
             try:
                 relative = os.path.relpath(target, root)
             except ValueError:
                 relative = ".."      # 다른 드라이브 — 상대경로 자체가 없다
             if relative.startswith(".."):
                 # 이 프로젝트는 영구히 0건이다. 사유 없이 빼면 '변경 없음'과 구분되지 않는다.
-                notices.append(f"프로젝트 '{project['name']}'의 경로 '{project['path']}'가 git "
+                notices.append(f"프로젝트 '{project.name}'의 경로 '{project.path}'가 git "
                                f"저장소({root}) 밖입니다 — 이 프로젝트의 변경은 관측되지 "
                                f"않습니다.")
                 continue
             self._prefixes.append(("" if relative == "." else Path(relative).as_posix(),
-                                   project["name"]))
+                                   project.name))
         self._prefixes.sort(key=lambda item: -len(item[0]))
 
-        owners = {}
-        for rule in resolution.effective:
-            for patterns in rule.layer_patterns.values():
-                for pattern in patterns:
-                    owners.setdefault((rule.project, pattern), set()).add(rule.context)
-        for rule in resolution.derived:
-            if rule.kind == KIND_CONTEXT_ISOLATION:
-                for pattern in rule.detail.get("from", []):
-                    owners.setdefault((rule.project, pattern), set()).add(rule.subject)
-        # 두 컨텍스트 이상이 쓰는 패턴은 판별하지 못한다 — 그 파일은 귀속 불가로 간다.
-        self._owners = {key: sorted(value)[0] for key, value in owners.items() if len(value) == 1}
+        # {프로젝트명: [(컨텍스트명, 패키지 경로형)]}
+        self._scopes = {}
+        for context in domain.contexts:
+            for package in context_packages(domain, context):
+                self._scopes.setdefault(context.project, []).append(
+                    (context.name, _package_as_path(package)))
         self._cache = {}
 
     def attribute(self, relpath) -> str:
@@ -347,15 +362,16 @@ class _Attributor:
             package = _package_of(relpath[len(prefix) + 1:] if prefix else relpath)
             if not package:
                 return ""
+            target = _package_as_path(package)
             best, winners = -1, set()
-            for (owner_project, pattern), context in self._owners.items():
-                if owner_project != project or not _matches_package(package, pattern):
+            for context, scope in self._scopes.get(project, ()):
+                if not target.startswith(scope):
                     continue
-                length = len(pattern[:-2] if pattern.endswith("..") else pattern)
-                if length > best:
-                    best, winners = length, {context}
-                elif length == best:
+                if len(scope) > best:
+                    best, winners = len(scope), {context}
+                elif len(scope) == best:
                     winners.add(context)
+            # 동률로 둘 이상이 걸리면 판별하지 못한 것이다 — 그 파일은 귀속 불가로 간다.
             return f"{project}:{winners.pop()}" if len(winners) == 1 else ""
         return ""
 
@@ -559,19 +575,19 @@ def _window(since, commits, notices) -> str:
     return approximated
 
 
-def collect(arch_path, since=None) -> Signals:
-    """ARCHITECTURE.md 한 건을 기준으로 수집 항목 5종을 만든다. 실패는 CollectError다."""
-    arch_path = Path(arch_path)
-    path_text = str(arch_path)
-    resolution = resolve_document(arch_path)
-    if resolution.errors:
+def collect(domain_path, since=None) -> Signals:
+    """DOMAIN.md 한 건을 기준으로 수집 항목 5종을 만든다. 실패는 CollectError다."""
+    domain_path = Path(domain_path)
+    path_text = str(domain_path)
+    domain = parse_domain(domain_path)
+    if domain.errors:
         raise CollectError(
-            "ARCHITECTURE.md를 해석하지 못해 파일을 컨텍스트에 귀속시킬 수 없습니다.",
+            "DOMAIN.md를 해석하지 못해 파일을 컨텍스트에 귀속시킬 수 없습니다.",
             [format_error(error, path_text) for error in
-             sorted(resolution.errors, key=lambda e: (getattr(e, "path", "") or path_text, e.line))])
+             sorted(domain.errors, key=lambda e: (getattr(e, "path", "") or path_text, e.line))])
 
-    arch_dir = arch_path.resolve().parent
-    root = _git_root(arch_dir)
+    domain_dir = domain_path.resolve().parent
+    root = _git_root(domain_dir)
     since_info, extra = _since_spec(root, since)
     commits = _log(root, extra)                 # git 로그 순서: 최신 우선
     if not commits:
@@ -579,7 +595,14 @@ def collect(arch_path, since=None) -> Signals:
                            f"{' '.join(extra) if extra else '전체 이력'}.")
 
     notices = []
-    attributor = _Attributor(resolution, arch_dir, root, notices)
+    try:
+        attributor = _Attributor(domain, domain_dir, root, notices)
+    except LocatedError as error:
+        # `domain.errors`가 비었으면 여기까지 오지 않는다(필수 라벨 검증이 이미 막는다).
+        # 파서의 보장이 흔들려도 조용히 0건을 내지 않도록 산출 불가로 말한다.
+        raise CollectError(
+            "컨텍스트의 패키지를 정하지 못해 파일을 컨텍스트에 귀속시킬 수 없습니다.",
+            [format_error(error, path_text)])
     contexts, unattributed, hotspots, cochanges, files = _change_signals(commits, attributor)
 
     window = _window(since_info, commits, notices)
@@ -717,7 +740,7 @@ def main(argv) -> int:
 
 
 def _usage() -> int:
-    print("사용법: python3 collect_signals.py <ARCHITECTURE.md 경로> [--since <rev|날짜>] "
+    print("사용법: python3 collect_signals.py <DOMAIN.md 경로> [--since <rev|날짜>] "
           "[--json]", file=sys.stderr)
     return 2
 
