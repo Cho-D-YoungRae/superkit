@@ -2,7 +2,7 @@
 
 아키텍처 결정 기록(Architecture Decision Record). MADR 형식을 한국어로 옮긴 것이며, `adr` 스킬과 `init`의 `0001` 문서가 이 형식을 쓴다.
 
-위치: `docs/architecture/decisions/NNNN-slug.md`
+위치: `docs/decisions/NNNN-slug.md`
 
 ---
 
@@ -13,12 +13,12 @@
 - [ ] 되돌리는 데 비용이 큰 결정 (구조·경계·기술 선택)
 - [ ] 나중에 "왜 이렇게 했지?"가 반드시 나올 결정
 - [ ] 합리적인 대안이 둘 이상 있었고 그중 하나를 고른 결정
-- [ ] 규칙 예외를 만드는 결정 — 예외에는 근거 ADR이 **필수**다
-- [ ] 규칙 어휘를 확장하는 결정 — 어휘는 공개 인터페이스다
+- [ ] `### 관계` 표에 새 쌍을 여는 결정 — 그 두 컨텍스트 사이의 격리 검사가 영구히 꺼지므로 근거 ADR이 **필수**다(`domain-template.md` §5.1)
+- [ ] `- 패키지:` 라벨을 바꾸는 결정 — 컨텍스트의 귀속 범위가 통째로 바뀐다
 
 **쓰지 않는다**:
 
-- 팀의 취향 수준 컨벤션 → `docs/architecture/conventions/`
+- 팀의 취향 수준 컨벤션 → `docs/conventions/`
 - 이미 표준이라 대안이 없었던 선택 → 기록할 근거가 없다
 - 코드를 읽으면 자명한 것 → 코드가 이미 문서다
 
@@ -29,13 +29,13 @@
 ## 2. 파일명 규칙
 
 ```
-docs/architecture/decisions/NNNN-slug.md
+docs/decisions/NNNN-slug.md
 ```
 
 - `NNNN` — 4자리 0 패딩 일련번호. `0001`부터, 저장소 전체에서 유일하고 재사용하지 않는다.
-- `slug` — 소문자 영문 kebab-case. 결정의 요지를 짧게. 예: `0002-relax-port-naming-in-claim`.
+- `slug` — 소문자 영문 kebab-case. 결정의 요지를 짧게. 예: `0002-open-claim-admin-pair`.
 - 번호는 **결정이 폐기되어도 재사용하지 않는다.** 링크가 다른 문서를 가리키게 되는 것이 빈 번호보다 나쁘다.
-- 파일명은 바꾸지 않는다 — 다른 ADR·ARCHITECTURE.md·리뷰 로그가 번호로 참조한다.
+- 파일명은 바꾸지 않는다 — 다른 ADR·`DOMAIN.md`·리뷰 로그가 번호로 참조한다.
 
 ---
 
@@ -107,20 +107,20 @@ proposed ──→ accepted ──→ superseded
 새 결정이 옛 결정을 대체할 때. **양방향 링크는 선택이 아니다** — 어느 문서에 먼저 도착한 독자도 현재 유효한 결정에 도달할 수 있어야 한다.
 
 - [ ] 새 ADR을 작성한다 (`상태: accepted`).
-- [ ] 새 ADR에 뒤 링크를 넣는다: `- 대체함: [0002](0002-relax-port-naming-in-claim.md)`
+- [ ] 새 ADR에 뒤 링크를 넣는다: `- 대체함: [0002](0002-open-claim-admin-pair.md)`
 - [ ] 옛 ADR의 `상태:`를 `superseded`로 바꾼다.
-- [ ] 옛 ADR에 앞 링크를 넣는다: `- 대체됨: [0007](0007-restore-port-naming.md)`
-- [ ] 옛 ADR을 참조하던 다른 문서(ARCHITECTURE.md의 규칙 예외 등)를 새 번호로 갱신한다.
+- [ ] 옛 ADR에 앞 링크를 넣는다: `- 대체됨: [0007](0007-close-claim-admin-pair.md)`
+- [ ] 옛 ADR을 참조하던 다른 문서(`DOMAIN.md`의 `### 근거` 절 등)를 새 번호로 갱신한다.
 - [ ] 옛 ADR의 본문은 그대로 둔다. 고쳐 쓰지 않는다.
 
 **대체된 ADR의 머리 부분 예시**
 
 ```markdown
-# 0002. claim 컨텍스트의 포트 명명 규칙을 완화한다
+# 0002. claim과 admin 사이의 직접 참조를 연다
 
 - 상태: superseded
 - 날짜: 2026-03-11
-- 대체됨: [0007](0007-restore-port-naming.md)
+- 대체됨: [0007](0007-close-claim-admin-pair.md)
 ```
 
 부분적으로만 무효가 되었다면 supersede가 아니다. 새 ADR에서 "0002의 X 부분을 조정한다"고 쓰고 옛 문서는 `accepted`로 둔다 — 상태는 문서 단위이지 문장 단위가 아니다.
@@ -141,25 +141,26 @@ proposed ──→ accepted ──→ superseded
 
 ---
 
-## 7. 규칙과의 연결 — 드리프트 방지
+## 7. 선언과의 연결 — 드리프트 방지
 
-결정이 **기계로 검증 가능한 구조 규칙**을 함의한다면, ADR만 쓰고 끝내면 안 된다. 문서에는 있고 강제되지는 않는 규칙이 생기고, 그 상태가 정확히 이 플러그인이 없애려는 드리프트다.
+결정이 **`DOMAIN.md`의 선언 변경**을 함의한다면, ADR만 쓰고 끝내면 안 된다. 문서에는 있고 강제되지는 않는 결정이 생기고, 그 상태가 정확히 이 플러그인이 없애려는 드리프트다. 선언 편집의 자리는 넷뿐이다.
 
 | 결정의 성격 | ADR과 함께 해야 할 일 |
 |---|---|
-| 기존 규칙을 특정 컨텍스트에서 끈다 | `ARCHITECTURE.md`에 `- 규칙 예외: -<규칙 id> (ADR-NNNN)` 추가 |
-| 새 구조 제약을 도입한다 | 스타일 선언(프리셋 또는 `docs/architecture/styles/<name>.md`)에 규칙 인스턴스 추가 |
-| 기존 어휘로 표현할 수 없는 제약이다 | `rule-vocabulary.md` 확장 절차(§7) — 정의 + 두 프로파일 매핑 |
-| 컨텍스트 분류·스타일·관계가 바뀐다 | `ARCHITECTURE.md`의 해당 라벨·표 수정 |
+| 두 컨텍스트 사이의 참조를 연다·닫는다 | `DOMAIN.md`의 `### 관계` 표에 쌍을 추가·삭제(허용 단위는 쌍이고 방향을 구분하지 않는다) |
+| 투자·리뷰 강도가 바뀐다 | `DOMAIN.md`의 `- 분류:` 라벨 수정 |
+| 컨텍스트가 사는 패키지가 바뀐다 | `DOMAIN.md`의 `- 패키지:` 라벨 수정 — 검사의 귀속 범위가 함께 바뀐다 |
+| 적용 패턴이 바뀐다 | `DOMAIN.md`의 `- 패턴:` 라벨 수정 |
 
-어느 경우든 마지막에 `fitness`를 재실행해 생성 테스트를 갱신한다. ADR의 "후속 작업" 칸이 이 연결을 잊지 않게 하는 장치다 — 해당 사항이 없으면 "없음"이라고 명시적으로 적는다.
+컨텍스트를 **신설·병합·분리**하는 결정은 이 표에 없다 — 경계를 다시 긋는 일이므로 `/superarchitect:init`의 경계 인터뷰가 처리한다.
 
-반대로, **기계 검증이 불가능한 결정**이라면 ADR로 끝내고 규칙을 만들려 하지 않는다. 어휘에 억지로 밀어 넣은 규칙은 오탐을 만들고, 오탐이 반복되면 팀이 규칙 전체를 무시하기 시작한다.
+어느 경우든 마지막에 `parse_domain.py`로 선언이 여전히 해석되는지 보고, `check_imports.py`를 다시 돌려 **그 편집으로 위반이 새로 드러나거나 사라졌는지** 확인한 뒤 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역)을 갱신한다. ADR의 "후속 작업" 칸이 이 연결을 잊지 않게 하는 장치다 — 해당 사항이 없으면 "없음"이라고 명시적으로 적는다.
+
+반대로, **선언에 자리가 없는 결정**이라면 ADR로 끝내고 라벨에 억지로 밀어 넣지 않는다. 사람의 해석이 필요한 판단 기준이면 `docs/conventions/`의 리뷰 체크리스트로 보낸다.
 
 ---
 
 ## 8. 관련 문서
 
-- `references/governance/rule-vocabulary.md` — 규칙 id 규약, 어휘 확장 절차
-- `references/governance/architecture-template.md` — 규칙 예외 라벨의 형식
+- `references/governance/domain-template.md` — 이 ADR이 고치게 되는 선언(관계 표·분류·패키지·패턴)의 형식
 - `references/governance/evolution-signals.md` — 신호에서 자동 생성되는 `proposed` ADR의 근거
