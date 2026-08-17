@@ -1,0 +1,588 @@
+"""DOMAIN.md 결정 템플릿의 단층 파서 — 도메인 선언의 유일한 해석기.
+
+`DOMAIN.md`(도메인 결정의 SSOT)를 읽어 섹션·라벨·표를 `Domain` 데이터클래스 트리로
+추출하고, 필수 결정 누락·비정규 값·상호 참조 무결성까지 한 번에 검사한다.
+`check_imports.py`·`check_invariants.py`·`collect_signals.py`는 전부 이 모듈 하나만
+import한다 — 해석이 두 곳에 있으면 두 결과가 갈라지기 때문이다.
+
+구 플러그인의 파서는 3층(`parse_architecture` → `parse_style` → `resolve_rules`)이었다.
+스타일·레이어·모듈 개념이 사라지면서 층을 나눌 이유도 사라졌으므로, 그 세 파일이 하던 일 중
+**도메인에 속하는 것만** 이 파일 하나가 맡는다:
+
+- 유지: 섹션·라벨·표 파싱 루프, 괄호 주석 제거, 라인 번호 부착, 생성 구역 마커 무시,
+  이름 중복 검증, 관계 표 파싱, 템플릿 버전 마커 검증
+- 신설: `- 패키지:` 라벨(컨텍스트의 실현 위치)과 그 정규화, 컨텍스트 격리 allow-list,
+  퇴역 라벨 명시 거부, 컨텍스트 패키지 접두 겹침 검증
+
+**침묵하지 않는다**가 이 파서의 규율이다. 구 파서는 모르는 라벨을 조용히 버렸지만, 구 템플릿의
+라벨 6종은 여기서 오류가 된다 — 조용히 버리면 사용자는 자기가 쓴 결정이 강제되고 있다고 믿는다.
+
+exit 규약: 0 = OK, 1 = 해석 오류, 2 = 사용법 오류.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+# 템플릿 마커. Phase 5의 개명(superarchitect → superdomain)이 이 상수 하나만 바꾸면 되도록
+# 문자열 리터럴을 여기 한 번만 둔다 — 마커를 찾는 정규식도 이 상수에서 만든다.
+MARKER_TEMPLATE = "superarchitect:template"
+TEMPLATE_VERSION = "v1"
+
+# 정규 값 집합
+CLASSIFICATIONS = ("core", "supporting", "generic")
+RELATION_KINDS = ("partnership", "customer-supplier", "conformist", "acl",
+                  "open-host", "published-language")
+
+# 구 템플릿(ARCHITECTURE.md)의 라벨. 도메인 SSOT에는 자리가 없으므로 만나면 거부한다.
+RETIRED_LABELS = ("스타일", "모듈 구성", "규칙 예외", "이행", "프로파일", "아키텍처 테스트 위치")
+NEW_TEMPLATE_DOC = "domain-template.md"
+
+
+# 데이터클래스 — 이후 모든 스크립트가 소비하는 계약이다.
+@dataclass
+class Relation:
+    """`### 관계` 표 한 행. `line`은 그 행의 1-기준 라인 번호다."""
+
+    partner: str
+    kind: str
+    contract: str
+    line: int
+
+
+@dataclass
+class Project:
+    """`## 프로젝트: <이름>` 섹션."""
+
+    name: str
+    line: int                              # 섹션 헤딩 라인 번호(1-기준)
+    path: str | None = None                # - 경로:
+    base_package: str | None = None        # - 기본 패키지:
+    label_lines: dict = field(default_factory=dict)   # 라벨 키 -> 그 라벨의 라인 번호
+
+
+@dataclass
+class Context:
+    """`## 컨텍스트: <이름>` 섹션."""
+
+    name: str
+    line: int
+    project: str | None = None             # - 프로젝트: (유일 프로젝트면 파서가 자동 귀속)
+    classification: str | None = None      # - 분류: core|supporting|generic
+    patterns: list = field(default_factory=list)     # - 패턴: 쉼표 목록
+    packages: list = field(default_factory=list)     # - 패키지: 쉼표 목록 (명시 시)
+    relations: list = field(default_factory=list)    # [Relation]
+    label_lines: dict = field(default_factory=dict)
+
+
+@dataclass
+class ParseError:
+    """line 0 = 문서 전체 수준 오류. message는 한국어."""
+
+    line: int
+    message: str
+
+
+@dataclass
+class LocatedError(ParseError, Exception):
+    """ParseError + 출처 파일 경로. 여러 문서의 오류를 한 목록에 담기 위한 확장이다.
+
+    구 `resolve_rules.py`에서 이관했고 생성 시그니처는 그대로다(`LocatedError(line, message, path)`).
+    다만 `context_packages()`가 해석 불가를 **던져서** 알리므로 `Exception`도 함께 상속한다 —
+    기록으로 쓸 때(`errors` 목록에 담을 때)의 모양은 이관 전과 같다.
+    """
+
+    path: str = ""
+
+
+@dataclass
+class Domain:
+    """파싱 + 검증의 전체 산출. **호출자는 errors가 비었는지 먼저 확인해야 한다.**
+
+    오류가 있어도 해석 가능한 부분은 채워 돌려준다 — 한 번의 실행에서 오류를 모두 보여주기
+    위해서다(구 파서들과 같은 방침).
+    """
+
+    projects: list = field(default_factory=list)   # [Project] — 문서 순서
+    contexts: list = field(default_factory=list)   # [Context] — 문서 순서
+    errors: list = field(default_factory=list)     # [ParseError]
+
+
+# 정규식
+RE_PROJECT = re.compile(r"^##\s+프로젝트:\s*(.+?)\s*$")
+RE_CONTEXT = re.compile(r"^##\s+컨텍스트:\s*(.+?)\s*$")
+RE_H2 = re.compile(r"^##\s+")
+RE_H3 = re.compile(r"^###\s+(.+?)\s*$")
+RE_LABEL = re.compile(r"^-\s*(.+?)\s*:\s*(.+?)\s*$")
+RE_TABLE = re.compile(r"^\|")
+RE_TEMPLATE_MARKER = re.compile(
+    r"^\s*<!--\s*" + re.escape(MARKER_TEMPLATE) + r"\s+v(\d+)\s*-->\s*$")
+
+# 라벨 키(한국어) -> 필드명
+PROJECT_LABELS = {
+    "경로": "path",
+    "기본 패키지": "base_package",
+}
+CONTEXT_LABELS = {
+    "프로젝트": "project",
+    "분류": "classification",
+}
+# "패턴"·"패키지"는 값이 쉼표 목록이라 별도 처리한다.
+
+RELATIONS_HEADING = "관계"
+
+# 필수 라벨(한국어 키 -> 필드명)
+REQUIRED_PROJECT_LABELS = [("경로", "path"), ("기본 패키지", "base_package")]
+REQUIRED_CONTEXT_LABELS = [("분류", "classification")]
+
+
+def format_error(error, default_path) -> str:
+    """오류 한 건을 `경로:라인: 메시지`로 조립한다(경로가 없으면 default_path).
+
+    구 `resolve_rules.py`에서 이관했다. `parse_domain()`은 경로 없는 `ParseError`를 담으므로
+    호출자가 문서 경로를 default_path로 넘긴다.
+    """
+    return f"{getattr(error, 'path', '') or default_path}:{error.line}: {error.message}"
+
+
+def _strip_comment(value: str) -> str:
+    """후행 '(...)' 주석 제거. 예: 'core (core | supporting)' -> 'core'"""
+    return re.sub(r"\s*\([^)]*\)\s*$", "", value).strip()
+
+
+def _header_cells(line: str) -> list:
+    """표 헤더 행에서 칸 이름 목록을 추출한다(앞뒤 '|'가 만드는 빈 문자열 제거)."""
+    cells = [c.strip() for c in line.split("|")]
+    if cells and cells[0] == "":
+        cells = cells[1:]
+    if cells and cells[-1] == "":
+        cells = cells[:-1]
+    return cells
+
+
+def _split_row(line: str, ncols: int) -> list:
+    """표 데이터 행을 헤더가 선언한 칸 수만큼만 잘라 추출한다(초과분은 버린다)."""
+    parts = line.split("|")
+    cells = [p.strip() for p in parts[1:1 + ncols]]
+    while len(cells) < ncols:
+        cells.append("")
+    return cells
+
+
+def _collect_table_block(lines: list, start: int) -> tuple:
+    """start부터 연속된 '|'로 시작하는 라인 블록을 모은다. (block, 다음 인덱스)를 반환."""
+    block = []
+    j = start
+    n = len(lines)
+    while j < n and RE_TABLE.match(lines[j]):
+        block.append(lines[j])
+        j += 1
+    return block, j
+
+
+def _parse_packages(raw: str, line: int, errors: list) -> list:
+    """`- 패키지:` 값을 쉼표로 갈라 `..` 접미 접두 패턴으로 정규화한다.
+
+    모든 패키지는 접두 패턴이다 — `com.acme.claim..`은 "그 패키지와 그 아래 전부"를 뜻한다.
+    표기가 흔들리면(`com.acme.claim` / `com.acme.claim.`) 소비자마다 다르게 매칭하므로 여기서
+    한 모양으로 굳힌다. 빈 항목·중복 항목은 `ParseError` — 조용히 버리면 사용자가 적은 위치가
+    강제되고 있다고 잘못 믿게 된다.
+    """
+    packages = []
+    for item in raw.split(","):
+        base = item.strip().rstrip(".")
+        if not base:
+            errors.append(ParseError(
+                line,
+                f"'패키지' 값에 빈 항목이 있습니다 (쉼표 사이가 비었거나 점만 있습니다): '{raw}'.",
+            ))
+            continue
+        pattern = f"{base}.."
+        if pattern in packages:
+            errors.append(ParseError(
+                line,
+                f"'패키지' 값에 중복 항목 '{pattern}'이(가) 있습니다.",
+            ))
+            continue
+        packages.append(pattern)
+    return packages
+
+
+def _apply_label(current_project, current_context, key: str, value: str,
+                 lineno: int, errors: list) -> None:
+    """'- 키: 값' 한 줄을 현재 활성 섹션에 반영한다.
+
+    라벨을 반영할 때마다 `label_lines[key] = lineno`도 기록해, 검증이 오류를 (섹션 헤딩이
+    아니라) 그 라벨 자신의 줄에 붙일 수 있게 한다.
+    """
+    if key in RETIRED_LABELS:
+        errors.append(ParseError(
+            lineno,
+            f"'{key}'은(는) 구 템플릿(ARCHITECTURE.md)의 라벨입니다 — DOMAIN.md에는 쓸 수 "
+            f"없습니다 ({NEW_TEMPLATE_DOC} 참조).",
+        ))
+        return
+
+    if current_project is not None:
+        field_name = PROJECT_LABELS.get(key)
+        if field_name:
+            setattr(current_project, field_name, _strip_comment(value))
+            current_project.label_lines[key] = lineno
+        return
+
+    if current_context is not None:
+        if key in CONTEXT_LABELS:
+            setattr(current_context, CONTEXT_LABELS[key], _strip_comment(value))
+            current_context.label_lines[key] = lineno
+        elif key == "패턴":
+            stripped = _strip_comment(value)
+            current_context.patterns = [p.strip() for p in stripped.split(",") if p.strip()]
+            current_context.label_lines[key] = lineno
+        elif key == "패키지":
+            current_context.packages = _parse_packages(_strip_comment(value), lineno, errors)
+            current_context.label_lines[key] = lineno
+        # 그 외 모르는 키는 무시한다(퇴역 라벨만 위에서 거부했다).
+
+
+def _apply_table(current_context, subheading, block: list, start_lineno: int) -> None:
+    """표 한 블록(헤더+구분선+데이터행)을 해석해 반영한다. v1의 표는 `### 관계` 하나뿐이다."""
+    if current_context is None or subheading != RELATIONS_HEADING or len(block) < 2:
+        return
+
+    ncols = len(_header_cells(block[0]))
+    for offset, line in enumerate(block[2:]):
+        cells = _split_row(line, ncols)
+        current_context.relations.append(Relation(
+            partner=cells[0] if ncols > 0 else "",
+            kind=cells[1] if ncols > 1 else "",
+            contract=cells[2] if ncols > 2 else "",
+            line=start_lineno + 2 + offset,
+        ))
+
+
+def _check_template_marker(lines: list, errors: list) -> None:
+    """마커의 존재와 버전을 확인한다. 파서가 아는 것보다 높은 버전이면 거부한다.
+
+    조용히 읽어 버리면 새 문법으로 쓴 결정을 구 파서가 절반만 이해한 채 "OK"를 찍는다 —
+    가장 나쁜 실패 모드다.
+    """
+    supported = int(TEMPLATE_VERSION.lstrip("v"))
+    for index, line in enumerate(lines):
+        match = RE_TEMPLATE_MARKER.match(line)
+        if not match:
+            continue
+        version = int(match.group(1))
+        if version > supported:
+            errors.append(ParseError(
+                index + 1,
+                f"템플릿 버전 'v{version}'은(는) 이 파서가 아는 최신 버전 '{TEMPLATE_VERSION}'보다 "
+                f"높습니다. 플러그인을 최신으로 올린 뒤 다시 실행하세요.",
+            ))
+        return
+    errors.append(ParseError(
+        0,
+        f"템플릿 마커(<!-- {MARKER_TEMPLATE} {TEMPLATE_VERSION} -->)가 없습니다. "
+        f"결정 템플릿({NEW_TEMPLATE_DOC})에서 문서를 생성했는지 확인하세요.",
+    ))
+
+
+def _parse_document(text: str) -> Domain:
+    """라인 기반 상태 머신으로 문서를 파싱해 Domain을 만든다.
+
+    생성 구역 마커(`<!-- ...:generated:... -->` 쌍)는 라벨도 표도 헤딩도 아니므로 다른 주석과
+    똑같이 무시된다 — 스킬이 그 사이를 통째로 갈아 끼워도 파싱 결과는 변하지 않는다.
+    """
+    lines = text.split("\n")
+    domain = Domain()
+    _check_template_marker(lines, domain.errors)
+
+    current_project = None
+    current_context = None
+    current_subheading = None
+
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        lineno = i + 1
+
+        m_project = RE_PROJECT.match(line)
+        if m_project:
+            current_project = Project(name=m_project.group(1), line=lineno)
+            domain.projects.append(current_project)
+            current_context = None
+            current_subheading = None
+            i += 1
+            continue
+
+        m_context = RE_CONTEXT.match(line)
+        if m_context:
+            current_context = Context(name=m_context.group(1), line=lineno)
+            domain.contexts.append(current_context)
+            current_project = None
+            current_subheading = None
+            i += 1
+            continue
+
+        if RE_H2.match(line):
+            # 알려지지 않은 '##' 헤딩(예: '## 컨텍스트 맵') — 섹션 없음(무시 모드)으로 전환.
+            current_project = None
+            current_context = None
+            current_subheading = None
+            i += 1
+            continue
+
+        m_h3 = RE_H3.match(line)
+        if m_h3:
+            current_subheading = m_h3.group(1)
+            i += 1
+            continue
+
+        if current_project is not None or current_context is not None:
+            m_label = RE_LABEL.match(line)
+            if m_label:
+                _apply_label(current_project, current_context,
+                             m_label.group(1), m_label.group(2), lineno, domain.errors)
+                i += 1
+                continue
+
+            if RE_TABLE.match(line):
+                block, next_i = _collect_table_block(lines, i)
+                _apply_table(current_context, current_subheading, block, lineno)
+                i = next_i
+                continue
+
+        i += 1
+
+    if len(domain.projects) == 1:
+        only_name = domain.projects[0].name
+        for context in domain.contexts:
+            if not context.project:
+                context.project = only_name
+
+    return domain
+
+
+def _check_duplicate_names(items: list, kind: str, errors: list) -> None:
+    """섹션 목록(프로젝트 또는 컨텍스트)에서 이름이 중복되는 항목을 찾아 보고한다."""
+    first_seen = {}
+    for item in items:
+        if item.name in first_seen:
+            errors.append(ParseError(
+                item.line,
+                f"{kind} 이름 '{item.name}'이(가) 중복되었습니다 "
+                f"(처음 등장: {first_seen[item.name]}번째 줄).",
+            ))
+        else:
+            first_seen[item.name] = item.line
+
+
+def _validate_project(project: Project, errors: list) -> None:
+    for label, field_name in REQUIRED_PROJECT_LABELS:
+        if not getattr(project, field_name):
+            errors.append(ParseError(
+                project.line,
+                f"프로젝트 '{project.name}': 필수 라벨 '{label}'이(가) 없습니다.",
+            ))
+
+
+def _validate_context(context: Context, project_names: set, context_names: set,
+                      multiple_projects: bool, errors: list) -> None:
+    for label, field_name in REQUIRED_CONTEXT_LABELS:
+        if not getattr(context, field_name):
+            errors.append(ParseError(
+                context.line,
+                f"컨텍스트 '{context.name}': 필수 라벨 '{label}'이(가) 없습니다.",
+            ))
+
+    if context.classification and context.classification not in CLASSIFICATIONS:
+        errors.append(ParseError(
+            context.label_lines.get("분류", context.line),
+            f"컨텍스트 '{context.name}'의 분류 값 '{context.classification}'이(가) 올바르지 "
+            f"않습니다 (허용값: {sorted(CLASSIFICATIONS)}).",
+        ))
+
+    if context.project:
+        if context.project not in project_names:
+            errors.append(ParseError(
+                context.label_lines.get("프로젝트", context.line),
+                f"컨텍스트 '{context.name}'이(가) 참조하는 프로젝트 '{context.project}'를 "
+                f"찾을 수 없습니다.",
+            ))
+    elif multiple_projects:
+        errors.append(ParseError(
+            context.line,
+            f"컨텍스트 '{context.name}': 프로젝트가 여러 개이므로 '- 프로젝트: <이름>' 라벨로 "
+            f"속한 프로젝트를 지정해야 합니다.",
+        ))
+
+    for relation in context.relations:
+        if relation.kind and relation.kind not in RELATION_KINDS:
+            errors.append(ParseError(
+                relation.line,
+                f"컨텍스트 '{context.name}'의 관계 유형 값 '{relation.kind}'이(가) 올바르지 "
+                f"않습니다 (허용값: {sorted(RELATION_KINDS)}).",
+            ))
+        if relation.partner and relation.partner not in context_names:
+            errors.append(ParseError(
+                relation.line,
+                f"컨텍스트 '{context.name}'의 관계 상대 '{relation.partner}'을(를) 찾을 수 "
+                f"없습니다 (선언된 컨텍스트: {', '.join(sorted(context_names)) or '없음'}).",
+            ))
+
+
+def _covers(outer: str, inner: str) -> bool:
+    """접두 패턴 outer가 inner를 덮는가. 비교는 패키지 **세그먼트 경계**에서 한다.
+
+    문자열 접두로만 보면 `com.acme.claim..`이 `com.acme.claiming..`을 덮는 것으로 읽혀,
+    형제 컨텍스트가 겹침 오류로 잘못 걸린다.
+    """
+    a, b = outer[:-2], inner[:-2]
+    return a == b or b.startswith(f"{a}.")
+
+
+def _safe_packages(domain: Domain, context: Context) -> list:
+    """검증용 패키지 조회 — 정할 수 없으면 빈 목록(그 사유는 이미 다른 오류로 보고되었다)."""
+    try:
+        return context_packages(domain, context)
+    except LocatedError:
+        return []
+
+
+def _check_package_overlap(domain: Domain, errors: list) -> None:
+    """컨텍스트 패키지가 서로 접두로 겹치면 오류 — 소스의 귀속이 모호해진다.
+
+    `check_imports.py`는 소스의 `package` 선언을 접두 최장 일치로 컨텍스트에 귀속시킨다.
+    한 컨텍스트의 패턴이 다른 컨텍스트의 패턴 안쪽에 있으면, 그 사이의 코드가 어느 쪽 소유인지
+    문서만으로는 정해지지 않는다. 격리 판정이 문서가 아니라 매칭 순서에 좌우되게 두지 않는다.
+    """
+    resolved = [(context, _safe_packages(domain, context)) for context in domain.contexts]
+    for index, (first, first_packages) in enumerate(resolved):
+        for second, second_packages in resolved[index + 1:]:
+            for outer in first_packages:
+                for inner in second_packages:
+                    if not (_covers(outer, inner) or _covers(inner, outer)):
+                        continue
+                    errors.append(ParseError(
+                        second.label_lines.get("패키지", second.line),
+                        f"컨텍스트 '{second.name}'의 패키지 '{inner}'와 컨텍스트 "
+                        f"'{first.name}'의 패키지 '{outer}'가 겹칩니다(한쪽이 다른 쪽의 접두) "
+                        f"— 그 아래 코드가 어느 컨텍스트 소유인지 정해지지 않습니다.",
+                    ))
+
+
+def validate(domain: Domain) -> list:
+    """Domain을 검사해 [ParseError] 목록을 반환한다(문제 없으면 빈 리스트)."""
+    errors = []
+
+    if not domain.projects:
+        errors.append(ParseError(
+            0,
+            "프로젝트 섹션이 없습니다. '## 프로젝트: <이름>' 섹션을 최소 1개 작성하세요.",
+        ))
+
+    _check_duplicate_names(domain.projects, "프로젝트", errors)
+    _check_duplicate_names(domain.contexts, "컨텍스트", errors)
+
+    project_names = {project.name for project in domain.projects}
+    context_names = {context.name for context in domain.contexts}
+    multiple_projects = len(domain.projects) > 1
+
+    for project in domain.projects:
+        _validate_project(project, errors)
+
+    for context in domain.contexts:
+        _validate_context(context, project_names, context_names, multiple_projects, errors)
+
+    _check_package_overlap(domain, errors)
+
+    return errors
+
+
+def context_packages(domain: Domain, context: Context) -> list:
+    """컨텍스트가 실현되는 패키지 접두 패턴 목록.
+
+    명시 `- 패키지:`가 있으면 그 목록 그대로(복수 위치 컨텍스트가 있으므로 순서를 보존한다),
+    없으면 귀속 프로젝트의 `기본 패키지`로 규약 기본값 `[f"{base}.{name}.."]`을 만든다.
+    모든 항목은 `..` 접미로 정규화된 접두 패턴이다.
+
+    기본값을 만들 수 없으면(귀속 프로젝트가 없거나 그 프로젝트에 `기본 패키지`가 없으면)
+    `LocatedError`를 던진다 — 빈 목록을 돌려주면 그 컨텍스트가 아무 소스도 갖지 않는 것으로
+    보여 격리 검사가 0건을 검사한 채 통과한다.
+    """
+    if context.packages:
+        return list(context.packages)
+
+    project = next((p for p in domain.projects if p.name == context.project), None)
+    if project is None or not project.base_package:
+        raise LocatedError(
+            context.line,
+            f"컨텍스트 '{context.name}'의 패키지를 정할 수 없습니다 — '- 패키지:' 라벨이 없고 "
+            f"귀속 프로젝트('{context.project or '미지정'}')의 '기본 패키지'도 없습니다.",
+        )
+    return [f"{project.base_package}.{context.name}.."]
+
+
+def isolation_allowlist(domain: Domain) -> dict:
+    """컨텍스트명 → 관계 표가 연 상대 컨텍스트명 집합(frozenset).
+
+    **허용 단위는 쌍이고 방향을 구분하지 않는다.** 관계를 한쪽 컨텍스트에만 적어도 양쪽이
+    열린다. 구 `resolve_rules._derive_context_isolation`·`_relation_partners`의 의미를 그대로
+    옮긴 것이다("v1의 허용 단위는 쌍이고 방향을 구분하지 않는다") — 관계는 두 컨텍스트가 맺는
+    하나의 사실이지 한쪽의 속성이 아니고, 방향을 구분하면 같은 사실을 두 줄로 적게 만든 뒤
+    한 줄만 적힌 문서를 조용히 반쪽만 강제하게 된다.
+
+    선언된 컨텍스트는 관계가 없어도 빈 frozenset으로 반드시 키를 갖는다.
+    """
+    partners = {context.name: set() for context in domain.contexts}
+    for context in domain.contexts:
+        for relation in context.relations:
+            if not relation.partner:
+                continue
+            partners.setdefault(context.name, set()).add(relation.partner)
+            partners.setdefault(relation.partner, set()).add(context.name)
+    return {name: frozenset(values) for name, values in partners.items()}
+
+
+def parse_domain(path) -> Domain:
+    """DOMAIN.md 한 건을 파싱하고 검증해 Domain을 만든다.
+
+    **호출자는 `domain.errors`가 비었는지 먼저 확인해야 한다.** 오류가 있어도 해석 가능한
+    부분은 채워 돌려준다 — 한 번의 실행에서 오류를 모두 보여주기 위해서다.
+    """
+    path = Path(path)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return Domain(errors=[ParseError(
+            0,
+            f"'{path.name}' 파일을 읽을 수 없습니다. 경로를 확인하거나 "
+            f"/superarchitect:init으로 초기화하세요.",
+        )])
+
+    domain = _parse_document(text)
+    domain.errors.extend(validate(domain))
+    return domain
+
+
+def main(argv) -> int:
+    if len(argv) != 1 or argv[0].startswith("-"):
+        print("사용법: python3 parse_domain.py <DOMAIN.md 경로>", file=sys.stderr)
+        return 2
+
+    path = argv[0]
+    domain = parse_domain(path)
+    if domain.errors:
+        for error in sorted(domain.errors, key=lambda e: e.line):
+            print(format_error(error, path), file=sys.stderr)
+        return 1
+
+    print(f"OK: 프로젝트 {len(domain.projects)}, 컨텍스트 {len(domain.contexts)}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
