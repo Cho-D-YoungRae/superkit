@@ -117,10 +117,18 @@ exit **2**면 격리 검사가 통째로 없는 상태다. stderr의 `경로:라
 ### 2-b. 관측 — 프로덕션 패키지 인벤토리
 
 ```bash
-find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -path '*/.gradle/*' \) -prune \
+find "<프로젝트 경로>" -type d \( \
+     -name build -o -name out -o -name target -o -name .git -o -name .gradle \
+  -o -name .idea -o -name .kotlin -o -name .settings -o -name .venv -o -name node_modules \
+  -o -path '*/src/test*' -o -path '*/src/*Test' \) -prune \
   -o \( -name '*.kt' -o -name '*.java' \) -exec grep -hE '^[[:space:]]*package[[:space:]]' {} + \
   | sed -E 's/^[[:space:]]*package[[:space:]]+//; s/[;[:space:]]*$//' | sort -u
 ```
+
+**가지치기 목록은 `check_imports.py`의 `SKIP_DIRS`와 `src` 아래 테스트 소스셋 규칙을 그대로 옮긴
+것이다.** 좁히면 이 관측만 보는 파일이 생겨 3-b가 매 실행 유령 「미선언 패키지」를 올린다 —
+Maven의 `target/generated-sources/`와 Android의 `src/androidTest`가 전형이다. 정본이 바뀌면 이
+목록도 따라와야 한다.
 
 **패턴 매칭 규약** — 컨텍스트 패키지는 언제나 `..`로 끝나는 접두 패턴이고 "그 패키지와 그 하위
 전부"를 뜻한다. 패턴 `x..`에 패키지 `p`가 드는 조건은 **`p == x` 또는 `p`가 `x.`로 시작**하는 것
@@ -185,6 +193,7 @@ find "<프로젝트 경로>" \( -path '*/build/*' -o -path '*/src/test/*' -o -pa
 
 ```bash
 grep -rnE "ADR[- ]?[0-9]{4}|\[[0-9]{4}\]|\b[0-9]{4}-[a-z]" DOMAIN.md docs/
+grep -rn "^- 관련:" docs/decisions/
 ls docs/decisions/
 ```
 
@@ -193,7 +202,12 @@ ls docs/decisions/
 번호**, 자유 서술의 `ADR-0002`·`ADR 0002`. **`ADR-` 접두만 찾는 grep은 침묵한다.** 0건으로
 끝났다면 패턴이 좁았던 것은 아닌지 먼저 의심한다.
 
-**`docs/decisions/`가 없으면** 두 번째 명령이 `No such file or directory`로 끝난다. 그것은 이 축의
+**둘째 명령이 있는 이유가 그것이다.** `- 관련:`의 값은 `0002, 0009`처럼 **맨 번호 목록**이라
+첫 명령의 세 갈래 어디에도 걸리지 않는다(`ADR-` 접두도, 대괄호도, `NNNN-slug` 꼴도 아니다) —
+adr 7-c가 같은 이유로 이 보조 명령을 따로 둔다. 그 줄들은 **눈으로 대조한다**: 적힌 번호마다
+대응 파일이 있는지 아래 표로 판정한다.
+
+**`docs/decisions/`가 없으면** 뒤의 두 명령이 `No such file or directory`로 끝난다. 그것은 이 축의
 결과가 0건이라는 뜻이 아니라 **결정 기록이 하나도 없다**는 관측이다 — 참조가 있는데 디렉터리가
 없으면 그 전부가 깨진 참조다. 디렉터리도 참조도 없으면 "0건(대조할 대상 없음)"으로 적는다. 오류
 문면을 삼키지 않는다.
@@ -265,7 +279,7 @@ mtime이 최신이어도 내용이 틀리다. 판정 근거는 언제나 **내�
 | 선택지 | 뜻 | 누가 하는가 |
 |---|---|---|
 | **패키지 생성** | 선언이 맞다 — 없는 자리를 만든다 | **이 스킬**(5-b) |
-| **코드 수정** | 선언이 맞다 — 있는 것을 옮기거나 지운다 | 사용자 또는 `/superarchitect:migrate`. **이 스킬은 기존 코드를 옮기거나 지우지 않는다** |
+| **코드 수정** | 선언이 맞다 — 있는 것을 옮기거나 지운다 | **사용자.** `/superarchitect:migrate`는 **`docs/domain/baseline.jsonl`에 동결된 격리 위반일 때만** 갈 곳이다 — 그 파일이 없으면 그 스킬은 입장 즉시 "동결된 부채가 없습니다"로 끝난다. **이 스킬은 기존 코드를 옮기거나 지우지 않는다** |
 | **문서 수정** | 현실이 맞다 — 선언을 고친다 | 이 스킬(5-a). 인터뷰가 필요하면 init, 관계 표는 adr |
 | **무시** | 지금 판단할 재료가 없거나 의도된 상태다 | 아무도. 리포트에만 남는다 |
 
