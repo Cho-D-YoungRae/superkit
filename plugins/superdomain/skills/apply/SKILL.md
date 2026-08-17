@@ -46,7 +46,8 @@ description: >
   만들면 `aggregates`, 값 객체면 `value-objects`, 이벤트를 발행하면 `domain-events`, 리포지토리
   포트·도메인 서비스면 `repositories-domain-services`, 영속이 얽히면 `persistence`.
 - 대상 컨텍스트가 `- 패턴:`으로 선언한 문서(`cqrs`·`outbox`·`event-sourcing`). 선언되지 않은
-  패턴을 이번 구현으로 들이지 않는다 — 패턴 채택은 선언 변경이고 그것은 init의 일이다.
+  패턴을 이번 구현으로 들이지 않는다 — 패턴 채택은 대안이 오가는 결정이므로 근거를 남기고 편집
+  자리를 짚는 `/superarchitect:adr`의 일이다.
 - 대상 프로젝트의 `docs/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 INDEX의 `draft` 칸이 찬 문서는 구현 규칙의 근거로 인용하지 않는다.
