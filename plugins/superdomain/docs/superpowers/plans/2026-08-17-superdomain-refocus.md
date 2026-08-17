@@ -607,6 +607,7 @@ git commit -m "docs(governance): domain-template.md 정본 신설 — 결정 템
   **신호 1·2의 「제안 문구」·「해석」 블록을 반드시 고칠 것** — 지금 신호 1은 `현재 분류: {현재 분류} → 기본 스타일 {현재 스타일}` / `선택지: ① core로 재분류하고 스타일 이행 검토`, 신호 2는 `[규칙 재검토] … ({primitive})` / `③ 스타일 자체 재검토`를 말한다. `evolve`는 이 블록을 **그대로 옮기라고** 지시하므로(§7), 정본을 고치지 않으면 사라진 개념이 사용자 리포트에 그대로 출력된다. 제안 셋(경계 재획정·분류 변경·관계 추가/삭제)의 언어로 다시 쓴다. (Task 10에서 evolve에 임시 가드를 넣어 두었으나, 가드는 고지일 뿐 정본 수정이 근본 수선이다.)
 - Modify: `references/governance/adr-template.md` — 후속 연결 예시에서 "규칙 예외·스타일 선언" → "관계 표·분류·패키지 라벨" (Task 10의 adr 수술과 정합). **경로 3종을 `docs/decisions/`·`docs/conventions/`로 갱신** — Task 9·10에서 `adr` 스킬이 이미 이 값을 쓰므로 지금 문서가 스킬과 어긋나 있다. 근거: `docs/architecture/` 디렉터리 소멸 + MADR 표준 경로.
 - Modify: `references/governance/domain-doc-template.md` (위 항목에 추가) — §1의 **스타일별 필수/선택 표를 분류(core·supporting·generic) 축으로** 바꾼다. 스타일이 사라져 `model` 스킬 0-b와 정합이 깨진 자리다.
+- Modify: `references/governance/knowledge-doc-template.md` — **:80의 `rules` frontmatter 필드 설명이 삭제된 `rule-vocabulary.md`를 가리킨다.** 규칙 어휘가 소멸했으므로 그 필드의 소비자가 남아 있는지 먼저 확인하고(`scripts/build_index.py`가 INDEX의 `rules` 열을 만드는지, 어느 스킬이 그 열을 읽는지), **소비자가 없으면 필드째 제거**하고 있으면 설명만 새 정본(`domain-template.md` §5)으로 돌린다. 필드를 지우면 `build_index.py`와 INDEX 재생성(Task 17)이 함께 움직여야 한다.
 
 - [ ] **Step 1: 수술** → **Step 2: 게이트 grep + 전체 테스트** → **Step 3: 커밋**
 
@@ -632,7 +633,7 @@ ls scripts/resolve_rules.py scripts/parse_style.py tests/test_parse_style.py 2>&
 **수술 3종:**
 
 1. **삭제** — `git rm -r references/knowledge/styles references/knowledge/structure`.
-2. **끊어진 위키링크 정리** — 생존 12종 본문에서 삭제된 6개 key를 가리키는 `[[...]]`를 없앤다. 대상 key: `hexagonal`·`clean`·`layered-domain`·`layered-simple`·`module-composition`·`package-conventions`. **대괄호만 벗기지 말고 문장을 도메인 언어로 고친다** — 예: "[[hexagonal]]에서는 포트를 도메인이 소유한다" → "도메인이 자신이 필요로 하는 인터페이스를 소유한다". 문장 전체가 스타일 선택에만 의미가 있으면 그 문장·절을 지운다. 생존 key끼리의 링크(`[[aggregates]]` 등)는 그대로 둔다.
+2. **끊어진 위키링크 정리** — 생존 12종 본문에서 삭제된 6개 key를 가리키는 `[[...]]`를 없앤다. **위키링크만 훑지 말 것** — 본문의 **정본 지목**도 함께 고친다(예: `context-mapping.md:115`의 "정본 `architecture-template.md` §5.1 규칙 5" → `domain-template.md` §5.1. 그 문서는 삭제됐고 위키링크가 아니라 산문이라 링크만 정리하면 놓친다). `grep -rn "architecture-template\|rule-vocabulary\|parse_architecture\|resolve_rules\|confine-type" references/knowledge/`로 전수 확인한다. 대상 key: `hexagonal`·`clean`·`layered-domain`·`layered-simple`·`module-composition`·`package-conventions`. **대괄호만 벗기지 말고 문장을 도메인 언어로 고친다** — 예: "[[hexagonal]]에서는 포트를 도메인이 소유한다" → "도메인이 자신이 필요로 하는 인터페이스를 소유한다". 문장 전체가 스타일 선택에만 의미가 있으면 그 문장·절을 지운다. 생존 key끼리의 링크(`[[aggregates]]` 등)는 그대로 둔다.
 3. **frontmatter `read_when`** — 죽은 스킬 `fitness`·`scaffold`만 제거(migrate는 살아 있으므로 유지). 실측 대상 7파일: bounded-contexts, domain-classification, context-mapping, persistence, event-sourcing, cqrs, outbox. **`context-mapping.md`는 `migrate`를 추가**한다 — Task 13에서 migrate가 이 문서를 관계 유형의 정본으로 이름 박았는데 `read_when`이 `[init, review, scaffold]`라 두 자리가 갈려 있다. 다른 파일도 수술된 스킬이 정본으로 지목한 것이 있으면 같이 맞춘다.
 4. **본문 표현 완화** — 레이어 전제 표현을 도메인 언어로. 집중 대상은 실측된 두 파일: `persistence.md`("어댑터 봉쇄"→"영속 코드 격리", "domain 레이어"→"도메인 모델" 계열) · `repositories-domain-services.md`. **`## 적용 기준`·`## 규칙` 절 구조와 판정 내용은 유지한다 — 표현 수술이지 재작성이 아니다.**
 
