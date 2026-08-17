@@ -9,57 +9,51 @@ TESTS_DIR = Path(__file__).resolve().parent
 SCRIPT = ROOT / "scripts" / "check_invariants.py"
 TEMPLATE = ROOT / "references" / "governance" / "domain-doc-template.md"
 
-HEAD = """# 샘플 — Architecture
+HEAD = """# 샘플 — Domain
 <!-- superarchitect:template v1 -->
 
 ## 프로젝트: backend
 - 경로: .
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme
-- 아키텍처 테스트 위치: architecture-test/src/test/kotlin
 """
 
 
-def context_section(name, path=None):
-    """단일 모듈 컨텍스트 하나. 모듈 표가 없으면 parse_architecture가 오류를 낸다."""
-    return f"""
-## 컨텍스트: {name}
-- 분류: core
-- 스타일: layered-simple
-- 모듈 구성: single-module
-
-| 모듈 | 경로 | 레이어 |
-|---|---|---|
-| {name}-app | {path or name} | all |
-"""
+def context_section(name, package=None):
+    """컨텍스트 하나. 이름이 패키지 세그먼트가 아니면 `- 패키지:`로 실현 위치를 명시한다."""
+    lines = [f"\n## 컨텍스트: {name}", "- 분류: core"]
+    if package:
+        lines.append(f"- 패키지: {package}")
+    return "\n".join(lines) + "\n"
 
 
-MONO_ARCH = HEAD + context_section("claim")
+MONO_DOMAIN = HEAD + context_section("claim")
 # `core`와 `core-api`가 함께 선언된 트리 — 최장 일치가 아니면 `INV-CORE-API-001`이
-# 컨텍스트 `core` + 번호 `API-001`로 잘못 읽힌다(정본 §4.2).
-HYPHEN_ARCH = HEAD + context_section("core") + context_section("core-api")
-# 이름에 `test` 세그먼트가 없는 테스트 위치 — 선언을 읽지 않으면 스캔되지 않는다(P3-D4).
-ITEST_ARCH = HEAD.replace("architecture-test/src/test/kotlin", "itest/kotlin") \
-    + context_section("claim")
+# 컨텍스트 `core` + 번호 `API-001`로 잘못 읽힌다(정본 §4.2). `core-api`는 하이픈 때문에
+# 유효한 패키지 세그먼트가 아니라서 `- 패키지:`로 실현 위치를 명시해야 파서를 통과한다.
+HYPHEN_DOMAIN = HEAD + context_section("core") \
+    + context_section("core-api", "com.acme.coreapi..")
 # 첫 프로젝트의 경로는 아직 없고 태그는 둘째 프로젝트에만 있다 — 스캔이 프로젝트를 다 돌아야 한다.
-TWO_PROJECT_ARCH = """# 샘플 — Architecture
+TWO_PROJECT_DOMAIN = """# 샘플 — Domain
 <!-- superarchitect:template v1 -->
 
 ## 프로젝트: absent
 - 경로: absent
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme.absent
-- 아키텍처 테스트 위치: src/test/kotlin
 
 ## 프로젝트: second
 - 경로: second
-- 프로파일: kotlin-spring
 - 기본 패키지: com.acme
-- 아키텍처 테스트 위치: src/test/kotlin
 """ + context_section("claim").replace("- 분류: core", "- 분류: core\n- 프로젝트: second")
 # 모노레포에서 흔한 겹치는 경로 — 같은 파일을 두 번 세면 관측 건수가 부풀고 경고가 중복된다.
-OVERLAP_ARCH = TWO_PROJECT_ARCH.replace("## 프로젝트: absent\n- 경로: absent",
-                                        "## 프로젝트: root\n- 경로: .")
+OVERLAP_DOMAIN = TWO_PROJECT_DOMAIN.replace("## 프로젝트: absent\n- 경로: absent",
+                                            "## 프로젝트: root\n- 경로: .")
+# 필수 라벨(`기본 패키지`)이 없는 프로젝트 — parse_domain이 해석 불가로 거부한다.
+BROKEN_DOMAIN = """# 샘플 — Domain
+<!-- superarchitect:template v1 -->
+
+## 프로젝트: backend
+- 경로: .
+"""
 
 
 def row(inv_id, status, description="검증 가능한 서술이다"):
@@ -85,16 +79,16 @@ def skeleton():
 class InvariantTestCase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
-        self.arch_path = self.tmpdir / "ARCHITECTURE.md"
+        self.domain_path = self.tmpdir / "DOMAIN.md"
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     # ---- 트리 구성 -------------------------------------------------------
 
-    def arch(self, text=MONO_ARCH):
-        self.arch_path.write_text(text, encoding="utf-8")
-        return self.arch_path
+    def domain(self, text=MONO_DOMAIN):
+        self.domain_path.write_text(text, encoding="utf-8")
+        return self.domain_path
 
     def src(self, relpath, text):
         path = self.tmpdir / relpath
@@ -103,10 +97,10 @@ class InvariantTestCase(unittest.TestCase):
         return path
 
     def doc(self, name, body):
-        return self.src(f"docs/architecture/domain/{name}.md", body)
+        return self.src(f"docs/domain/{name}.md", body)
 
     def consolidated(self, body):
-        return self.src("docs/architecture/DOMAIN.md", body)
+        return self.src("docs/domain.md", body)
 
     def tagged(self, *ids, relpath="src/test/kotlin/com/acme/ClaimTest.kt",
               form='@Tag("{id}")'):
@@ -125,7 +119,7 @@ class InvariantTestCase(unittest.TestCase):
     # ---- 관측 도우미 ------------------------------------------------------
 
     def check(self, context=None):
-        return check(self.arch_path, context)
+        return check(self.domain_path, context)
 
     def messages(self, report):
         return [f"{e.path}:{e.line}: {e.message}" for e in report.errors]
@@ -165,7 +159,7 @@ class TestCanonicalSkeleton(InvariantTestCase):
         self.assertIn("INV-CLAIM-001", body)
 
     def test_skeleton_parses_without_error(self):
-        self.arch()
+        self.domain()
         self.doc("claim", skeleton())
         self.empty_tests()
         report = self.check()
@@ -178,13 +172,13 @@ class TestCanonicalSkeleton(InvariantTestCase):
 
     def test_skeleton_aggregate_table_is_not_read_as_invariants(self):
         """`## 애그리거트`의 표가 창을 넘어 불변식으로 읽히면 4건 이상이 나온다."""
-        self.arch()
+        self.domain()
         self.doc("claim", skeleton())
         self.empty_tests()
         self.assertEqual(len(self.check().invariants), 3)
 
     def test_skeleton_confirmed_without_tags_is_violation(self):
-        self.arch()
+        self.domain()
         self.doc("claim", skeleton())
         self.empty_tests()
         report = self.check()
@@ -199,7 +193,7 @@ class TestCanonicalSkeleton(InvariantTestCase):
 class TestTableContract(InvariantTestCase):
     def setUp(self):
         super().setUp()
-        self.arch()
+        self.domain()
         self.empty_tests()
 
     def test_missing_table_is_zero_not_error(self):
@@ -256,7 +250,7 @@ class TestTableContract(InvariantTestCase):
 
     def test_undecodable_document_is_error_not_silence(self):
         """읽지 못한 문서를 '불변식 0건'으로 넘기면 그 컨텍스트가 검사에서 통째로 사라진다."""
-        path = self.tmpdir / "docs/architecture/domain/claim.md"
+        path = self.tmpdir / "docs/domain/claim.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"# claim \xff\xfe Domain\n")
         report = self.check()
@@ -310,7 +304,7 @@ class TestTableContract(InvariantTestCase):
 
 class TestIdFormat(InvariantTestCase):
     def test_longest_match_picks_the_hyphenated_context(self):
-        self.arch(HYPHEN_ARCH)
+        self.domain(HYPHEN_DOMAIN)
         self.empty_tests()
         self.doc("core-api", domain_doc(row("INV-CORE-API-001", "proposed"), title="core-api"))
         report = self.check()
@@ -319,14 +313,14 @@ class TestIdFormat(InvariantTestCase):
                          [("INV-CORE-API-001", "core-api")])
 
     def test_shorter_context_still_resolves(self):
-        self.arch(HYPHEN_ARCH)
+        self.domain(HYPHEN_DOMAIN)
         self.empty_tests()
         self.doc("core", domain_doc(row("INV-CORE-001", "proposed"), title="core"))
         self.assertEqual([(i.id, i.context) for i in self.check().invariants],
                          [("INV-CORE-001", "core")])
 
     def test_unknown_context_id_is_error(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-BILLING-001", "confirmed")))
         report = self.check()
@@ -334,32 +328,32 @@ class TestIdFormat(InvariantTestCase):
         self.assertEqual(report.invariants, [])
 
     def test_number_must_be_three_digits(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-CLAIM-1", "confirmed")))
         self.assert_error(self.check(), "INV-CLAIM-1")
 
     def test_missing_prefix_is_error(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("CLAIM-001", "confirmed")))
         self.assert_error(self.check(), "CLAIM-001")
 
     def test_lowercase_id_is_error(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("inv-claim-001", "confirmed")))
         self.assert_error(self.check(), "inv-claim-001")
 
     def test_lowercase_context_in_id_is_error(self):
         """ID는 `@Tag` 리터럴과 문자 그대로 같아야 한다 — 대소문자를 관대하게 보면 안 된다."""
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-claim-001", "confirmed")))
         self.assert_error(self.check(), "INV-claim-001")
 
     def test_duplicate_id_in_one_document_is_error(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed"),
                                      row("INV-CLAIM-001", "proposed")))
@@ -369,7 +363,7 @@ class TestIdFormat(InvariantTestCase):
         self.assertEqual(len(report.invariants), 1)
 
     def test_filename_context_mismatch_is_error(self):
-        self.arch(HYPHEN_ARCH)
+        self.domain(HYPHEN_DOMAIN)
         self.empty_tests()
         self.doc("core", domain_doc(row("INV-CORE-API-001", "confirmed"), title="core"))
         report = self.check()
@@ -384,7 +378,7 @@ class TestIdFormat(InvariantTestCase):
 class TestStatus(InvariantTestCase):
     def setUp(self):
         super().setUp()
-        self.arch()
+        self.domain()
         self.empty_tests()
 
     def test_third_status_is_error(self):
@@ -410,17 +404,17 @@ class TestStatus(InvariantTestCase):
 
 class TestPlacement(InvariantTestCase):
     def test_consolidated_domain_md_is_read_for_single_context(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.consolidated(domain_doc(row("INV-CLAIM-001", "proposed")))
         report = self.check()
         self.assertEqual(self.messages(report), [])
         self.assertEqual([i.id for i in report.invariants], ["INV-CLAIM-001"])
-        self.assertTrue(report.invariants[0].path.endswith("DOMAIN.md"),
+        self.assertTrue(report.invariants[0].path.endswith("docs/domain.md"),
                         report.invariants[0].path)
 
     def test_same_context_in_both_places_is_error(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "proposed")))
         self.consolidated(domain_doc(row("INV-CLAIM-002", "proposed")))
@@ -429,15 +423,15 @@ class TestPlacement(InvariantTestCase):
         self.assertEqual(report.invariants, [])
 
     def test_consolidated_with_two_contexts_is_error(self):
-        self.arch(HYPHEN_ARCH)
+        self.domain(HYPHEN_DOMAIN)
         self.empty_tests()
         self.consolidated(domain_doc(row("INV-CORE-001", "proposed"), title="core"))
         report = self.check()
-        self.assert_error(report, "DOMAIN.md")
+        self.assert_error(report, "docs/domain.md")
         self.assertEqual(report.invariants, [])
 
     def test_undeclared_domain_file_is_warning_and_is_not_collected(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "proposed")))
         self.doc("billing", domain_doc(row("INV-CLAIM-002", "confirmed"), title="billing"))
@@ -447,13 +441,13 @@ class TestPlacement(InvariantTestCase):
         self.assertEqual([i.id for i in report.invariants], ["INV-CLAIM-001"])
 
     def test_undeclared_domain_file_without_table_still_warns(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         self.doc("billing", "# billing — Domain\n\n본문뿐이다.\n")
         self.assert_warning(self.check(), "billing.md")
 
     def test_declared_context_without_document_is_notice_not_error(self):
-        self.arch()
+        self.domain()
         self.empty_tests()
         report = self.check()
         self.assertEqual(self.messages(report), [])
@@ -468,7 +462,7 @@ class TestPlacement(InvariantTestCase):
 class TestVerdict(InvariantTestCase):
     def setUp(self):
         super().setUp()
-        self.arch()
+        self.domain()
 
     def test_confirmed_with_tag_is_clean(self):
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
@@ -526,7 +520,7 @@ class TestVerdict(InvariantTestCase):
 class TestTagScan(InvariantTestCase):
     def setUp(self):
         super().setUp()
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
 
     def assert_seen(self, seen=True):
@@ -549,11 +543,17 @@ class TestTagScan(InvariantTestCase):
         self.tagged("INV-CLAIM-001", relpath="test/com/acme/ClaimTest.java")
         self.assert_seen()
 
-    def test_declared_test_location_is_scanned(self):
-        """`itest/kotlin`에는 `test` 세그먼트가 없다 — 선언을 읽어야만 스캔된다."""
-        self.arch(ITEST_ARCH)
+    def test_test_tree_outside_the_path_convention_is_not_scanned(self):
+        """`itest/kotlin`에는 `test` 세그먼트가 없다 — 관례 밖이라 스캔되지 않는다.
+
+        구 템플릿에는 `- 아키텍처 테스트 위치:` 라벨이 있어 이런 트리를 선언으로 끌어올 수
+        있었지만 그 라벨은 fitness와 함께 퇴역했다(DOMAIN.md에 쓰면 파서가 거부한다). 이제
+        관례 밖 태그는 보이지 않고, 그 결과는 침묵이 아니라 **거짓 위반**이다 — 사용자가
+        지목된 줄에서 바로 알아채는 쪽의 실패다.
+        """
         self.tagged("INV-CLAIM-001", relpath="itest/kotlin/com/acme/ArchTest.kt")
-        self.assert_seen()
+        self.empty_tests()
+        self.assert_seen(seen=False)
 
     def test_main_source_tag_is_not_a_test_tag(self):
         self.tagged("INV-CLAIM-001", relpath="src/main/kotlin/com/acme/Claim.kt")
@@ -621,7 +621,7 @@ class TestTagScan(InvariantTestCase):
         self.assertIn(LIMITATION_NOTE, render(self.check()))
 
     def test_overlapping_project_paths_do_not_double_count(self):
-        self.arch(OVERLAP_ARCH)
+        self.domain(OVERLAP_DOMAIN)
         self.tagged("INV-CLAIM-001", relpath="second/src/test/kotlin/com/acme/ClaimTest.kt")
         report = self.check()
         self.assertEqual(report.test_sources, 1)
@@ -629,7 +629,7 @@ class TestTagScan(InvariantTestCase):
 
     def test_every_declared_project_is_walked_and_missing_paths_are_skipped(self):
         """태그가 둘째 프로젝트에만 있어도 보여야 하고, 없는 경로가 스캔을 멈추면 안 된다."""
-        self.arch(TWO_PROJECT_ARCH)
+        self.domain(TWO_PROJECT_DOMAIN)
         self.tagged("INV-CLAIM-001", relpath="second/src/test/kotlin/com/acme/ClaimTest.kt")
         report = self.check()
         self.assertEqual(self.messages(report), [])
@@ -643,7 +643,7 @@ class TestTagScan(InvariantTestCase):
 
 class TestBlocked(InvariantTestCase):
     def test_no_test_source_blocks_the_check(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
         report = self.check()
         self.assertIn("검사 불능", report.blocked)
@@ -651,14 +651,14 @@ class TestBlocked(InvariantTestCase):
         self.assertEqual(report.checked, 0)
 
     def test_blocked_reason_names_the_confirmed_count(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed"),
                                      row("INV-CLAIM-002", "confirmed"),
                                      row("INV-CLAIM-003", "proposed")))
         self.assertIn("2건", self.check().blocked)
 
     def test_blocked_is_rendered(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
         self.assertTrue(any("검사 불능" in line for line in render(self.check())))
 
@@ -669,7 +669,7 @@ class TestBlocked(InvariantTestCase):
         apply 2단계는 `blocked`가 비었는지로 작업 목록을 가른다. 그래서 여기서 부분 일치가 아니라
         완전 일치로 고정한다. 문면을 바꾸려면 이 단언과 두 스킬 문서를 함께 고쳐야 한다.
         """
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed"),
                                      row("INV-CLAIM-002", "confirmed"),
                                      row("INV-CLAIM-003", "proposed")))
@@ -688,7 +688,7 @@ class TestBlocked(InvariantTestCase):
 
     def test_blocked_line_when_no_confirmed(self):
         """confirmed 0건 갈래의 문면도 같은 방식으로 고정한다(클린이 아니라는 고지다)."""
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "proposed")))
         self.assertEqual(
             self.check().blocked,
@@ -696,7 +696,7 @@ class TestBlocked(InvariantTestCase):
             f"클린으로 판정하지 않습니다")
 
     def test_empty_test_source_tree_still_counts_as_sources(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
         self.empty_tests()
         report = self.check()
@@ -711,7 +711,7 @@ class TestBlocked(InvariantTestCase):
 class TestContextFilter(InvariantTestCase):
     def setUp(self):
         super().setUp()
-        self.arch(HYPHEN_ARCH)
+        self.domain(HYPHEN_DOMAIN)
         self.doc("core", domain_doc(row("INV-CORE-001", "confirmed"), title="core"))
         self.doc("core-api", domain_doc(row("INV-CORE-API-001", "confirmed"),
                                         title="core-api"))
@@ -742,18 +742,18 @@ class TestContextFilter(InvariantTestCase):
 
 
 # ---------------------------------------------------------------------------
-# 해석 불가 — ARCHITECTURE.md 자체의 오류
+# 해석 불가 — DOMAIN.md 자체의 오류
 # ---------------------------------------------------------------------------
 
 class TestUnparseable(InvariantTestCase):
-    def test_architecture_parse_error_is_reported(self):
-        self.arch(HEAD + "\n## 컨텍스트: claim\n- 분류: core\n")
+    def test_domain_parse_error_is_reported(self):
+        self.domain(BROKEN_DOMAIN)
         report = self.check()
         self.assertTrue(report.errors)
-        self.assertTrue(all(e.path == str(self.arch_path) for e in report.errors),
+        self.assertTrue(all(e.path == str(self.domain_path) for e in report.errors),
                         self.messages(report))
 
-    def test_missing_architecture_file_is_error(self):
+    def test_missing_domain_file_is_error(self):
         report = self.check()
         self.assertTrue(report.errors)
 
@@ -768,69 +768,69 @@ class TestCli(InvariantTestCase):
                               capture_output=True, text=True)
 
     def test_exit_zero_when_clean(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
         self.tagged("INV-CLAIM-001")
-        result = self.run_cli(str(self.arch_path))
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(LIMITATION_NOTE, result.stdout)
 
     def test_exit_one_when_violation(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
         self.empty_tests()
-        result = self.run_cli(str(self.arch_path))
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("INV-CLAIM-001", result.stdout)
 
     def test_exit_one_when_blocked(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
-        result = self.run_cli(str(self.arch_path))
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("검사 불능", result.stdout)
 
     def test_exit_two_when_document_error(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "wip")))
         self.empty_tests()
-        result = self.run_cli(str(self.arch_path))
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("wip", result.stderr)
 
-    def test_exit_two_when_architecture_error(self):
-        self.arch(HEAD + "\n## 컨텍스트: claim\n- 분류: core\n")
-        result = self.run_cli(str(self.arch_path))
+    def test_exit_two_when_domain_error(self):
+        self.domain(BROKEN_DOMAIN)
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
 
     def test_exit_two_on_usage_error(self):
         self.assertEqual(self.run_cli().returncode, 2)
-        self.assertEqual(self.run_cli(str(self.arch_path), "--context").returncode, 2)
-        self.assertEqual(self.run_cli(str(self.arch_path), "--bogus").returncode, 2)
+        self.assertEqual(self.run_cli(str(self.domain_path), "--context").returncode, 2)
+        self.assertEqual(self.run_cli(str(self.domain_path), "--bogus").returncode, 2)
 
     def test_warnings_do_not_change_the_exit_code(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "proposed")))
         self.tagged("INV-CLAIM-001")
-        result = self.run_cli(str(self.arch_path))
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("경고", result.stdout)
 
     def test_context_option_is_accepted(self):
-        self.arch(HYPHEN_ARCH)
+        self.domain(HYPHEN_DOMAIN)
         self.doc("core", domain_doc(row("INV-CORE-001", "confirmed"), title="core"))
         self.doc("core-api", domain_doc(row("INV-CORE-API-001", "confirmed"),
                                         title="core-api"))
         self.tagged("INV-CORE-API-001")
-        result = self.run_cli(str(self.arch_path), "--context", "core-api")
+        result = self.run_cli(str(self.domain_path), "--context", "core-api")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_json_structure(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed"),
                                      row("INV-CLAIM-002", "proposed")))
         self.tagged("INV-CLAIM-002", "INV-CLAIM-009")
-        result = self.run_cli(str(self.arch_path), "--json")
+        result = self.run_cli(str(self.domain_path), "--json")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual([v["invariant_id"] for v in payload["violations"]], ["INV-CLAIM-001"])
@@ -857,30 +857,30 @@ class TestCli(InvariantTestCase):
             "confirmed", "proposed", "test_sources", "unreadable", "blocked", "limitation",
         }
         self.assertEqual(len(documented), 12)
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
 
         # 검사 불능 경로가 먼저다 — 소비자가 분기마다 다른 모양을 만나지 않아야 한다.
-        blocked = json.loads(self.run_cli(str(self.arch_path), "--json").stdout)
+        blocked = json.loads(self.run_cli(str(self.domain_path), "--json").stdout)
         self.assertNotEqual(blocked["blocked"], "")
         self.assertEqual(set(blocked), documented)
 
         self.tagged("INV-CLAIM-001")
-        clean = json.loads(self.run_cli(str(self.arch_path), "--json").stdout)
+        clean = json.loads(self.run_cli(str(self.domain_path), "--json").stdout)
         self.assertEqual(clean["blocked"], "")
         self.assertEqual(set(clean), documented)
 
     def test_json_carries_the_description_for_apply(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed", "금액은 0보다 크다")))
         self.empty_tests()
-        payload = json.loads(self.run_cli(str(self.arch_path), "--json").stdout)
+        payload = json.loads(self.run_cli(str(self.domain_path), "--json").stdout)
         self.assertEqual(payload["invariants"][0]["description"], "금액은 0보다 크다")
 
     def test_json_reports_blocked(self):
-        self.arch()
+        self.domain()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "confirmed")))
-        result = self.run_cli(str(self.arch_path), "--json")
+        result = self.run_cli(str(self.domain_path), "--json")
         self.assertEqual(result.returncode, 1)
         self.assertIn("검사 불능", json.loads(result.stdout)["blocked"])
 

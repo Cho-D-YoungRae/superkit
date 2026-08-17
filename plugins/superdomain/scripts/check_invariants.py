@@ -39,14 +39,16 @@ from pathlib import Path
 # 소스 트리 관례(걷지 않는 디렉터리·소스 확장자)는 check_imports가 정본이다. 두 검사기가 서로
 # 다른 파일 집합을 걸으면 한쪽이 본 생성물 사본의 태그가 다른 쪽 판정을 뒤집는다.
 from check_imports import SKIP_DIRS, SOURCE_SUFFIXES, SRC_DIR
-# 컨텍스트·프로젝트 경로의 정본 파서. 패키지 패턴을 쓰지 않으므로 normalize()는 부르지 않는다 —
-# 태그 스캔의 범위는 레이어가 아니라 프로젝트 경로 아래 테스트 디렉터리다(P3-D4).
-from parse_architecture import parse_architecture
-# 오류 줄(`경로:라인: 메시지`)의 조립은 저장소에 한 벌만 둔다.
-from resolve_rules import LocatedError, format_error
+# 컨텍스트·프로젝트 경로의 정본 파서. 패키지 패턴을 쓰지 않으므로 context_packages()는 부르지
+# 않는다 — 태그 스캔의 범위는 패키지가 아니라 프로젝트 경로 아래 테스트 디렉터리다(P3-D4).
+# 오류 줄(`경로:라인: 메시지`)의 조립도 이 모듈이 정본이다 — 저장소에 한 벌만 둔다.
+from parse_domain import LocatedError, format_error, parse_domain
 
-DOMAIN_SUBDIR = "docs/architecture/domain"          # ARCHITECTURE.md 디렉터리 기준(§2)
-CONSOLIDATED_DOC = "docs/architecture/DOMAIN.md"    # 단일 컨텍스트 전용 통합 배치(§2)
+DOMAIN_SUBDIR = "docs/domain"                       # DOMAIN.md 디렉터리 기준(§2)
+# 단일 컨텍스트 전용 통합 배치(§2). **SSOT인 루트 `DOMAIN.md`와 다른 문서다** — 저쪽은 컨텍스트
+# 경계의 선언이고 이쪽은 그 컨텍스트의 불변식·애그리거트다. 이름을 나누는 규약은 "나누면
+# 디렉터리(`docs/domain/<컨텍스트>.md`), 합치면 파일 하나(`docs/domain.md`)"다.
+CONSOLIDATED_DOC = "docs/domain.md"
 
 ID_PREFIX = "INV-"
 PROPOSED = "proposed"
@@ -82,7 +84,7 @@ class Invariant:
     context: str
     description: str
     status: str
-    path: str        # 리포트에 쓰는 경로 — ARCHITECTURE.md의 디렉터리 기준 상대경로
+    path: str        # 리포트에 쓰는 경로 — DOMAIN.md의 디렉터리 기준 상대경로
     line: int
 
 
@@ -130,7 +132,7 @@ class Report:
 class _Doc:
     path: Path
     display: str
-    context: str     # 파일명이 못박는 컨텍스트("" = DOMAIN.md — 파일명 제약이 없다)
+    context: str     # 파일명이 못박는 컨텍스트("" = 통합 배치 — 파일명 제약이 없다)
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +206,7 @@ def _resolve_context(invariant_id, contexts) -> tuple:
     matched = [name for name in contexts if body.startswith(name.upper() + "-")]
     if not matched:
         return None, ("어느 선언 컨텍스트에도 붙지 않습니다 — 컨텍스트를 먼저 "
-                      "ARCHITECTURE.md에 등록하세요(§4.2)")
+                      "DOMAIN.md에 등록하세요(§4.2)")
     context = max(matched, key=lambda name: (len(name), name))
     number = body[len(context) + 1:]
     if not RE_NUMBER.fullmatch(number):
@@ -236,7 +238,7 @@ def _discover(base, contexts, target, report) -> list:
         # 표가 있든 없든 낸다. 거버넌스 밖 파일이므로 불변식은 수집하지 않는다(§4.4).
         report.warnings.append(InvariantWarning(
             _display(path, base), 0, STRAY_DOC, "",
-            f"'{path.stem}'은(는) ARCHITECTURE.md에 선언된 컨텍스트가 아닙니다 — 이 문서의 "
+            f"'{path.stem}'은(는) DOMAIN.md에 선언된 컨텍스트가 아닙니다 — 이 문서의 "
             f"불변식은 수집하지 않습니다(컨텍스트를 지웠거나 파일명 오타입니다)."))
 
     consolidated = base / CONSOLIDATED_DOC
@@ -247,17 +249,17 @@ def _discover(base, contexts, target, report) -> list:
         if len(contexts) >= 2:
             report.errors.append(LocatedError(
                 0,
-                f"컨텍스트가 {len(contexts)}개 선언됐는데 통합 배치 'DOMAIN.md'가 있습니다 — "
-                f"통합 배치는 단일 컨텍스트 전용입니다(도메인 문서 표준 §2). 컨텍스트별로 "
-                f"'{DOMAIN_SUBDIR}/<컨텍스트>.md'로 나눠 옮기세요.",
+                f"컨텍스트가 {len(contexts)}개 선언됐는데 통합 배치 '{CONSOLIDATED_DOC}'가 "
+                f"있습니다 — 통합 배치는 단일 컨텍스트 전용입니다(도메인 문서 표준 §2). "
+                f"컨텍스트별로 '{DOMAIN_SUBDIR}/<컨텍스트>.md'로 나눠 옮기세요.",
                 display))
         elif contexts and contexts[0] in declared:
             present.add(contexts[0])
             report.errors.append(LocatedError(
                 0,
                 f"컨텍스트 '{contexts[0]}'의 도메인 문서가 "
-                f"'{DOMAIN_SUBDIR}/{contexts[0]}.md'와 'DOMAIN.md' 양쪽에 있습니다 — 중복 "
-                f"배치입니다(§2). 어느 쪽이 진짜인지 정하는 규칙은 없으므로 한쪽을 지우세요.",
+                f"'{DOMAIN_SUBDIR}/{contexts[0]}.md'와 '{CONSOLIDATED_DOC}' 양쪽에 있습니다 — "
+                f"중복 배치입니다(§2). 어느 쪽이 진짜인지 정하는 규칙은 없으므로 한쪽을 지우세요.",
                 display))
             declared.pop(contexts[0])       # 어느 쪽도 코퍼스에 넣지 않는다
         else:
@@ -357,7 +359,14 @@ def _is_test_path(parts) -> bool:
 
 
 def _scan_tags(base, projects, report) -> None:
-    """선언된 프로젝트 경로 아래 테스트 소스에서 `@Tag("INV-...")` 리터럴을 모은다."""
+    """선언된 프로젝트 경로 아래 테스트 소스에서 `@Tag("INV-...")` 리터럴을 모은다.
+
+    **범위를 정하는 것은 경로 관례뿐이다.** 구 템플릿에는 `- 아키텍처 테스트 위치:` 라벨이 있어
+    `itest/kotlin`처럼 이름에 `test`가 없는 트리도 선언으로 끌어올 수 있었지만, 그 라벨은
+    fitness와 함께 퇴역했다(DOMAIN.md에 쓰면 파서가 거부한다). 그래서 관례 밖에 있는 테스트
+    트리는 이제 스캔되지 않고, 그 컨텍스트의 태그는 보이지 않는다 — 위반이 조용히 사라지는
+    쪽이 아니라 **거짓 위반이 뜨는 쪽**의 실패라 사용자가 지목된 줄에서 바로 알아챈다.
+    """
     # 프로젝트 경로는 겹칠 수 있다(모노레포의 `.`과 `backend`). 같은 파일을 두 번 세면
     # 관측 건수가 부풀고 고아 태그 경고가 중복된다.
     scanned = set()
@@ -365,10 +374,6 @@ def _scan_tags(base, projects, report) -> None:
         root = Path(os.path.normpath(base / project.path))
         if not root.is_dir():
             continue
-        # 선언된 아키텍처 테스트 위치는 프로젝트 경로 기준이고, 이름에 `test`가 없을 수도
-        # 있다(예: `itest/kotlin`). 선언을 읽지 않으면 그 트리가 통째로 사각지대가 된다.
-        declared_test = (Path(os.path.normpath(root / project.test_location))
-                         if project.test_location else None)
 
         for dirpath, dirnames, filenames in os.walk(root):
             current = Path(dirpath)
@@ -377,8 +382,7 @@ def _scan_tags(base, projects, report) -> None:
                 if not name.endswith(SOURCE_SUFFIXES):
                     continue
                 path = current / name
-                inside = declared_test is not None and path.is_relative_to(declared_test)
-                if not (inside or _is_test_path(path.relative_to(root).parts)):
+                if not _is_test_path(path.relative_to(root).parts):
                     continue
                 if path in scanned:
                     continue
@@ -443,38 +447,29 @@ def _judge(report, contexts, target) -> None:
 # 진입점
 # ---------------------------------------------------------------------------
 
-def check(arch_path, context=None) -> Report:
-    """ARCHITECTURE.md 한 건의 도메인 문서와 테스트 태그를 대조한다.
+def check(domain_path, context=None) -> Report:
+    """DOMAIN.md 한 건의 도메인 문서와 테스트 태그를 대조한다.
 
     **호출자는 report.errors가 비었는지 먼저 확인해야 한다.** 오류가 있으면 코퍼스 자체가
     불완전하므로 위반 목록은 '클린'과 다른 상태다. `report.blocked`도 같은 뜻으로 먼저
     본다 — 대조를 하지 못한 실행의 빈 위반 목록은 위반 없음이 아니다.
     """
     report = Report()
-    path = Path(arch_path)
-    path_text = str(arch_path)
+    path = Path(domain_path)
+    path_text = str(domain_path)
 
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        report.errors.append(LocatedError(
-            0,
-            f"'{path.name}' 파일을 읽을 수 없습니다. 경로를 확인하거나 "
-            f"/superarchitect:init으로 초기화하세요.",
-            path_text))
-        return report
-
-    architecture, errors = parse_architecture(text)
-    if errors:
+    # 읽기 실패도 `parse_domain`이 오류 하나로 돌려준다 — 해석의 입구를 두 곳에 두지 않는다.
+    domain = parse_domain(path)
+    if domain.errors:
         # 컨텍스트 집합을 못 믿으면 ID의 최장 일치도 못 믿는다 — 여기서 멈춘다.
-        report.errors.extend(LocatedError(e.line, e.message, path_text) for e in errors)
+        report.errors.extend(LocatedError(e.line, e.message, path_text) for e in domain.errors)
         return report
 
-    contexts = [item.name for item in architecture.contexts]
+    contexts = [item.name for item in domain.contexts]
     if context is not None and context not in contexts:
         report.errors.append(LocatedError(
             0,
-            f"컨텍스트 '{context}'는 ARCHITECTURE.md에 선언되지 않았습니다 — 선언된 컨텍스트: "
+            f"컨텍스트 '{context}'는 DOMAIN.md에 선언되지 않았습니다 — 선언된 컨텍스트: "
             f"{', '.join(contexts) or '없음'}.",
             path_text))
         return report
@@ -482,7 +477,7 @@ def check(arch_path, context=None) -> Report:
     base = path.resolve().parent
     for doc in _discover(base, contexts, context, report):
         _collect(doc, contexts, report)
-    _scan_tags(base, architecture.projects, report)
+    _scan_tags(base, domain.projects, report)
 
     report.invariants.sort(key=lambda item: (item.path, item.line))
     report.tags.sort(key=lambda tag: (tag.path, tag.line, tag.id))
@@ -544,7 +539,7 @@ def _payload(report) -> dict:
 
 
 def _usage() -> int:
-    print("사용법: python3 check_invariants.py <ARCHITECTURE.md 경로> "
+    print("사용법: python3 check_invariants.py <DOMAIN.md 경로> "
           "[--context <이름>] [--json]", file=sys.stderr)
     return 2
 
