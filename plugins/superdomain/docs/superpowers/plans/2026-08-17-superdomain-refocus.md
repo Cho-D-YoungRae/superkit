@@ -633,7 +633,7 @@ ls scripts/resolve_rules.py scripts/parse_style.py tests/test_parse_style.py 2>&
 
 1. **삭제** — `git rm -r references/knowledge/styles references/knowledge/structure`.
 2. **끊어진 위키링크 정리** — 생존 12종 본문에서 삭제된 6개 key를 가리키는 `[[...]]`를 없앤다. 대상 key: `hexagonal`·`clean`·`layered-domain`·`layered-simple`·`module-composition`·`package-conventions`. **대괄호만 벗기지 말고 문장을 도메인 언어로 고친다** — 예: "[[hexagonal]]에서는 포트를 도메인이 소유한다" → "도메인이 자신이 필요로 하는 인터페이스를 소유한다". 문장 전체가 스타일 선택에만 의미가 있으면 그 문장·절을 지운다. 생존 key끼리의 링크(`[[aggregates]]` 등)는 그대로 둔다.
-3. **frontmatter `read_when`** — 죽은 스킬 `fitness`·`scaffold`만 제거(migrate는 살아 있으므로 유지). 실측 대상 7파일: bounded-contexts, domain-classification, context-mapping, persistence, event-sourcing, cqrs, outbox.
+3. **frontmatter `read_when`** — 죽은 스킬 `fitness`·`scaffold`만 제거(migrate는 살아 있으므로 유지). 실측 대상 7파일: bounded-contexts, domain-classification, context-mapping, persistence, event-sourcing, cqrs, outbox. **`context-mapping.md`는 `migrate`를 추가**한다 — Task 13에서 migrate가 이 문서를 관계 유형의 정본으로 이름 박았는데 `read_when`이 `[init, review, scaffold]`라 두 자리가 갈려 있다. 다른 파일도 수술된 스킬이 정본으로 지목한 것이 있으면 같이 맞춘다.
 4. **본문 표현 완화** — 레이어 전제 표현을 도메인 언어로. 집중 대상은 실측된 두 파일: `persistence.md`("어댑터 봉쇄"→"영속 코드 격리", "domain 레이어"→"도메인 모델" 계열) · `repositories-domain-services.md`. **`## 적용 기준`·`## 규칙` 절 구조와 판정 내용은 유지한다 — 표현 수술이지 재작성이 아니다.**
 
 - [ ] **Step 1: 선행 조건 확인 후 삭제·수술**
