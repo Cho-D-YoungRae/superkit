@@ -598,6 +598,11 @@ class TestRelationTableShape(DomainTextCase):
         self.assertEqual(d.errors, [])
         self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"])
 
+    def test_spaced_divider_is_accepted(self):
+        d = self._with_table("| 상대 | 유형 | 계약 |\n| --- | --- | --- |\n| claim | conformist | - |\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"])
+
     def test_data_row_is_still_not_mistaken_for_a_divider(self):
         # 관용도를 넓혀도 데이터 행이 구분선으로 읽히면 안 된다 — 그러면 첫 행이 사라진다.
         d = self._with_table("| 상대 | 유형 | 계약 |\n| claim | conformist | - |  \n")
@@ -606,6 +611,54 @@ class TestRelationTableShape(DomainTextCase):
     def test_correct_table_passes(self):
         d = self._with_table("| 상대 | 유형 | 계약 |\n|---|---|---|\n| claim | conformist | v1 |\n")
         self.assertEqual(d.errors, [])
+
+
+class TestDividerIsNotADataRow(DomainTextCase):
+    """구분선 판정은 **칸당 대시 3개 이상**이다.
+
+    '대시·콜론·공백이면 아무거나'로 넓히면 `| - | - | - |` 같은 데이터 행이 구분선 자리에서
+    구분선으로 읽혀, 그 행이 오류 없이 통째로 사라진다. 후행 공백 유무로 갈라지지 않도록
+    두 변종을 모두 고정한다.
+    """
+
+    def _divider(self, line):
+        return self._parse_text(
+            MINIMAL + "\n## 컨텍스트: admin\n- 분류: generic\n\n### 관계\n"
+            + "| 상대 | 유형 | 계약 |\n" + line + "\n| claim | conformist | - |\n")
+
+    def assertAcceptedAsDivider(self, line):
+        d = self._divider(line)
+        self.assertEqual(d.errors, [], f"{line!r}이(가) 구분선으로 받아들여지지 않았습니다")
+        self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"], repr(line))
+
+    def assertRejectedAsDivider(self, line):
+        d = self._divider(line)
+        self.assertHasError(d, "구분선")
+
+    def test_dash_only_row_is_not_a_divider(self):
+        self.assertRejectedAsDivider("| - | - | - |")
+
+    def test_dash_only_row_with_trailing_space_is_not_a_divider(self):
+        # 후행 공백 변종을 빼면 같은 실수가 한쪽 경로로 재발한다.
+        self.assertRejectedAsDivider("| - | - | - |  ")
+
+    def test_two_dash_row_is_not_a_divider(self):
+        self.assertRejectedAsDivider("| -- | -- | -- |")
+
+    def test_word_row_is_not_a_divider(self):
+        self.assertRejectedAsDivider("| claim | conformist | - |")
+
+    def test_canonical_divider_variants_are_accepted(self):
+        for line in ("|---|---|---|", "|---|---|---|  ",
+                     "|:---|:---:|---:|", "|:---|:---:|---:| ",
+                     "| --- | --- | --- |"):
+            self.assertAcceptedAsDivider(line)
+
+    def test_dash_only_row_would_otherwise_vanish(self):
+        # 이 오류가 막는 상태: 구분선으로 오인되면 그 행이 relations에서 사라진다.
+        d = self._divider("| - | - | - |")
+        self.assertEqual([r.partner for r in d.contexts[1].relations], [])
+        self.assertNotEqual(d.errors, [])
 
 
 class TestRelationEmptyCells(DomainTextCase):
