@@ -543,7 +543,7 @@ git add skills/migrate && git commit -m "refactor(skills): migrate — 격리 �
 **Files:**
 - Modify: `skills/init/SKILL.md`
 
-**수술:** ① §2 거버넌스 후보 감지의 기준을 "프로파일 매칭"에서 "kt/java 소스 존재"로. ② §4 기존 코드 스캔에서 "실현 형태(모듈 구성) 추정"·"세 표 도출" 삭제, 대신 "패키지 구조에서 컨텍스트 후보 추정 — `{기본 패키지}` 바로 아래 패키지들을 후보로 제시하고 사용자가 확정"으로 대체. ③ §5 인터뷰: 5-a 경계·5-b 분류·5-e 관계 유지, **5-c 스타일·5-d 모듈 구성 삭제**, 새 5-c "패키지 — 규약 기본값과 다른 컨텍스트만 명시"를 추가. "모델이 혼자 정했다면 되돌아간다" 규율 유지. ④ §6 산출을 `DOMAIN.md`로, 파서 게이트를 `python3 scripts/parse_domain.py DOMAIN.md`로. "이행 선언" 절 삭제. ⑤ "baseline 동결" 절 재정의: 브라운필드에서 `check_imports.py` 실측 → 위반 > 0이면 동결 여부를 **사용자에게 질문** → 동결 시 **`docs/domain/baseline.jsonl`** 생성(경로 이관 확정 — `check_imports.BASELINE_RELATIVE`와 migrate가 같은 값을 본다). ⑥ §7 파생물: `docs/domain/summary.md` + 컨텍스트 맵 생성 구역. 구조 다이어그램 생성 절 삭제. ⑦ 지식 참조 프로토콜의 대상을 strategic 문서들(bounded-contexts·domain-classification·context-mapping·event-storming)로 갱신.
+**수술:** ① §2 거버넌스 후보 감지의 기준을 "프로파일 매칭"에서 "kt/java 소스 존재"로. ② §4 기존 코드 스캔에서 "실현 형태(모듈 구성) 추정"·"세 표 도출" 삭제, 대신 "패키지 구조에서 컨텍스트 후보 추정 — `{기본 패키지}` 바로 아래 패키지들을 후보로 제시하고 사용자가 확정"으로 대체. ③ §5 인터뷰: 5-a 경계·5-b 분류·5-e 관계 유지, **5-c 스타일·5-d 모듈 구성 삭제**, 새 5-c "패키지 — 규약 기본값과 다른 컨텍스트만 명시"를 추가. "모델이 혼자 정했다면 되돌아간다" 규율 유지. ④ §6 산출을 `DOMAIN.md`로, 파서 게이트를 `python3 scripts/parse_domain.py DOMAIN.md`로. "이행 선언" 절 삭제. ⑤ "baseline 동결" 절 재정의: 브라운필드에서 `check_imports.py` 실측 → 위반 > 0이면 동결 여부를 **사용자에게 질문** → 동결 시 **`docs/domain/baseline.jsonl`** 생성(경로 이관 확정 — `check_imports.BASELINE_RELATIVE`와 migrate가 같은 값을 본다). ⑥ §7 파생물: **`docs/domain-summary.md`**(요약 — `docs/domain/` **밖**이다. 안에 두면 `check_invariants._discover`가 컨텍스트 문서로 오인해 매 실행 거짓 경고를 낸다) + 컨텍스트 맵 생성 구역. 구조 다이어그램 생성 절 삭제. ⑦ 지식 참조 프로토콜의 대상을 strategic 문서들(bounded-contexts·domain-classification·context-mapping·event-storming)로 갱신.
 
 - [ ] **Step 1: 수술** → **Step 2: 게이트 grep + 전체 테스트**
 - [ ] **Step 3: Phase 3 검증 게이트 — 스킬·에이전트 전체 죽은 참조 스캔**
@@ -602,7 +602,7 @@ git commit -m "docs(governance): domain-template.md 정본 신설 — 결정 템
 ### Task 16: 잔여 거버넌스 3종 손질
 
 **Files:**
-- Modify: `references/governance/domain-doc-template.md` — 위치 절의 `docs/architecture/domain/` → `docs/domain/`, ARCHITECTURE.md 참조 → DOMAIN.md. 파싱 계약·절별 규칙 무수정.
+- Modify: `references/governance/domain-doc-template.md` — 위치 절(§2)의 경로 **세 개를 전부** 새 값으로: 기본 `docs/architecture/domain/<컨텍스트>.md` → **`docs/domain/<컨텍스트>.md`**, 통합 배치 `docs/architecture/DOMAIN.md` → **`docs/domain.md`**(루트 SSOT `DOMAIN.md`와 이름이 겹치지 않게 — "나누면 디렉터리, 합치면 파일 하나"), 그리고 세션 요약이 **`docs/domain-summary.md`**로 `docs/domain/` 밖에 있음을 명시(그 디렉터리의 `*.md`는 전부 컨텍스트 문서로 읽힌다). ARCHITECTURE.md 참조 → DOMAIN.md. 파싱 계약·절별 규칙 무수정. **이 셋은 `check_invariants.py`의 `DOMAIN_SUBDIR`·`CONSOLIDATED_DOC`·`session_summary.sh`와 정확히 일치해야 한다.**
 - Modify: `references/governance/evolution-signals.md` — 스타일 이행 관련 임계값·해석 절 삭제. 경계 재획정·공변경·핫스팟 해석 유지. 참조하는 스킬 목록에서 fitness·scaffold 제거.
 - Modify: `references/governance/adr-template.md` — 후속 연결 예시에서 "규칙 예외·스타일 선언" → "관계 표·분류·패키지 라벨" (Task 10의 adr 수술과 정합).
 
