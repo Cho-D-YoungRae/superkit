@@ -41,12 +41,12 @@ class TestSessionSummary(unittest.TestCase):
 
     def test_finds_summary_from_subdirectory(self):
         """Test upward search from subdirectory to git root."""
-        # Setup: repo/.git (directory) + repo/docs/domain/summary.md
+        # Setup: repo/.git (directory) + repo/docs/domain-summary.md
         repo = self.tmpdir / "repo"
         repo.mkdir()
         (repo / ".git").mkdir()
-        (repo / "docs" / "domain").mkdir(parents=True)
-        summary_file = repo / "docs" / "domain" / "summary.md"
+        (repo / "docs").mkdir(parents=True)
+        summary_file = repo / "docs" / "domain-summary.md"
         summary_file.write_text("SUMMARY-OK")
 
         # Run from repo/backend (subdirectory)
@@ -75,8 +75,8 @@ class TestSessionSummary(unittest.TestCase):
         repo = self.tmpdir / "repo"
         repo.mkdir()
         (repo / ".git").mkdir()
-        (repo / "docs" / "domain").mkdir(parents=True)
-        (repo / "docs" / "domain" / "summary.md").write_text("SUMMARY-AT-ROOT")
+        (repo / "docs").mkdir(parents=True)
+        (repo / "docs" / "domain-summary.md").write_text("SUMMARY-AT-ROOT")
 
         stdout, returncode = self._run_script(repo)
 
@@ -89,11 +89,11 @@ class TestSessionSummary(unittest.TestCase):
         Verifies that .git as a file (worktree marker) is detected and traversal stops,
         preventing "poison" file from outer directory from being included.
         """
-        # Setup: outer/docs/domain/summary.md (poison — should NOT be found)
+        # Setup: outer/docs/domain-summary.md (poison — should NOT be found)
         outer = self.tmpdir / "outer"
         outer.mkdir()
-        (outer / "docs" / "domain").mkdir(parents=True)
-        (outer / "docs" / "domain" / "summary.md").write_text("POISON-MUST-NOT-APPEAR")
+        (outer / "docs").mkdir(parents=True)
+        (outer / "docs" / "domain-summary.md").write_text("POISON-MUST-NOT-APPEAR")
 
         # Setup: outer/wt/.git as FILE (worktree) with no summary of its own
         wt = outer / "wt"
@@ -120,8 +120,8 @@ class TestSessionSummary(unittest.TestCase):
         # Setup: Same tree as test_stops_at_worktree_root
         outer = self.tmpdir / "outer"
         outer.mkdir()
-        (outer / "docs" / "domain").mkdir(parents=True)
-        poison_file = outer / "docs" / "domain" / "summary.md"
+        (outer / "docs").mkdir(parents=True)
+        poison_file = outer / "docs" / "domain-summary.md"
         poison_file.write_text("POISON-MUST-NOT-APPEAR")
 
         wt = outer / "wt"
