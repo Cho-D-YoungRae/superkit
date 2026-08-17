@@ -236,7 +236,7 @@ domain 문서의 `## 불변식` 표와 코드가 정합한가. **갈래가 둘�
 
 | 필드 | 필수 | 값 |
 |---|---|---|
-| `type` | 필수 | `violation`(근거 규칙을 어김) · `missing`(근거가 요구하는 것이 없음) · `drift`(선언과 코드가 어긋남) · `discussion`(판정 근거는 없으나 다음 모델링 세션의 안건). **근거 문서에서 대응 규칙을 찾지 못했으면 `violation`이 아니라 `discussion`이다**(§5). C4 (1)은 언제나 `discussion`, C4 (2)는 `drift` — **단 C4 (2)의 예외 갈래(태그가 아예 없는데 `check_invariants`를 못 돌렸다고 전달받았을 때)만 `missing`이다** |
+| `type` | 필수 | `violation`(근거 규칙을 어김) · `missing`(근거가 요구하는 것이 없음) · `drift`(선언과 코드가 어긋남) · `discussion`(판정 근거는 없으나 다음 모델링 세션의 안건). **근거 문서에서 대응 규칙을 찾지 못했으면 `violation`이 아니라 `discussion`이다**(§5). C4 (1)은 언제나 `discussion`, C4 (2)는 `drift` — **단 C4 (2)의 예외 갈래(태그가 아예 없는데 `check_invariants`를 못 돌렸거나 `검사 불능`으로 끝났다고 전달받았을 때)만 `missing`이다** |
 | `path` | 필수 | 저장소 루트 기준 상대 경로. 특정 파일을 지목할 수 없는 항목만 `(input)` |
 | `line` | 선택 | 실제로 읽은 라인 번호 |
 | `severity` | 필수 | `blocker` · `warn` · `info` |

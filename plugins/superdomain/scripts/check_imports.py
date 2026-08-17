@@ -168,8 +168,8 @@ class Report:
     violations: list = field(default_factory=list)
     zero_match: list = field(default_factory=list)
     # 해석 단계가 넘겨주는 경고 채널. `parse_domain`은 오류만 내고 경고를 내지 않으므로 지금은
-    # 언제나 비어 있다 — 소비자(migrate·evolve·init 스킬)가 읽는 `--json` 키를 없애지 않으려고
-    # 자리를 유지한다. 파서가 경고를 갖게 되면 여기로 승계한다.
+    # 언제나 비어 있다 — 지금 이 키를 읽는 스킬은 없고, `--json` 스키마의 계약 안정성 때문에
+    # 자리를 유지한다(키가 사라지면 스키마가 깨진다). 파서가 경고를 갖게 되면 여기로 승계한다.
     inherited: list = field(default_factory=list)
     skipped: list = field(default_factory=list)
     unreadable: list = field(default_factory=list)  # 읽지 못한 소스 — 검사에서 빠진 사각지대
@@ -278,7 +278,7 @@ def _load_sources(root, base) -> tuple:
 def _load_baseline(base) -> tuple:
     """`docs/domain/baseline.jsonl`을 자동 감지한다 — (Baseline|None, [LocatedError]).
 
-    **플래그를 두지 않는다.** 파일이 있다는 것은 그 프로젝트가 이행 중이라는 선언이고, 그때
+    **플래그를 두지 않는다.** 파일이 있다는 것은 그 프로젝트가 상환 중이라는 선언이고, 그때
     부채와 신규를 가르지 않은 판정은 언제나 틀린 판정이다 — 켜고 끌 대상이 아니다.
     """
     path = base / BASELINE_RELATIVE

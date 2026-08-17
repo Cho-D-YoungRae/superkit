@@ -44,9 +44,14 @@
 | `generic` | 선택 — 기록할 불변식이 쌓이면 문서를 늘리기 전에 분류부터 다시 본다(`references/knowledge/strategic/domain-classification.md`) |
 
 **이 표는 기계가 강제하지 않는다.** 분류에는 기계 강제가 붙지 않고(`domain-template.md` §3),
-`check_invariants.py`도 문서가 없는 컨텍스트에 「불변식 0건」 고지를 낼 뿐이다. 그래서 필수인
-컨텍스트에 문서가 없으면 그 자체가 리뷰 지적 대상이다 — 불변식이 없는 게 아니라 적히지 않은
-것이기 때문이다.
+`check_invariants.py`도 문서가 없는 컨텍스트에 「불변식 0건」 고지를 낼 뿐이다 — 그 검사는 분류를
+읽지 않으므로 고지 문면이 `core`에서도 `generic`에서도 같다. 그래서 필수인 컨텍스트에 문서가 없으면
+그 자체가 리뷰 지적 대상이다 — 불변식이 없는 게 아니라 적히지 않은 것이기 때문이다.
+
+**그 지적을 내는 것은 `review` 스킬이다.** 위 고지를 `DOMAIN.md`의 `- 분류:`와 대조해
+`core`·`supporting`인 컨텍스트만 「필수 문서 없음」으로 갈라 리포트에 싣는다
+(`skills/review/SKILL.md` 2-c). 결정적으로 판정되는 사실이라 `domain-reviewer`의 다섯 범주에는
+넣지 않는다.
 
 ## 2. 위치
 

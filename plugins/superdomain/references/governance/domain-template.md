@@ -403,7 +403,7 @@ python3 scripts/check_imports.py DOMAIN.md [--json]
 새 위반만 막는 래칫이 `baseline.jsonl`이다.
 
 **경로는 `docs/domain/baseline.jsonl` 하나다**(`check_imports.py`의 `BASELINE_RELATIVE`). 플래그가 없다
-— 파일이 있다는 것 자체가 그 프로젝트가 이행 중이라는 선언이므로 자동 감지해 읽는다.
+— 파일이 있다는 것 자체가 그 프로젝트가 상환 중이라는 선언이므로 자동 감지해 읽는다.
 
 **문법** — 한 줄에 위반 하나씩, 한 줄 JSON 객체다.
 

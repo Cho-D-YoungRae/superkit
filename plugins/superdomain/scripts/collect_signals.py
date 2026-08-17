@@ -613,8 +613,9 @@ def collect(domain_path, since=None) -> Signals:
         notices.append(f"{REVIEW_LOG}이 없습니다 — 항목 ④를 산출하지 못했습니다(review 스킬이 "
                        f"아직 기록하지 않았거나 경로가 다릅니다).")
     if not baseline.present:
-        notices.append(f"baseline 없음 — {BASELINE}이 없습니다. 이행 선언이 없거나 아직 "
-                       f"동결하지 않았습니다(항목 ⑤ 미산출).")
+        notices.append(f"baseline 없음 — {BASELINE}이 없습니다. 아직 동결하지 않았습니다 — 이 "
+                       f"파일의 존재 자체가 부채를 안고 상환 중이라는 선언이고 별도 라벨은 "
+                       f"없습니다(항목 ⑤ 미산출).")
     elif baseline.history and baseline.history[-1].lines != baseline.lines:
         notices.append(f"{BASELINE}: 이력 누적 {baseline.history[-1].lines}줄과 현재 파일 "
                        f"{baseline.lines}줄이 다릅니다 — 추이는 근사입니다.")
