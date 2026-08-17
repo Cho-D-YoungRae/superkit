@@ -10,11 +10,10 @@ description: >
   옮겨줘", "apply domain", "implement invariants", "/superarchitect:apply"를 요청할 때,
   `/superarchitect:model` 세션에서 항목을 confirmed로 확정한 직후, 또는 검사·리뷰가 "confirmed
   불변식에 대응 테스트 태그가 없습니다"를 보고했을 때 사용한다. proposed 항목은 구현하지 않으며
-  불변식을 끌어내 확정하는 인터뷰는 `/superarchitect:model`이 맡는다. 컨텍스트·분류·스타일·모듈
-  선언을 세우거나 바꾸는 일에는 쓰지 않고(`/superarchitect:init`), 선언만 있고 코드가 없는 구조
-  골격을 템플릿으로 찍어내는 일에도 쓰지 않는다(`/superarchitect:scaffold`). 변경분을 검토하고
-  리포트만 내는 일은 `/superarchitect:review`이고, 아키텍처 규칙 테스트 생성은
-  `/superarchitect:fitness`다.
+  불변식을 끌어내 확정하는 인터뷰는 `/superarchitect:model`이 맡는다. 컨텍스트·분류·패키지·관계
+  선언을 세우거나 바꾸는 일에는 쓰지 않고(`/superarchitect:init`), 선언과 디스크의 어긋남을
+  대조·처분하는 일에도 쓰지 않는다(`/superarchitect:sync`). 변경분을 검토하고 리포트만 내는 일은
+  `/superarchitect:review`다.
 ---
 
 # domain 문서를 코드로
@@ -31,7 +30,7 @@ description: >
    흩어진다.
 3. **모호하면 해석하지 않는다.** 문서가 답하지 않는 것을 코드가 대신 정하면 그 결정은 아무도
    모르는 곳에 묻힌다. `## 열린 질문`에 append하고 그 부분은 남긴다. **`confirmed` 서술과
-   `ARCHITECTURE.md`·스타일 선언은 이 스킬이 고치지 않는다** — 게이트를 통과시키려고 문서를
+   `DOMAIN.md`는 이 스킬이 고치지 않는다** — 게이트를 통과시키려고 문서를
    고치는 것은 강제 장치를 스스로 무르는 것이다.
 
 **판단은 적극적으로, 확정은 사용자가.** 코드 설계(어떤 타입에 무엇을 두는가, 어떻게 강제하는가)는
@@ -45,10 +44,10 @@ description: >
 
 - INDEX의 `read_when`에 `apply`가 있고 **이번 작업에 실제로 해당하는** 문서 — 애그리거트를
   만들면 `aggregates`, 값 객체면 `value-objects`, 이벤트를 발행하면 `domain-events`, 리포지토리
-  포트·도메인 서비스면 `repositories-domain-services`, 영속 어댑터가 얽히면 `persistence`.
-- 대상 컨텍스트가 선언한 `스타일`·`패턴` 문서. 커스텀 스타일이면 대상 프로젝트의
-  `docs/architecture/styles/<이름>.md`.
-- 대상 프로젝트의 `docs/architecture/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
+  포트·도메인 서비스면 `repositories-domain-services`, 영속이 얽히면 `persistence`.
+- 대상 컨텍스트가 `- 패턴:`으로 선언한 문서(`cqrs`·`outbox`·`event-sourcing`). 선언되지 않은
+  패턴을 이번 구현으로 들이지 않는다 — 패턴 채택은 선언 변경이고 그것은 init의 일이다.
+- 대상 프로젝트의 `docs/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 INDEX의 `draft` 칸이 찬 문서는 구현 규칙의 근거로 인용하지 않는다.
 
@@ -60,20 +59,20 @@ INDEX의 `draft` 칸이 찬 문서는 구현 규칙의 근거로 인용하지 �
 git rev-parse --show-toplevel
 ```
 
-그 경로의 `ARCHITECTURE.md`가 기준이다. 하위 디렉터리에서 시작했어도 여기로 올라와 작업한다.
+그 경로의 `DOMAIN.md`가 기준이다. 하위 디렉터리에서 시작했어도 여기로 올라와 작업한다.
 파일이 없으면 아래를 알리고 **중단**한다.
 
-> superarchitect가 초기화되지 않았습니다. `/superarchitect:init`으로 아키텍처 거버넌스를 먼저 세우세요.
+> superarchitect가 초기화되지 않았습니다. `/superarchitect:init`으로 도메인 경계 선언을 먼저 세우세요.
 
 ## 1. 대상 컨텍스트와 domain 문서
 
 인자로 컨텍스트가 오면 그것이다. 없으면 선언된 컨텍스트를 나열하고 **하나를 근거와 함께
 권한다**(최근 model 세션이 손댄 문서, `git log`가 보여주는 최근 변경, confirmed 미구현이 많은
-쪽). 고르는 것은 사용자다. 한 번에 한 컨텍스트만 다룬다 — 스타일도 domain 문서도 컨텍스트마다
+쪽). 고르는 것은 사용자다. 한 번에 한 컨텍스트만 다룬다 — 패키지도 domain 문서도 컨텍스트마다
 다르다.
 
-domain 문서는 `docs/architecture/domain/<컨텍스트>.md`, 컨텍스트가 하나뿐인 프로젝트면
-`docs/architecture/DOMAIN.md`다(정본: `${CLAUDE_PLUGIN_ROOT}/references/governance/domain-doc-template.md` §2).
+domain 문서는 `docs/domain/<컨텍스트>.md`, 컨텍스트가 하나뿐인 프로젝트면
+`docs/domain.md`다(정본: `${CLAUDE_PLUGIN_ROOT}/references/governance/domain-doc-template.md` §2).
 
 **문서가 없으면 만들지 않고 중단한다.**
 
@@ -86,7 +85,7 @@ domain 문서는 `docs/architecture/domain/<컨텍스트>.md`, 컨텍스트가 �
 ## 2. 작업 목록은 검사기가 정한다 — 직접 재스캔하지 않는다
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" ARCHITECTURE.md --context <컨텍스트> --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context <컨텍스트> --json
 ```
 
 - exit **2**면 해석 불가다. stdout에 **payload가 없고** stderr에 `경로:라인: 메시지` 줄만 있다.
@@ -124,105 +123,52 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" ARCHITECTURE.md --co
 **쓰기 전에** 한 번 찍어 두는 수밖에 없다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 ```
 
 `violations[]`의 `rule_id`·`path`·`line` 집합만 보관한다. exit **2**면 결정적 게이트 하나가
 원리적으로 돌지 않는 상태다 — stderr를 그대로 보여주고 **중단한다.** 완료를 확인할 수 없는
 채로 코드를 쓰기 시작하지 않는다.
 
-## 3. 구현 위치 — 선언이 정한다
+## 3. 구현 위치 — 패키지 라벨이 정한다
 
-패키지 자리는 스타일 선언의 레이어 배치에서 나온다. 손으로 만들지 않는다.
-
-```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/resolve_rules.py" ARCHITECTURE.md --json
-```
-
-exit 1이면 stderr의 `경로:라인: 메시지`를 그대로 보여주고 중단한다(fitness와 같은 규약).
-`effective[]`에서 `project`·`context`가 대상과 같은 항목을 찾아 `layer_patterns["domain"]`을
-읽는다 — fitness·review와 같은 소비 관례다.
-
-**그 키가 없거나 비어 있으면 자리를 지어내지 않는다.** 처방이 둘로 갈리므로 **먼저 스타일
-선언의 레이어 목록에 `domain`이 있는지 본다** — 프리셋은
-`${CLAUDE_PLUGIN_ROOT}/references/knowledge/styles/<이름>.md`, 커스텀은 대상 프로젝트의
-`docs/architecture/styles/<이름>.md`다.
-
-**갈림은 같은 JSON 안에서 이미 결정돼 있다.** `warnings[]`에 이 컨텍스트의 `layer == "domain"`
-공허 레이어 경고가 있으면 (가)이고, 없으면 (나)다 — 그 경고는 **스타일이 선언한 레이어**만
-훑어 나오므로 존재 자체가 "스타일에 domain이 있다"는 뜻이다. 문서를 해석해 판단하기 전에 이
-한 줄로 갈라진다.
-
-**(가) 스타일이 domain을 선언했다 — 실현만 비었다.** `warnings`의 공허 레이어 고지가 같은
-사실을 말한다. 아래 `all` 예외에 해당하지 않으면 중단하고 알린다: 모듈 표나 패키지 규약에
-domain 레이어를 등록하는 것은 사용자 확정 사항이고, 그 등록과 모듈·빌드 스크립트 생성을 함께
-하는 것이 `/superarchitect:scaffold`다. 이 스킬은 없는 자리를 만들지 않는다.
-
-**(가)의 예외는 `all` 하나다.** 모듈 표의 `레이어`가 `all`이고 패키지 규약 표가 없으면 정규화
-결과의 키도 `all`이다(패턴은 `<기본 패키지>.<컨텍스트>..`). 레이어를 물리적으로 나누지 않은
-실현이라 domain 패키지가 **선언되지 않은** 것이지 자리가 없는 것은 아니다. 그 패턴 아래
-`<기본 패키지>.<컨텍스트>.domain`을 **제안하고 확정받은 뒤** 쓰되, 그 레이어가 검사에는 보이지
-않는다는 사실(공허 레이어 경고가 함께 나온다)을 알린다 — 강제까지 원하면 패키지 규약 표에
-레이어를 등록해야 하고 그것은 사용자의 결정이다.
-
-**(나) 스타일에 domain 레이어가 없다 — 등록하라고 말하지 않는다.** `layered-simple`
-(presentation·application·data)이 전형이지만 **그것 하나가 아니다** — 레이어 이름이 다른 커스텀
-스타일도 여기 온다. 스타일이 선언하지 않은 레이어를 모듈 표나 패키지 규약에 적으면
-`resolve_rules`가 스타일 선언과 대조해 **오류로 거부한다** — (가)의 안내를 여기서 그대로 하면
-문서를 깨뜨리는 지시가 된다. 어느 쪽이든 **중단하고** 알리되, 처방은 아래에서 갈린다.
-
-**(나) 안에서 한 번 더 갈린다 — 판별자는 레이어 이름이 아니라 `confine-type`이다.**
-`domain-pure` 여부는 **예외 적용 후의 유효 규칙에 `confine-type` 인스턴스가 하나라도 있는가**로
-정해진다(`architecture-template.md` §5.1 규칙 5). 레이어 이름과는 무관하다 — 프리셋의
-`domain-pure`도 `allowed_layer`가 `adapter`(hexagonal)·`framework`(clean)·`infrastructure`
-(layered-domain)이지 `domain`이 아니다. 같은 JSON의 `effective[]`에서 이 프로젝트·컨텍스트 항목
-중 `primitive == "confine-type"`이 있는지 보면 끝난다.
-
-**(나-1) `confine-type`이 없다 — domain-pure가 아니다.**
-
-> `<컨텍스트>`의 스타일 `<이름>`에는 domain 레이어가 없고 도메인 순수성 규칙
-> (`confine-type`)도 없습니다. 기록할 불변식이 쌓이면 문서를 늘리기 전에 스타일 선택부터 다시
-> 봅니다(`<스타일 문서 경로>`). 스타일 재검토는 `/superarchitect:init`, 그 결정을 남기는 것은
-> `/superarchitect:adr`입니다.
-
-`<스타일 문서 경로>`는 **그 컨텍스트가 실제로 선언한 스타일**을 가리킨다 — 프리셋이면
-`${CLAUDE_PLUGIN_ROOT}/references/knowledge/styles/<이름>.md`, 커스텀이면 대상 프로젝트의
-`docs/architecture/styles/<이름>.md`다. `layered-simple`을 하드코딩하지 않는다.
-
-정본 §1이 domain 문서를 **선택**으로 명시한 스타일은 `layered-simple` 하나다. 그 밖의 스타일이
-여기 걸렸다면 "정본이 선택이라고 했다"고 인용하지 말고, **표에 없는 조합**이라는 사실 그대로
-말한다.
-
-**(나-2) `confine-type`이 있다 — domain-pure이므로 domain 문서는 필수다.**
-
-> `<컨텍스트>`의 스타일 `<이름>`은 도메인 순수성 규칙(`<규칙 id>`)을 두므로 domain-pure이고,
-> domain 문서는 **필수**입니다 — 그 문서는 이미 갖춰져 있습니다(1단계 게이트를 지나왔습니다).
-> 다만 이 스타일의 레이어 목록에는 `domain`이라는 이름이 없어 구현 자리를 이 스킬이 정할 수
-> 없습니다. 어느 레이어가 도메인 코어인지 확정한 뒤 다시 부르세요. 문서 쪽을 손봐야 하면
-> `/superarchitect:model <컨텍스트>`를 실행하세요 — domain 문서를 쓰는 것은 그 스킬입니다.
-
-**"문서를 먼저 갖추라"고 말하지 않는다.** 1단계가 domain 문서 없이는 여기까지 오지 못하게 막으므로
-(문서 부재는 그 자리에서 중단이다) 이 문면에 도달했다면 문서는 **언제나 이미 있다.** 남은 것은
-레이어 이름과 도메인 코어의 대응 하나뿐이다.
-
-여기서는 **스타일 재검토를 처방하지 않는다.** 부족한 것은 스타일 선택이 아니라 레이어 이름과
-도메인 코어의 대응이고, 그 대응을 정하는 것은 사용자다.
-
-파일 자리는 셋을 이어 만든다.
+자리는 선언에서 나온다. 손으로 지어내지 않는다. `DOMAIN.md`의 대상 컨텍스트 절과 그 컨텍스트가
+귀속된 프로젝트 절에서 셋을 읽어 잇는다.
 
 | 조각 | 어디서 |
 |---|---|
-| 프로젝트 경로 | `projects[].path`(git 루트 기준, `.`일 수 있다) |
-| 모듈 경로 | `ARCHITECTURE.md` 컨텍스트 **모듈 표**에서 `레이어`가 `domain`(또는 `all`)인 행의 `경로` — 프로젝트 경로 기준. **app-embedded 컨텍스트는 모듈 표가 없다** → 어느 앱 모듈인지 사용자에게 묻는다 |
-| 소스 루트·패키지 | `src/main/<kotlin\|java>` + `layer_patterns["domain"]` 패턴에서 끝의 `..`를 뗀 패키지 |
+| 프로젝트 경로 | 컨텍스트의 `- 프로젝트:`가 가리키는 `## 프로젝트:` 절의 `- 경로:`(git 루트 기준, `.`일 수 있다). 프로젝트가 하나뿐이면 컨텍스트에 라벨이 없어도 그 프로젝트다 |
+| 패키지 접두 | 컨텍스트의 `- 패키지:` 목록. **라벨이 없으면 규약 기본값 `<기본 패키지>.<컨텍스트>..`** — 프로젝트 절의 `- 기본 패키지:`로 만든다 |
+| 소스 루트 | 프로젝트 경로 아래의 `src/main/<kotlin\|java>` — 실제 배치는 3-a의 관측으로 확인한다 |
 
-- **언어는 관측으로 정한다** — 그 모듈에 이미 있는 소스가 쓰는 쪽. 비어 있으면 프로파일 기본
-  (`kotlin-spring` → `kotlin`, `java-spring` → `java`).
-- 패턴이 둘 이상이면 고르지 말고, 기존 타입이 어디 사는지 관측해 **하나를 권하고 확정받는다.**
-- 디렉터리·패키지는 만들어도 된다. **모듈(빌드 스크립트·`settings.gradle`의 `include`)은 만들지
-  않는다** — 없으면 그 사실을 알린다.
+- 패키지 값은 전부 `..`로 끝나는 **접두 패턴**이다("그 패키지와 그 아래 전부"). 자리를 만들 때는
+  끝의 `..`를 뗀 패키지를 쓴다.
+- **패턴이 둘 이상이면 고르지 말고**, 기존 타입이 어디 사는지 관측해 **하나를 권하고 확정받는다.**
+- **도메인 코어를 어느 하위 패키지에 둘지는 이 플러그인이 정하지 않는다.** 컨텍스트 패키지 아래에
+  이미 쓰이는 배치가 있으면 그것을 따르고, 비어 있으면 하나를 **제안하고 확정받는다.** 컨텍스트
+  패키지 **밖**에 두지는 않는다 — 그 순간 그 코드는 컨텍스트에 귀속되지 않아 격리 검사에서
+  사라진다.
+- 디렉터리·패키지는 만들어도 된다. **빌드 모듈(빌드 스크립트·`settings.gradle`의 `include`)은
+  만들지 않는다** — 없으면 그 사실을 알린다.
+- 컨텍스트 절을 읽어도 프로젝트나 기본 패키지가 정해지지 않으면 **자리를 지어내지 말고 중단한다.**
+  그 상태는 선언의 결함이고 고치는 곳은 `/superarchitect:init`이다(파서도 같은 이유로 거부한다).
 
-### 3-a. 타입 존재 확인
+### 3-a. 언어·빌드 도구·테스트 관례는 대상 코드베이스에서 감지한다
+
+이 플러그인은 언어·프레임워크를 미리 알지 못한다. **감지가 먼저이고, 감지한 것에 맞춘다.**
+
+- **빌드 파일을 먼저 읽는다** — `build.gradle.kts`·`build.gradle`·`pom.xml`. 무엇이 있는지가 빌드
+  도구를 말하고, 의존성 목록이 테스트 프레임워크(JUnit 5인지 아닌지)를 말한다.
+- **언어는 관측으로 정한다** — 그 프로젝트에 이미 있는 소스가 쓰는 쪽(`src/main/kotlin`과
+  `src/main/java` 중 어디에 파일이 있는지, 확장자가 무엇인지).
+- **테스트 관례는 기존 테스트에서 읽는다** — import 목록(어떤 assert·픽스처 라이브러리를 쓰는지),
+  클래스·메서드 네이밍, 디렉터리 배치. 새로 쓰는 테스트는 그 관례에 맞춘다. 관례를 바꾸는 것은
+  요청받지 않은 변경이다.
+- **감지가 불가능하면(테스트 소스 0건) 사용자에게 묻는다.** 기본값을 가정하지 않는다 — 틀린
+  프레임워크로 쓴 테스트는 게이트에 닿기도 전에 컴파일에서 무너진다. 물을 때 관측한 것(빌드
+  파일이 무엇을 말했는지)을 함께 보여준다.
+
+### 3-b. 타입 존재 확인
 
 domain 문서의 애그리거트·값 객체 표에 적힌 이름을 domain 소스 루트에서 찾는다.
 
@@ -239,14 +185,19 @@ grep -rnE '\b(class|interface|object|record|enum)[[:space:]]+(Claim|Money|ClaimN
 
 ### 4-a. 도메인 코어
 
-불변식을 **강제하는** 로직을 도메인 레이어에 둔다. 판단 근거는 이 시점에 읽는다 —
+불변식을 **강제하는** 로직을 3단계가 정한 도메인 코어 자리에 둔다. 판단 근거는 이 시점에 읽는다 —
 `aggregates.md`(경계와 R4 "불변식은 루트 안에서 강제된다"), `value-objects.md`(원시 타입 승격),
 그리고 영속이 얽히면 `persistence.md`.
 
 - 불변식은 **생성·변경 경로에서 깨질 수 없게** 만든다. 검증 메서드를 따로 두고 호출을 잊을 수
   있게 두는 것은 강제가 아니다.
-- 도메인 코어에 프레임워크·영속 타입을 들이지 않는다. 스타일이 그것을 규칙으로 갖고 있고
-  (`*.domain-pure`), 어긴 코드는 6단계의 `check_imports`가 잡는다.
+- 도메인 코어에 프레임워크·영속 타입을 들이지 않는다. **이것을 잡는 결정적 검사는 없다** —
+  `check_imports`가 보는 것은 컨텍스트 격리 하나이고 도메인 순수성은 판정하지 않는다. 근거와
+  판정 기준은 `persistence.md`가 갖고, 어긋남을 지적하는 것은 리뷰의 의미론 판정이다. 검사가
+  침묵한다는 사실이 허가는 아니다.
+- **다른 컨텍스트의 타입을 도메인 코어로 끌어들이지 않는다.** 그 쌍이 `### 관계` 표에 없으면
+  6-b가 새 위반으로 잡는다. 필요하다고 판단되면 관계를 여는 것은 선언 변경이므로
+  `/superarchitect:init`으로 보내고, 이번 구현에서는 그 자리를 남긴다(5단계).
 - 기존 타입이 있으면 **고쳐 쓴다.** 같은 개념의 두 번째 타입을 만들지 않는다.
 - **공개 시그니처를 바꿨으면 기존 호출자를 맞추는 것도 이 스킬의 일이다.** 생성자를 private으로
   내리거나 필수 필드를 더하면 그 타입을 쓰던 어댑터·서비스가 더는 컴파일되지 않는다 — 6-d가
@@ -258,10 +209,9 @@ grep -rnE '\b(class|interface|object|record|enum)[[:space:]]+(Claim|Money|ClaimN
 - 태그는 **리터럴** `@Tag("INV-<CONTEXT>-NNN")`이다(JUnit 5, `org.junit.jupiter.api.Tag`).
   상수 간접 참조(`@Tag(INV_CLAIM_001)`)와 완전 수식 애너테이션은 검사기가 보지 못한다 —
   리터럴로 쓰는 것이 규약이다. ID는 문서의 문자열과 **한 글자도 다르지 않게** 옮긴다.
-- 자리는 **같은 모듈의 `src/test/<같은 언어>/<같은 패키지>`**다. 검사기가 태그를 보는 곳은
+- 자리는 **같은 프로젝트의 `src/test/<같은 언어>/<같은 패키지>`**다. 검사기가 태그를 보는 곳은
   선언된 프로젝트 경로 아래의 테스트 소스이고, 그 밖에 두면 태그가 있어도 게이트는 영원히
-  통과하지 않는다. 프로젝트 섹션의 `아키텍처 테스트 위치`에는 두지 않는다 — 그 자리는 fitness
-  생성물의 것이다.
+  통과하지 않는다.
 - **테스트는 그 불변식을 실제로 검증해야 한다.** 검사기는 태그 존재만 본다 — 태그만 달린 빈
   테스트도 통과시킨다. 그것을 잡는 것은 arch-reviewer의 의미론 판정이고, **애초에 만들지 않는
   것이 이 스킬의 규율이다.** 서술이 "승인된 청구의 금액은 변경할 수 없다"면 변경을 시도해
@@ -277,8 +227,9 @@ grep -rnE '\b(class|interface|object|record|enum)[[:space:]]+(Claim|Money|ClaimN
 도메인 코어를 실제로 쓰게 만드는 데 필요한 만큼만. 리포지토리 포트 인터페이스의 소유 위치와
 애그리거트 단위 규칙은 `repositories-domain-services.md`가 정한다.
 
-- 포트는 **안쪽이 소유한다**(hexagonal `hex.ports-owned-inside`). 어댑터 구현은 이 스킬이
-  만들지 않는다 — 필요하면 무엇이 필요한지 보고하고 사용자 요청을 받는다.
+- 포트는 **안쪽이 소유한다** — 도메인이 자신에게 필요한 인터페이스를 선언하고 바깥이 그것을
+  구현한다(근거: `repositories-domain-services.md`). 어댑터 구현은 이 스킬이 만들지 않는다 —
+  필요하면 무엇이 필요한지 보고하고 사용자 요청을 받는다.
 - 요청받지 않은 컨트롤러·REST·설정은 만들지 않는다.
 
 ## 5. 모호함·모순은 열린 질문으로
@@ -303,17 +254,17 @@ grep -rnE '\b(class|interface|object|record|enum)[[:space:]]+(Claim|Money|ClaimN
 ### 6-a. 불변식 태그
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" ARCHITECTURE.md --context <컨텍스트>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context <컨텍스트>
 ```
 
 **exit 0이어야 한다.** exit 1이면 남은 위반이 곧 남은 작업이다(또는 `blocked`가 아직 차 있다 —
 테스트가 검사기가 보는 자리에 없다는 뜻이므로 4-b의 자리 규약을 다시 본다). 텍스트 실행분의
 집계 줄과 한계 줄을 보고에 인용한다.
 
-### 6-b. 아키텍처 규칙
+### 6-b. 컨텍스트 격리
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" ARCHITECTURE.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
 ```
 
 2-a의 스냅샷과 비교해 **새로 생긴 위반이 0**이어야 한다. 기존 위반이 남아 있으면 exit는 1이지만
@@ -325,16 +276,15 @@ JSON 항목의 `path`·`line`·`rule_id`·`message`와 같은 값이다. `[0건 
 (`zero_match[].message`·`skipped[]`·`unreadable[]`은 거기에도 있다), 나머지를 텍스트 쪽에서
 가져오는 것은 조립한 문면과 출력된 문면이 갈리지 않게 하려는 것이다.
 
-**생성된 fitness 테스트가 있으면 그것이 강제의 정본이다.** 프로젝트 섹션의 `아키텍처 테스트 위치`
-아래에 생성 헤더가 온전한 파일이 있고 `./gradlew`가 실재하면 함께 돌린다(review 2-a와 같은 규약).
-이번 코드에서 난 실패는 이 게이트의 실패다. 돌리지 못했으면 못 했다고 적는다. **생성·갱신은 이
-스킬의 일이 아니다** — 선언이 바뀌었으면 `/superarchitect:fitness`다.
+**이 게이트가 보는 것은 컨텍스트 격리 하나다.** 도메인 순수성·네이밍 규약·컨텍스트 안쪽의 의존
+방향은 판정되지 않으므로 "초록 = 설계가 옳다"로 읽지 않는다. 의미론 판정은
+`/superarchitect:review`의 몫이고, 그 사실을 보고에 그대로 적는다.
 
 ### 6-c. 새로 쓴 테스트는 실제로 돌린다
 
 ```bash
 grep -n 'include' "<프로젝트 경로>"/settings.gradle*
-./gradlew :<모듈>:test --tests '<테스트 클래스>'
+./gradlew :<빌드 모듈>:test --tests '<테스트 클래스>'
 ```
 
 초록을 보지 못했으면 **보지 못했다고 적는다.** 돌리지 못한 이유(빌드 실패, gradle 부재,
@@ -372,8 +322,9 @@ cd "<프로젝트 경로>" && ./gradlew compileKotlin compileTestKotlin   # 또�
 2. **만든 것** — 파일별로 타입·테스트·포트. 고친 기존 파일도 함께.
 3. **만들지 않은 것** — proposed 항목, 불변식이 걸리지 않은 표 항목, 요청받지 않은 어댑터,
    자리가 없어 멈춘 것. **이 절을 비우지 않는다.**
-4. **게이트 결과** — 6-a의 집계·한계 줄, 6-b의 새 위반 0 판정과 승계 3종, 6-c의 테스트 결과,
-   6-d의 컴파일 결과(돌린 모듈, 고친 호출자, 돌리지 못했으면 그 사실과 확인 못 한 범위).
+4. **게이트 결과** — 6-a의 집계·한계 줄, 6-b의 새 위반 0 판정과 승계 3종(그리고 그 게이트가
+   컨텍스트 격리만 본다는 사실), 6-c의 테스트 결과, 6-d의 컴파일 결과(돌린 빌드 모듈, 고친
+   호출자, 돌리지 못했으면 그 사실과 확인 못 한 범위).
 5. **열린 질문** — append한 줄을 그대로.
 6. **커밋은 사용자가 한다.** 자동으로 커밋하지 않고 명령만 제안한다.
 
@@ -383,7 +334,7 @@ cd "<프로젝트 경로>" && ./gradlew compileKotlin compileTestKotlin   # 또�
    ```
 
 7. **다음 걸음** — 남은 proposed가 있으면 `/superarchitect:model`, 의미론 검토는
-   `/superarchitect:review`, 아키텍처 규칙 테스트 갱신은 `/superarchitect:fitness`.
+   `/superarchitect:review`, 선언과 디스크가 어긋난 것을 발견했으면 `/superarchitect:sync`.
 
 ---
 
@@ -395,13 +346,12 @@ cd "<프로젝트 경로>" && ./gradlew compileKotlin compileTestKotlin   # 또�
   단 태그. 전부 검사에서 사라지거나 거짓 통과를 만든다.
 - **domain 문서의 `confirmed` 서술을 고치거나 상태를 낮추는 것.** 이 스킬이 그 문서에 쓰는 것은
   `## 열린 질문` append 하나뿐이다.
-- **`ARCHITECTURE.md`·스타일 선언·fitness 생성 파일을 고치는 것.** 게이트가 막히면 어디를 고쳐야
-  하는지 알리고 멈춘다.
-- **스타일이 선언하지 않은 레이어를 모듈 표·패키지 규약에 등록하라고 안내하는 것.**
-  `resolve_rules`가 거부해 문서가 깨진다 — 처방은 3단계 (나)가 갈라 준다((나-1) 스타일 재검토,
-  (나-2) 도메인 코어 레이어 확정 먼저).
-- **`domain-pure`를 레이어 이름으로 판정하는 것.** 판별자는 `confine-type` 인스턴스의 존재다
-  (3단계 (나)) — 프리셋조차 `allowed_layer`가 `domain`이 아니다.
+- **`DOMAIN.md`를 고치는 것.** 게이트가 막히면 어디를 고쳐야 하는지 알리고 멈춘다 — 컨텍스트
+  선언·패키지 라벨·관계 표는 전부 init의 소관이다.
+- **선언된 컨텍스트 패키지 밖에 도메인 코어를 두는 것.** 귀속되지 않은 코드는 격리 검사에서
+  통째로 사라진다.
+- **언어·빌드 도구·테스트 프레임워크를 감지하지 않고 가정하는 것**(3-a). 관측할 것이 없으면
+  묻는다.
 - **`blocked`를 확인하지 않고 빈 `violations`를 "할 일 없음"으로 읽는 것.**
 - **태그를 `grep`으로 다시 세어 검사기와 다른 목록을 만드는 것.**
 - **모호함을 임의 해석으로 메우는 것.** 열린 질문으로 올리고 그 자리는 남긴다.
