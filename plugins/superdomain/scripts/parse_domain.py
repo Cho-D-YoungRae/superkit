@@ -93,9 +93,16 @@ class LocatedError(ParseError, Exception):
     구 `resolve_rules.py`에서 이관했고 생성 시그니처는 그대로다(`LocatedError(line, message, path)`).
     다만 `context_packages()`가 해석 불가를 **던져서** 알리므로 `Exception`도 함께 상속한다 —
     기록으로 쓸 때(`errors` 목록에 담을 때)의 모양은 이관 전과 같다.
+
+    `except LocatedError as e: print(e)`가 사용자에게 튜플(`(3, '메시지', '')`)을 보여주지 않도록
+    `__str__`을 준다. 출처 경로를 기본값으로 채우려면 `format_error(e, 기본경로)`를 쓴다.
     """
 
     path: str = ""
+
+    def __str__(self) -> str:
+        return f"{self.path}:{self.line}: {self.message}" if self.path \
+            else f"{self.line}: {self.message}"
 
 
 @dataclass
@@ -118,8 +125,13 @@ RE_H2 = re.compile(r"^##\s+")
 RE_H3 = re.compile(r"^###\s+(.+?)\s*$")
 RE_LABEL = re.compile(r"^-\s*(.+?)\s*:\s*(.+?)\s*$")
 RE_TABLE = re.compile(r"^\|")
+RE_TABLE_DIVIDER = re.compile(r"^\|[\s:|-]+\|$")
 RE_TEMPLATE_MARKER = re.compile(
     r"^\s*<!--\s*" + re.escape(MARKER_TEMPLATE) + r"\s+v(\d+)\s*-->\s*$")
+
+# 패키지 세그먼트 하나의 문법(구 `resolve_rules.RE_PACKAGE_SEGMENT`에서 이관).
+# 컨텍스트 이름과 `기본 패키지`가 그대로 패키지 자리에 들어가므로 둘 다 이 문법을 지켜야 한다.
+RE_PACKAGE_SEGMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # 라벨 키(한국어) -> 필드명
 PROJECT_LABELS = {
@@ -133,6 +145,7 @@ CONTEXT_LABELS = {
 # "패턴"·"패키지"는 값이 쉼표 목록이라 별도 처리한다.
 
 RELATIONS_HEADING = "관계"
+RELATION_HEADER = ("상대", "유형", "계약")
 
 # 필수 라벨(한국어 키 -> 필드명)
 REQUIRED_PROJECT_LABELS = [("경로", "path"), ("기본 패키지", "base_package")]
@@ -226,10 +239,27 @@ def _apply_label(current_project, current_context, key: str, value: str,
         ))
         return
 
+    # 같은 섹션에 같은 라벨이 두 줄이면 뒤가 앞을 조용히 덮어쓴다. 복수 값은 쉼표로 한 줄에
+    # 적는 문법이라 줄을 나눠 적는 실수가 자연스럽고, 그때 첫 줄이 말없이 사라진다.
+    section = current_project if current_project is not None else current_context
+    if section is not None and key in section.label_lines:
+        errors.append(ParseError(
+            lineno,
+            f"'{key}' 라벨이 이 섹션에 두 번 나타납니다 "
+            f"(처음 등장: {section.label_lines[key]}번째 줄). 뒤의 줄이 앞의 값을 덮어쓰므로 "
+            f"한 줄로 합치세요 — 값이 여럿이면 쉼표로 구분합니다.",
+        ))
+        return
+
     if current_project is not None:
         field_name = PROJECT_LABELS.get(key)
         if field_name:
-            setattr(current_project, field_name, _strip_comment(value))
+            # `기본 패키지`도 패키지 접두이므로 `- 패키지:`와 같은 규칙으로 후행 점을 떨어낸다.
+            # 비대칭으로 두면 'com.acme.'이 'com.acme..claim..'을 만들어 0건 매칭이 된다.
+            resolved = _strip_comment(value)
+            if field_name == "base_package":
+                resolved = resolved.rstrip(".") or resolved
+            setattr(current_project, field_name, resolved)
             current_project.label_lines[key] = lineno
         return
 
@@ -247,20 +277,50 @@ def _apply_label(current_project, current_context, key: str, value: str,
         # 그 외 모르는 키는 무시한다(퇴역 라벨만 위에서 거부했다).
 
 
-def _apply_table(current_context, subheading, block: list, start_lineno: int) -> None:
-    """표 한 블록(헤더+구분선+데이터행)을 해석해 반영한다. v1의 표는 `### 관계` 하나뿐이다."""
-    if current_context is None or subheading != RELATIONS_HEADING or len(block) < 2:
+def _apply_table(current_context, subheading, block: list, start_lineno: int,
+                 errors: list) -> None:
+    """표 한 블록(헤더+구분선+데이터행)을 해석해 반영한다. v1의 표는 `### 관계` 하나뿐이다.
+
+    표의 모양을 먼저 검증한다. 값은 **칸 순서**로 읽으므로 헤더가 다르면 값이 어긋나 매핑되고,
+    구분선이 없으면 첫 데이터 행이 구분선 자리에 놓여 통째로 사라진다 — 둘 다 오류 없이
+    "선언했는데 강제되지 않는" 상태를 만든다.
+    """
+    if current_context is None or subheading != RELATIONS_HEADING:
         return
 
-    ncols = len(_header_cells(block[0]))
+    header = tuple(_header_cells(block[0]))
+    if header != RELATION_HEADER:
+        errors.append(ParseError(
+            start_lineno,
+            f"'### {RELATIONS_HEADING}' 표의 헤더가 '| {' | '.join(header)} |'입니다 "
+            f"(기대: '| {' | '.join(RELATION_HEADER)} |'). 값을 칸 순서대로 읽으므로 헤더가 "
+            f"다르면 상대·유형·계약이 서로 어긋나 매핑됩니다.",
+        ))
+        return
+
+    if len(block) < 2 or not RE_TABLE_DIVIDER.match(block[1]):
+        errors.append(ParseError(
+            start_lineno + 1,
+            f"'### {RELATIONS_HEADING}' 표에 헤더 구분선('|---|---|---|')이 없습니다. "
+            f"구분선 다음 줄부터가 데이터 행이므로, 없으면 첫 관계 행이 통째로 사라집니다.",
+        ))
+        return
+
+    ncols = len(header)
     for offset, line in enumerate(block[2:]):
         cells = _split_row(line, ncols)
-        current_context.relations.append(Relation(
-            partner=cells[0] if ncols > 0 else "",
-            kind=cells[1] if ncols > 1 else "",
-            contract=cells[2] if ncols > 2 else "",
-            line=start_lineno + 2 + offset,
-        ))
+        lineno = start_lineno + 2 + offset
+        relation = Relation(partner=cells[0], kind=cells[1], contract=cells[2], line=lineno)
+        # '계약'은 자유 문자열이라 빈 값을 허용한다. '상대'·'유형'이 비면 그 행은 아무 쌍도
+        # 열지 못하는데, 사용자는 열었다고 믿는다 — 격리 검사가 정당한 참조를 위반으로 낸다.
+        for label, cell in (("상대", relation.partner), ("유형", relation.kind)):
+            if not cell:
+                errors.append(ParseError(
+                    lineno,
+                    f"컨텍스트 '{current_context.name}'의 관계 표 행에 '{label}' 칸이 비어 "
+                    f"있습니다 — 이 행은 아무 쌍도 열지 않습니다.",
+                ))
+        current_context.relations.append(relation)
 
 
 def _check_template_marker(lines: list, errors: list) -> None:
@@ -270,18 +330,33 @@ def _check_template_marker(lines: list, errors: list) -> None:
     가장 나쁜 실패 모드다.
     """
     supported = int(TEMPLATE_VERSION.lstrip("v"))
+    malformed = None
     for index, line in enumerate(lines):
         match = RE_TEMPLATE_MARKER.match(line)
-        if not match:
-            continue
-        version = int(match.group(1))
-        if version > supported:
-            errors.append(ParseError(
-                index + 1,
-                f"템플릿 버전 'v{version}'은(는) 이 파서가 아는 최신 버전 '{TEMPLATE_VERSION}'보다 "
-                f"높습니다. 플러그인을 최신으로 올린 뒤 다시 실행하세요.",
-            ))
+        if match:
+            version = int(match.group(1))
+            if version > supported:
+                errors.append(ParseError(
+                    index + 1,
+                    f"템플릿 버전 'v{version}'은(는) 이 파서가 아는 최신 버전 "
+                    f"'{TEMPLATE_VERSION}'보다 높습니다. 플러그인을 최신으로 올린 뒤 다시 "
+                    f"실행하세요.",
+                ))
+            return
+        if malformed is None and MARKER_TEMPLATE in line:
+            malformed = (index + 1, line.strip())
+
+    # 마커가 '있는데 깨진 것'과 '아예 없는 것'은 고칠 자리가 다르다 — 뭉뚱그리면 사용자가
+    # 이미 적어 둔 줄을 놔둔 채 새 줄을 하나 더 넣는다.
+    if malformed is not None:
+        errors.append(ParseError(
+            malformed[0],
+            f"템플릿 마커의 형식이 올바르지 않습니다 — '{malformed[1]}' "
+            f"(기대: '<!-- {MARKER_TEMPLATE} {TEMPLATE_VERSION} -->'). 버전 표기가 빠졌거나 "
+            f"줄에 다른 글자가 섞여 있습니다.",
+        ))
         return
+
     errors.append(ParseError(
         0,
         f"템플릿 마커(<!-- {MARKER_TEMPLATE} {TEMPLATE_VERSION} -->)가 없습니다. "
@@ -351,7 +426,7 @@ def _parse_document(text: str) -> Domain:
 
             if RE_TABLE.match(line):
                 block, next_i = _collect_table_block(lines, i)
-                _apply_table(current_context, current_subheading, block, lineno)
+                _apply_table(current_context, current_subheading, block, lineno, domain.errors)
                 i = next_i
                 continue
 
@@ -380,6 +455,11 @@ def _check_duplicate_names(items: list, kind: str, errors: list) -> None:
             first_seen[item.name] = item.line
 
 
+def _is_package(value: str) -> bool:
+    """점으로 이은 각 조각이 전부 유효한 패키지 세그먼트인가."""
+    return all(RE_PACKAGE_SEGMENT.match(segment) for segment in value.split("."))
+
+
 def _validate_project(project: Project, errors: list) -> None:
     for label, field_name in REQUIRED_PROJECT_LABELS:
         if not getattr(project, field_name):
@@ -388,9 +468,44 @@ def _validate_project(project: Project, errors: list) -> None:
                 f"프로젝트 '{project.name}': 필수 라벨 '{label}'이(가) 없습니다.",
             ))
 
+    if project.base_package and not _is_package(project.base_package):
+        errors.append(ParseError(
+            project.label_lines.get("기본 패키지", project.line),
+            f"프로젝트 '{project.name}'의 기본 패키지 '{project.base_package}'이(가) 유효한 "
+            f"패키지가 아닙니다. 이 값은 컨텍스트의 기본 규약 "
+            f"('{{기본 패키지}}.{{컨텍스트}}..')의 앞자리에 그대로 들어가므로, 성립하지 않는 "
+            f"패턴이 만들어지고 격리 검사가 0건을 매칭한 채 통과합니다 — 각 조각을 "
+            f"영문자/밑줄로 시작하는 패키지 세그먼트로 적으세요.",
+        ))
+
+
+def _check_context_segment(context: Context, errors: list) -> None:
+    """컨텍스트 이름이 유효한 패키지 세그먼트인지 확인한다(구 `resolve_rules._check_context_segment`).
+
+    명시 `- 패키지:`가 있으면 이름이 패턴에 전혀 나타나지 않으므로 검사하지 않는다 — 구
+    `_context_is_segment`가 "패키지 규약 표에 `{컨텍스트}` 치환이 없으면 검사하지 않는다"고
+    판정한 것과 같은 논리다.
+
+    `order-mgmt` 같은 이름은 선언 단계에서 멀쩡해 보이지만 기본 규약이 만드는
+    `com.acme.order-mgmt..`는 어떤 소스에도 매칭되지 않는다. 그러면 그 컨텍스트의 격리 규칙은
+    0건을 검사한 채 조용히 통과한다 — 위반이 없는 것과 구분되지 않는 가장 나쁜 상태다.
+    """
+    if context.packages or RE_PACKAGE_SEGMENT.match(context.name):
+        return
+    errors.append(ParseError(
+        context.line,
+        f"컨텍스트 이름 '{context.name}'이(가) 유효한 패키지 세그먼트가 아닙니다. "
+        f"'- 패키지:'가 없으면 기본 규약('{{기본 패키지}}.{{컨텍스트}}..')의 세그먼트 자리에 이 "
+        f"이름이 그대로 들어가므로, 이 컨텍스트의 패턴은 성립하지 않는 패키지가 되고 격리 검사가 "
+        f"0건을 매칭한 채 통과합니다 — 이름을 패키지 세그먼트로 쓸 수 있게 바꾸거나 "
+        f"'- 패키지:'로 실제 패키지를 명시하세요.",
+    ))
+
 
 def _validate_context(context: Context, project_names: set, context_names: set,
                       multiple_projects: bool, errors: list) -> None:
+    _check_context_segment(context, errors)
+
     for label, field_name in REQUIRED_CONTEXT_LABELS:
         if not getattr(context, field_name):
             errors.append(ParseError(
@@ -535,15 +650,18 @@ def isolation_allowlist(domain: Domain) -> dict:
     하나의 사실이지 한쪽의 속성이 아니고, 방향을 구분하면 같은 사실을 두 줄로 적게 만든 뒤
     한 줄만 적힌 문서를 조용히 반쪽만 강제하게 된다.
 
-    선언된 컨텍스트는 관계가 없어도 빈 frozenset으로 반드시 키를 갖는다.
+    **키는 선언된 컨텍스트뿐이다.** 관계가 없어도 빈 frozenset으로 반드시 키를 갖고, 선언되지
+    않은 상대(오타 등 — validate가 이미 오류로 보고했다)는 키를 만들지 않는다. 유령 키를 만들면
+    소비자가 그것을 컨텍스트 목록으로 착각한다.
     """
-    partners = {context.name: set() for context in domain.contexts}
+    declared = {context.name for context in domain.contexts}
+    partners = {name: set() for name in declared}
     for context in domain.contexts:
         for relation in context.relations:
-            if not relation.partner:
+            if not relation.partner or relation.partner not in declared:
                 continue
-            partners.setdefault(context.name, set()).add(relation.partner)
-            partners.setdefault(relation.partner, set()).add(context.name)
+            partners[context.name].add(relation.partner)
+            partners[relation.partner].add(context.name)
     return {name: frozenset(values) for name, values in partners.items()}
 
 

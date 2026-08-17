@@ -129,27 +129,40 @@ class TestParseDomainFull(DomainTextCase):
     def test_isolation_allowlist_from_relations(self):
         self.assertIn("admin", isolation_allowlist(self.domain)["claim"])
 
-    def test_generated_zone_markers_are_ignored(self):
-        # 컨텍스트 맵 생성 구역(마커 2줄 + mermaid)은 다른 주석과 똑같이 무시된다.
-        self.assertEqual(len(self.domain.contexts), 3)
+    def test_generated_zone_does_not_change_the_parse(self):
+        # 생성 구역(마커 2줄 + mermaid)을 통째로 들어내고 파싱한 결과와 같아야 한다.
         text = (FIXTURES / "full.md").read_text(encoding="utf-8")
-        self.assertIn("<!-- superarchitect:generated:context-map -->", text)
-        self.assertIn("<!-- /superarchitect:generated -->", text)
+        without = text[:text.index("## 컨텍스트 맵")] + text[text.index("## 컨텍스트: claim"):]
+        stripped = self._parse_text(without)
+        self.assertEqual(stripped.errors, [])
+        shape = lambda d: [(c.name, c.project, c.classification, c.packages,
+                            [(r.partner, r.kind, r.contract) for r in c.relations])
+                           for c in d.contexts]
+        self.assertEqual(shape(stripped), shape(self.domain))
+        self.assertEqual([(p.name, p.path, p.base_package) for p in stripped.projects],
+                         [(p.name, p.path, p.base_package) for p in self.domain.projects])
 
 
 class TestGeneratedZoneInsideSection(DomainTextCase):
-    """생성 구역이 컨텍스트 섹션 안에 있어도 파싱 결과가 달라지지 않는다."""
+    """생성 구역 마커는 섹션 상태를 건드리지 않는다 — 그 뒤의 라벨이 여전히 같은 컨텍스트에 붙는다."""
 
-    def test_zone_inside_context_section_changes_nothing(self):
-        zone = ("<!-- superarchitect:generated:structure:claim -->\n"
-                "```mermaid\ngraph LR\n  a --> b\n```\n"
-                "<!-- /superarchitect:generated -->\n")
-        baseline = self._parse_text(MINIMAL)
-        with_zone = self._parse_text(MINIMAL + zone)
-        self.assertEqual(with_zone.errors, [])
-        self.assertEqual([c.name for c in with_zone.contexts],
-                         [c.name for c in baseline.contexts])
-        self.assertEqual(with_zone.contexts[0].classification, "core")
+    ZONE = ("<!-- superarchitect:generated:structure:claim -->\n"
+            "```mermaid\ngraph LR\n  a --> b\n```\n"
+            "<!-- /superarchitect:generated -->\n")
+
+    def test_label_after_zone_still_binds_to_the_same_context(self):
+        d = self._parse_text(MINIMAL + self.ZONE + "- 패키지: com.acme.claiming..\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(len(d.contexts), 1)
+        self.assertEqual(d.contexts[0].packages, ["com.acme.claiming.."])
+
+    def test_relation_table_after_zone_still_binds_to_the_same_context(self):
+        text = (MINIMAL + "\n## 컨텍스트: admin\n- 분류: generic\n\n### 관계\n"
+                + self.ZONE
+                + "| 상대 | 유형 | 계약 |\n|---|---|---|\n| claim | conformist | - |\n")
+        d = self._parse_text(text)
+        self.assertEqual(d.errors, [])
+        self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"])
 
 
 class TestParenComments(DomainTextCase):
@@ -249,8 +262,16 @@ class TestPackageOverlap(DomainTextCase):
         d = self._parse_text(self._two_contexts(("claim", None), ("claiming", None)))
         self.assertEqual(d.errors, [])
 
-    def test_full_fixture_has_no_overlap(self):
-        self.assertEqual(parse_domain(FIXTURES / "full.md").errors, [])
+    def test_overlap_across_projects_is_caught(self):
+        # 겹침 판정은 프로젝트 경계를 가리지 않는다 — 귀속은 패키지 접두로만 이뤄지기 때문이다.
+        text = (self.HEAD
+                + "\n## 프로젝트: batch\n- 경로: batch\n- 기본 패키지: com.acme.batch\n"
+                + "\n## 컨텍스트: claim\n- 프로젝트: backend\n- 분류: core\n"
+                + "- 패키지: com.acme.batch.claim.inner..\n"
+                + "\n## 컨텍스트: work\n- 프로젝트: batch\n- 분류: supporting\n"
+                + "- 패키지: com.acme.batch.claim..\n")
+        d = self._parse_text(text)
+        self.assertHasError(d, "겹칩니다")
 
 
 class TestIsolationAllowlist(DomainTextCase):
@@ -272,11 +293,20 @@ class TestIsolationAllowlist(DomainTextCase):
         d = self._parse_text(self._two_related())
         self.assertIn("admin", isolation_allowlist(d)["claim"])
 
-    def test_every_declared_context_has_an_entry(self):
+    def test_keys_are_exactly_the_declared_contexts(self):
         d = parse_domain(FIXTURES / "full.md")
         allowlist = isolation_allowlist(d)
-        self.assertEqual(set(allowlist) >= {"claim", "admin", "billing"}, True)
+        self.assertEqual(set(allowlist), {"claim", "admin", "billing"})
         self.assertEqual(allowlist["billing"], frozenset())
+
+    def test_undeclared_partner_does_not_become_a_key(self):
+        # 오타 난 상대는 validate가 오류로 잡는다. allowlist까지 유령 키를 만들면
+        # 소비자가 그것을 컨텍스트 목록으로 착각한다.
+        text = MINIMAL + "\n### 관계\n| 상대 | 유형 | 계약 |\n|---|---|---|\n| ghost | conformist | - |\n"
+        d = self._parse_text(text)
+        allowlist = isolation_allowlist(d)
+        self.assertEqual(set(allowlist), {"claim"})
+        self.assertEqual(allowlist["claim"], frozenset())
 
     def test_values_are_frozensets(self):
         d = parse_domain(FIXTURES / "full.md")
@@ -392,6 +422,21 @@ class TestTemplateMarker(DomainTextCase):
     def test_missing_marker_is_error(self):
         d = self._parse_text(MINIMAL.replace("<!-- superarchitect:template v1 -->\n", ""))
         self.assertHasError(d, "템플릿 마커")
+        self.assertHasError(d, "없습니다")
+
+    def test_marker_without_version_is_a_format_error_not_a_missing_error(self):
+        # 마커가 '깨진 것'과 '아예 없는 것'은 고칠 자리가 다르다.
+        d = self._parse_text(MINIMAL.replace("<!-- superarchitect:template v1 -->",
+                                             "<!-- superarchitect:template -->"))
+        self.assertHasError(d, "형식이 올바르지 않습니다")
+        self.assertFalse(any("없습니다" in e.message and "템플릿 마커" in e.message
+                             for e in d.errors), self._messages(d))
+
+    def test_malformed_marker_error_points_at_that_line(self):
+        d = self._parse_text(MINIMAL.replace("<!-- superarchitect:template v1 -->",
+                                             "<!-- superarchitect:template v1 --> 초안"))
+        error = next(e for e in d.errors if "형식이 올바르지 않습니다" in e.message)
+        self.assertEqual(error.line, 2)
 
     def test_future_version_is_rejected(self):
         d = self._parse_text(MINIMAL.replace("template v1", "template v2"))
@@ -404,6 +449,172 @@ class TestTemplateMarker(DomainTextCase):
 
     def test_current_version_is_accepted(self):
         self.assertEqual(self._parse_text(MINIMAL).errors, [])
+
+
+class TestContextNameSegment(DomainTextCase):
+    """컨텍스트 이름은 기본 규약의 패키지 세그먼트 자리에 그대로 들어간다(구 `_check_context_segment`).
+
+    성립하지 않는 세그먼트를 통과시키면 그 컨텍스트의 격리 규칙이 0건을 검사한 채 조용히 통과한다.
+    """
+
+    def _with_name(self, name, package=None):
+        text = MINIMAL.replace("## 컨텍스트: claim", f"## 컨텍스트: {name}")
+        return self._parse_text(text + (f"- 패키지: {package}\n" if package else ""))
+
+    def test_hyphenated_name_is_error(self):
+        d = self._with_name("order-mgmt")
+        self.assertHasError(d, "order-mgmt")
+        self.assertHasError(d, "패키지 세그먼트")
+
+    def test_dotted_name_is_error(self):
+        self.assertHasError(self._with_name("order.mgmt"), "패키지 세그먼트")
+
+    def test_name_starting_with_digit_is_error(self):
+        self.assertHasError(self._with_name("2fa"), "패키지 세그먼트")
+
+    def test_non_ascii_name_is_error(self):
+        self.assertHasError(self._with_name("청구"), "패키지 세그먼트")
+
+    def test_explicit_package_skips_the_check(self):
+        # 명시 패키지가 있으면 이름은 패턴에 전혀 들어가지 않는다 — 검사하지 않는다.
+        d = self._with_name("order-mgmt", "com.acme.order.management..")
+        self.assertEqual(d.errors, [])
+
+    def test_valid_names_pass(self):
+        for name in ("claim", "claim2", "_internal", "orderMgmt"):
+            self.assertEqual(self._with_name(name).errors, [], name)
+
+    def test_broken_name_would_otherwise_produce_a_dead_pattern(self):
+        # 검사가 없으면 이 패턴이 조용히 만들어진다 — 그것이 이 오류가 막는 상태다.
+        d = self._with_name("order-mgmt")
+        self.assertEqual(context_packages(d, d.contexts[0]), ["com.acme.order-mgmt.."])
+
+
+class TestBasePackage(DomainTextCase):
+    """`기본 패키지`도 패키지 접두다 — `- 패키지:`와 같은 규칙으로 정규화하고 검증한다."""
+
+    def _with_base(self, value):
+        return self._parse_text(MINIMAL.replace("- 기본 패키지: com.acme",
+                                                f"- 기본 패키지: {value}"))
+
+    def test_trailing_dot_is_normalized(self):
+        d = self._with_base("com.acme.")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.projects[0].base_package, "com.acme")
+        self.assertEqual(context_packages(d, d.contexts[0]), ["com.acme.claim.."])
+
+    def test_trailing_double_dot_is_normalized(self):
+        d = self._with_base("com.acme..")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(context_packages(d, d.contexts[0]), ["com.acme.claim.."])
+
+    def test_inner_empty_segment_is_error(self):
+        self.assertHasError(self._with_base("com..acme"), "유효한 패키지가 아닙니다")
+
+    def test_leading_dot_is_error(self):
+        self.assertHasError(self._with_base(".com.acme"), "유효한 패키지가 아닙니다")
+
+    def test_hyphenated_segment_is_error(self):
+        self.assertHasError(self._with_base("com.acme-corp"), "유효한 패키지가 아닙니다")
+
+    def test_error_points_at_the_label_line(self):
+        error = next(e for e in self._with_base("com..acme").errors
+                     if "유효한 패키지가 아닙니다" in e.message)
+        self.assertEqual(error.line, 6)
+
+
+class TestDuplicateLabelLines(DomainTextCase):
+    """한 섹션에 같은 라벨이 두 줄이면 뒤가 앞을 조용히 덮어쓴다 — 오류로 막는다."""
+
+    def test_duplicate_package_label_is_error(self):
+        d = self._parse_text(MINIMAL + "- 패키지: com.acme.web.claim..\n"
+                                       "- 패키지: com.acme.batch.claim..\n")
+        self.assertHasError(d, "두 번 나타납니다")
+
+    def test_first_value_is_kept_not_the_last(self):
+        d = self._parse_text(MINIMAL + "- 패키지: com.acme.web.claim..\n"
+                                       "- 패키지: com.acme.batch.claim..\n")
+        self.assertEqual(d.contexts[0].packages, ["com.acme.web.claim.."])
+
+    def test_duplicate_classification_is_error(self):
+        d = self._parse_text(MINIMAL + "- 분류: generic\n")
+        self.assertHasError(d, "두 번 나타납니다")
+
+    def test_duplicate_project_label_is_error(self):
+        text = MINIMAL.replace("- 경로: .", "- 경로: .\n- 경로: backend")
+        self.assertHasError(self._parse_text(text), "두 번 나타납니다")
+
+    def test_same_label_in_different_sections_is_fine(self):
+        text = (MINIMAL + "\n## 컨텍스트: admin\n- 분류: generic\n")
+        self.assertEqual(self._parse_text(text).errors, [])
+
+
+class TestRelationTableShape(DomainTextCase):
+    """표는 칸 순서로 읽는다 — 헤더·구분선이 어긋나면 값이 조용히 어긋나거나 사라진다."""
+
+    def _with_table(self, table):
+        return self._parse_text(MINIMAL + "\n## 컨텍스트: admin\n- 분류: generic\n"
+                                          "\n### 관계\n" + table)
+
+    def test_missing_divider_is_error(self):
+        d = self._with_table("| 상대 | 유형 | 계약 |\n| claim | conformist | - |\n")
+        self.assertHasError(d, "구분선")
+
+    def test_missing_divider_does_not_silently_drop_the_row(self):
+        # 검사가 없으면 첫 행이 구분선 자리에 놓여 통째로 사라진다.
+        d = self._with_table("| 상대 | 유형 | 계약 |\n| claim | conformist | - |\n")
+        self.assertEqual(d.contexts[1].relations, [])
+        self.assertNotEqual(d.errors, [])
+
+    def test_header_only_table_is_error(self):
+        self.assertHasError(self._with_table("| 상대 | 유형 | 계약 |\n"), "구분선")
+
+    def test_wrong_header_order_is_error(self):
+        d = self._with_table("| 유형 | 상대 | 계약 |\n|---|---|---|\n| conformist | claim | - |\n")
+        self.assertHasError(d, "헤더")
+
+    def test_wrong_header_names_are_error(self):
+        d = self._with_table("| 대상 | 종류 | 계약 |\n|---|---|---|\n| claim | conformist | - |\n")
+        self.assertHasError(d, "헤더")
+
+    def test_wrong_column_count_is_error(self):
+        d = self._with_table("| 상대 | 유형 |\n|---|---|\n| claim | conformist |\n")
+        self.assertHasError(d, "헤더")
+
+    def test_aligned_divider_is_accepted(self):
+        d = self._with_table("| 상대 | 유형 | 계약 |\n|:---|:---:|---:|\n| claim | conformist | - |\n")
+        self.assertEqual(d.errors, [])
+
+    def test_correct_table_passes(self):
+        d = self._with_table("| 상대 | 유형 | 계약 |\n|---|---|---|\n| claim | conformist | v1 |\n")
+        self.assertEqual(d.errors, [])
+
+
+class TestRelationEmptyCells(DomainTextCase):
+    """`상대`·`유형` 빈 칸은 아무 쌍도 열지 않는다 — 사용자는 열었다고 믿으므로 오류다."""
+
+    def _with_row(self, row):
+        return self._parse_text(MINIMAL + "\n## 컨텍스트: admin\n- 분류: generic\n"
+                                          "\n### 관계\n| 상대 | 유형 | 계약 |\n|---|---|---|\n"
+                                + row + "\n")
+
+    def test_empty_partner_is_error(self):
+        d = self._with_row("|  | conformist | - |")
+        self.assertHasError(d, "'상대' 칸이 비어")
+
+    def test_empty_kind_is_error(self):
+        d = self._with_row("| claim |  | - |")
+        self.assertHasError(d, "'유형' 칸이 비어")
+
+    def test_empty_contract_is_allowed(self):
+        # '계약'은 자유 문자열이므로 빈 값을 허용한다(구 템플릿 §4 라벨 사전).
+        d = self._with_row("| claim | conformist |  |")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[1].relations[0].contract, "")
+
+    def test_empty_partner_opens_no_pair(self):
+        d = self._with_row("|  | conformist | - |")
+        self.assertEqual(isolation_allowlist(d)["claim"], frozenset())
 
 
 class TestPublicSurface(unittest.TestCase):
@@ -431,6 +642,11 @@ class TestPublicSurface(unittest.TestCase):
     def test_format_error_falls_back_to_default_path(self):
         self.assertEqual(format_error(pd.ParseError(0, "메시지"), "DOMAIN.md"),
                          "DOMAIN.md:0: 메시지")
+
+    def test_located_error_str_is_readable_not_a_tuple(self):
+        # 소비자가 `except LocatedError as e: print(e)`를 써도 사용자에게 튜플이 보이면 안 된다.
+        self.assertEqual(str(LocatedError(3, "메시지", "DOMAIN.md")), "DOMAIN.md:3: 메시지")
+        self.assertEqual(str(LocatedError(3, "메시지")), "3: 메시지")
 
 
 class TestCli(DomainTextCase):
