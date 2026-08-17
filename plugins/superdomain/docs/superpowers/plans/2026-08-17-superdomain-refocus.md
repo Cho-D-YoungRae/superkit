@@ -603,8 +603,9 @@ git commit -m "docs(governance): domain-template.md 정본 신설 — 결정 템
 
 **Files:**
 - Modify: `references/governance/domain-doc-template.md` — 위치 절(§2)의 경로 **세 개를 전부** 새 값으로: 기본 `docs/architecture/domain/<컨텍스트>.md` → **`docs/domain/<컨텍스트>.md`**, 통합 배치 `docs/architecture/DOMAIN.md` → **`docs/domain.md`**(루트 SSOT `DOMAIN.md`와 이름이 겹치지 않게 — "나누면 디렉터리, 합치면 파일 하나"), 그리고 세션 요약이 **`docs/domain-summary.md`**로 `docs/domain/` 밖에 있음을 명시(그 디렉터리의 `*.md`는 전부 컨텍스트 문서로 읽힌다). ARCHITECTURE.md 참조 → DOMAIN.md. 파싱 계약·절별 규칙 무수정. **이 셋은 `check_invariants.py`의 `DOMAIN_SUBDIR`·`CONSOLIDATED_DOC`·`session_summary.sh`와 정확히 일치해야 한다.**
-- Modify: `references/governance/evolution-signals.md` — 스타일 이행 관련 임계값·해석 절 삭제. 경계 재획정·공변경·핫스팟 해석 유지. 참조하는 스킬 목록에서 fitness·scaffold 제거.
-- Modify: `references/governance/adr-template.md` — 후속 연결 예시에서 "규칙 예외·스타일 선언" → "관계 표·분류·패키지 라벨" (Task 10의 adr 수술과 정합).
+- Modify: `references/governance/evolution-signals.md` — 스타일 이행 관련 임계값·해석 절 삭제. 경계 재획정·공변경·핫스팟 해석 유지. 참조하는 스킬 목록에서 fitness·scaffold 제거. **신호 4(baseline 정체)·5(의미론 지적 반복)는 삭제하지 않고 「evolve가 처분하지 않고 넘기는 관측」으로 명시**한다(처분은 각각 migrate·review). 지우면 `collect_signals`의 수집 항목 ⑤·`semantic.*`가 소비자를 잃고 침묵한다. **`conventions/` 경로 2곳을 `docs/conventions/`로** 갱신.
+- Modify: `references/governance/adr-template.md` — 후속 연결 예시에서 "규칙 예외·스타일 선언" → "관계 표·분류·패키지 라벨" (Task 10의 adr 수술과 정합). **경로 3종을 `docs/decisions/`·`docs/conventions/`로 갱신** — Task 9·10에서 `adr` 스킬이 이미 이 값을 쓰므로 지금 문서가 스킬과 어긋나 있다. 근거: `docs/architecture/` 디렉터리 소멸 + MADR 표준 경로.
+- Modify: `references/governance/domain-doc-template.md` (위 항목에 추가) — §1의 **스타일별 필수/선택 표를 분류(core·supporting·generic) 축으로** 바꾼다. 스타일이 사라져 `model` 스킬 0-b와 정합이 깨진 자리다.
 
 - [ ] **Step 1: 수술** → **Step 2: 게이트 grep + 전체 테스트** → **Step 3: 커밋**
 
