@@ -9,6 +9,11 @@ LLM은 세션마다 프로젝트의 도메인을 처음부터 다시 추측한�
 도메인 경계의 진실은 대상 프로젝트 루트의 `DOMAIN.md` 한 파일(SSOT)이고, `parse_domain.py`가 그
 문서의 유일한 해석기다.
 
+**언어 범위를 먼저 밝힌다.** 인터뷰·문서·ADR·리뷰는 대상 프로젝트의 언어와 무관하지만, **결정적
+검사 둘은 Kotlin·Java 전용이다** — `check_imports.py`는 `.kt`/`.java` 소스의 `package`·`import`를
+읽고, `check_invariants.py`는 테스트의 `@Tag("INV-...")` 리터럴을 본다. Python·TypeScript
+프로젝트에서도 문서와 리뷰는 그대로 쓸 수 있지만 **기계 강제는 걸리지 않는다.**
+
 이 저장소가 곧 플러그인이자 그것을 배포하는 마켓플레이스다 — 루트의
 `.claude-plugin/plugin.json`이 플러그인을, `.claude-plugin/marketplace.json`이 마켓플레이스를
 선언하고, 마켓플레이스는 자기 저장소 루트(`"source": "./"`)를 플러그인으로 가리킨다.
@@ -61,7 +66,9 @@ claude --plugin-dir /path/to/superarchitect
 스킬 여덟 중 다섯은 루프 둘로 묶인다 — 업무 규칙을 불변식으로 굳혀 코드로 내리는 **도메인 루프**,
 선언과 현실이 어긋난 뒤를 다루는 **유지 루프**. 남은 셋은 루프 밖에 있다: `init`이 SSOT를 세우고,
 `review`가 변경마다 경계를 보고, `adr`은 결정이 나오는 자리마다 끼어든다. 사각 노드가 스킬이고,
-원통은 문서, 육각형은 스킬이 통과해야 하는 결정적 검사다.
+원통은 문서, 육각형은 스킬이 통과해야 하는 결정적 검사다. **실선은 그 문서를 쓰거나 그 결과를
+소비하는 흐름이고, 점선은 쓰지 않고 읽기만 하는 관계다** — `adr`은 `DOMAIN.md`를 고치지 않고 고칠
+자리를 짚기만 하며, `sync`는 ADR을 읽어 깨진 참조만 대조한다.
 
 ```mermaid
 flowchart TB
@@ -90,6 +97,7 @@ flowchart TB
     iso -->|"완료 게이트"| apply
     iso --> review
     inv --> review
+    review -->|"열린 질문 append"| dom
     ssot -->|"선언 ↔ 디스크 다섯 축 대조"| sync
     sync -->|"확정받은 편집 · 패키지 생성"| ssot
     review -->|"review-log.jsonl · collect_signals.py"| evolve
@@ -97,6 +105,8 @@ flowchart TB
     evolve -->|"경계 재획정"| init
     migrate <-->|"해소 실측 후 baseline 축소"| iso
     adr -->|"MADR 기록"| dec
+    init -->|"초기화가 내린 결정"| dec
+    evolve -->|"제안마다 proposed 초안"| dec
     adr -.->|"SSOT 편집 자리를 짚는다"| ssot
     dec -.->|"깨진 참조 대조"| sync
 ```
@@ -122,9 +132,11 @@ flowchart TB
   근거를 가리킬 문서가 없다** → `adr`. 결정이 선언을 바꾸면 `- 분류:`·`- 패키지:`·`- 패턴:`·
   `### 관계` 표 넷 중 어디를 고칠지 짚어 준다(편집은 사용자가 한다).
 - **PR·커밋 전에 이 변경이 경계를 넘었는지 본다** → `review`.
-- **선언은 했는데 디스크에 패키지가 없다, 새 컨텍스트의 자리를 올린다, 리팩터링·ADR 대체 뒤 문서가
-  따라왔는지 본다, 오랜만에 열어 선언이 아직 사실인지 모르겠다** → `sync`. **확정받은 빈 패키지
-  디렉터리를 직접 만드는 것도 이 스킬이다.**
+- **선언은 했는데 디스크에 패키지가 없다, 이미 선언된 새 컨텍스트의 자리를 올린다,
+  리팩터링·ADR 대체 뒤 문서가 따라왔는지 본다, 오랜만에 열어 선언이 아직 사실인지 모르겠다** →
+  `sync`. **확정받은 빈 패키지 디렉터리를 직접 만드는 것도 이 스킬이다.** 다만 **컨텍스트를 새로
+  등재하는 것은 `sync`가 하지 않는다** — 경계·분류·패키지를 정하는 인터뷰가 필요하고 그 정본은
+  `init`이다.
 - **분기·릴리스 회고 자리, 또는 같은 지적이 리뷰마다 반복된다** → `evolve`.
 - **`docs/domain/baseline.jsonl`이 있고 그 부채를 실제로 줄인다** → `migrate`.
 
@@ -144,7 +156,7 @@ flowchart TB
 | `/superarchitect:migrate` | `skills/migrate/` | `baseline.jsonl`을 **컨텍스트 쌍 단위 클러스터**로 갚는다. **부채를 줄이는 유일한 경로**이며 한 번에 한 클러스터, 항목 삭제의 근거는 `check_imports.py` 두 실행으로 실측된 해소뿐이다. 비면 파일을 지우고 상환 완료 ADR로 닫는다 |
 | `domain-reviewer` 에이전트 | `agents/domain-reviewer.md` | 읽기 전용(Read·Grep·Glob). 전달받은 지식 문서의 `## 규칙` 절과 자유 관측 5범주(경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 정합·관계 유형 위반)로만 판정한다 |
 | SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/domain-summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
-| 도메인 선언 파서 | `scripts/parse_domain.py` | `DOMAIN.md`의 필수 결정 누락·비정규 값·깨진 참조·퇴역 라벨을 라인 번호와 함께 보고한다. **도메인 선언의 유일한 해석기**이고 나머지 스크립트는 전부 이 모듈 하나만 import한다 |
+| 도메인 선언 파서 | `scripts/parse_domain.py` | `DOMAIN.md`의 필수 결정 누락·비정규 값·깨진 참조·퇴역 라벨을 라인 번호와 함께 보고한다. **도메인 선언의 유일한 해석기**이고, `DOMAIN.md`를 읽는 나머지 셋은 전부 이 모듈로만 문서를 읽는다 |
 | 컨텍스트 격리 검사기 | `scripts/check_imports.py` | `.kt`/`.java` 소스의 `package`·`import`만 읽어 컨텍스트 경계를 넘는 참조가 관계 표에 열려 있는지 본다. `baseline.jsonl`이 있으면 매칭 위반을 `[기존 부채]`로 강등한다(읽기만 한다) |
 | 불변식 대조 검사기 | `scripts/check_invariants.py` | 컨텍스트 문서의 `confirmed` 불변식과 테스트의 `@Tag("INV-...")` 리터럴을 대조한다. 태그가 있을 수 없는 환경(테스트 소스 0건)은 클린이 아니라 `검사 불능`이다 |
 | 진화 신호 수집기 | `scripts/collect_signals.py` | git log·`review-log.jsonl`·`baseline.jsonl` 이력에서 신호 5종을 **관측만** 한다. 임계값과 해석은 넣지 않는다 — 그 정본은 `evolution-signals.md`이고 적용은 `evolve`다 |
@@ -167,8 +179,9 @@ python3 scripts/collect_signals.py DOMAIN.md     # 0=산출, 1=산출 불가(사
 **네 스크립트의 exit 의미가 같지 않다.** `check_imports.py`·`check_invariants.py`의 1은 정상 판정
 결과(위반 발견)이고, `parse_domain.py`의 1은 해석 실패, `collect_signals.py`의 1은 신호를 만들지
 못했다는 뜻이다. CI에서 같게 다루지 않는다. 그리고 `check_invariants.py`의 1은 **위반과 `검사
-불능`을 겸하므로** exit만 보고 건수를 세지 않는다. 두 검사기는 `--json`을, `collect_signals.py`는
-`--json`과 `--since <rev|날짜>`를 받는다.
+불능`을 겸하므로** exit만 보고 건수를 세지 않는다. 부가 플래그는 `check_imports.py`가 `--json`,
+`check_invariants.py`가 `--json`·`--context <이름>`, `collect_signals.py`가 `--json`·
+`--since <rev|날짜>`다. `parse_domain.py`는 플래그를 받지 않는다.
 
 ### 아직 시행되지 않는 것
 
@@ -282,7 +295,7 @@ docs/superpowers/            설계 스펙과 구현 계획
 |---|---|---|
 | `DOMAIN.md` | 경계·분류·패키지·관계의 SSOT | `init`(생성) · `sync`·`evolve`(확정받은 편집) |
 | `docs/domain-summary.md` | 세션 훅이 주입하는 30줄 이하 요약 | `init`·`sync`·`evolve`(재생성) |
-| `docs/domain/<컨텍스트>.md` | 불변식·애그리거트·값 객체·이벤트·용어. 컨텍스트가 하나뿐이면 `docs/domain.md` | `model`(본문) · `apply`·`review`(열린 질문 append) |
+| `docs/domain/<컨텍스트>.md` | 불변식·애그리거트·값 객체·도메인 이벤트·도메인 서비스·열린 질문. 컨텍스트가 하나뿐이면 `docs/domain.md`. **용어 정의는 쓰지 않는다** — 보편언어는 별도 용어집의 몫이다 | `model`(본문) · `apply`·`review`(열린 질문 append) |
 | `docs/domain/baseline.jsonl` | 동결된 격리 위반 | `init`(동결) · `migrate`(축소) |
 | `docs/domain/review-log.jsonl` | 리뷰 판정 이력 — `collect_signals.py`의 입력 | `review`(append) |
 | `docs/decisions/NNNN-slug.md` | MADR 결정 기록 | `adr` · `init`(초기화가 실제로 내린 결정) · `evolve`(제안마다 `proposed` 초안) |
