@@ -25,8 +25,8 @@
 | 경고(고아 태그·확정 전 구현·미선언 문서) | `report.warnings` — 코드를 바꾸지 않는다 | 그대로 |
 
 **이 검사기는 강제의 정본이 아니다.** 리터럴 `@Tag("INV-...")`만 보고, 태그가 달렸다는 것이
-그 테스트가 불변식을 실제로 검증한다는 뜻도 아니다(`LIMITATION_NOTE`). 의미론 판정은
-`agents/domain-reviewer.md`의 범주다.
+그 테스트가 불변식을 실제로 검증한다는 뜻도 아니다(`LIMITATION_NOTE`). 그 대조는
+`agents/domain-reviewer.md` C4(불변식 정합) (2)의 범주다.
 """
 
 import json
@@ -69,7 +69,7 @@ LIMITATION_NOTE = (
     "한계: 이 검사는 테스트 소스의 리터럴 @Tag(\"INV-...\")만 봅니다 — 상수 간접 참조"
     "(@Tag(INV_CLAIM_001))와 완전 수식 애너테이션(@org.junit.jupiter.api.Tag)은 보이지 "
     "않고, 태그가 달렸다는 것이 그 테스트가 불변식을 실제로 검증한다는 뜻도 아닙니다"
-    "(서술과 검증의 대조는 domain-reviewer의 의미론 판정입니다)."
+    "(서술과 검증의 대조는 domain-reviewer의 불변식 정합 판정입니다)."
 )
 BLOCKED_HEAD = "검사 불능: 테스트 소스가 없습니다"
 
