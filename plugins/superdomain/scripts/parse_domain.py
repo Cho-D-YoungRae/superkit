@@ -125,7 +125,10 @@ RE_H2 = re.compile(r"^##\s+")
 RE_H3 = re.compile(r"^###\s+(.+?)\s*$")
 RE_LABEL = re.compile(r"^-\s*(.+?)\s*:\s*(.+?)\s*$")
 RE_TABLE = re.compile(r"^\|")
-RE_TABLE_DIVIDER = re.compile(r"^\|[\s:|-]+\|$")
+# 줄 끝 공백을 허용한다 — 마크다운이 허용하고(2칸은 hard line break 관례) 에디터가 트림하지도
+# 않는다. 헤더 검사는 `_header_cells`가 칸마다 strip()해서 이미 관대하므로, 여기만 엄격하면
+# 사용자 눈에 멀쩡한 구분선을 "없습니다"라고 말하게 된다.
+RE_TABLE_DIVIDER = re.compile(r"^\|[\s:|-]+\|\s*$")
 RE_TEMPLATE_MARKER = re.compile(
     r"^\s*<!--\s*" + re.escape(MARKER_TEMPLATE) + r"\s+v(\d+)\s*-->\s*$")
 

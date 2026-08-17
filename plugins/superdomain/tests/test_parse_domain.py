@@ -585,6 +585,24 @@ class TestRelationTableShape(DomainTextCase):
         d = self._with_table("| 상대 | 유형 | 계약 |\n|:---|:---:|---:|\n| claim | conformist | - |\n")
         self.assertEqual(d.errors, [])
 
+    def test_divider_with_trailing_whitespace_is_accepted(self):
+        # 마크다운은 줄 끝 공백을 허용하고(2칸은 hard line break 관례) 에디터가 트림하지도 않는다.
+        # 헤더 검사는 _header_cells의 strip()으로 이미 관대하므로 구분선만 엄격하면 비대칭이다.
+        d = self._with_table("| 상대 | 유형 | 계약 |\n|---|---|---|  \n| claim | conformist | - |\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual([(r.partner, r.kind, r.contract) for r in d.contexts[1].relations],
+                         [("claim", "conformist", "-")])
+
+    def test_aligned_divider_with_trailing_whitespace_is_accepted(self):
+        d = self._with_table("| 상대 | 유형 | 계약 |\n|:---|:---:|---:| \n| claim | conformist | - |\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"])
+
+    def test_data_row_is_still_not_mistaken_for_a_divider(self):
+        # 관용도를 넓혀도 데이터 행이 구분선으로 읽히면 안 된다 — 그러면 첫 행이 사라진다.
+        d = self._with_table("| 상대 | 유형 | 계약 |\n| claim | conformist | - |  \n")
+        self.assertHasError(d, "구분선")
+
     def test_correct_table_passes(self):
         d = self._with_table("| 상대 | 유형 | 계약 |\n|---|---|---|\n| claim | conformist | v1 |\n")
         self.assertEqual(d.errors, [])
