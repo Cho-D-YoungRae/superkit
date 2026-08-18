@@ -98,13 +98,15 @@ ID 타입처럼 대량으로 생성되는 경우의 최적화이며, R5의 한�
 2. **JVM 함수 이름 맹글링** — value class를 파라미터로 받는 함수는 JVM 시그니처 이름이 바뀐다.
    Java 코드나 리플렉션 기반 도구에서 그 함수를 직접 부르는 경로가 있으면 영향을 받는다.
 3. **프레임워크 지원** — JPA·직렬화 라이브러리는 value class를 그대로 매핑하지 못하는 경우가
-   있어 컨버터가 필요하다. 그 컨버터는 도메인이 아니라 **어댑터에 둔다**([[persistence]] R1).
+   있어 컨버터가 필요하다. 그 컨버터는 도메인이 아니라 **영속 코드 쪽에 둔다**([[persistence]] R1).
 
-### R6. 값 객체는 도메인 레이어의 순수 타입이다
+### R6. 값 객체는 순수한 도메인 타입이다
 
 `@Entity`·`@Embeddable`·`jakarta.persistence.*`·검증 프레임워크 애노테이션을 값 객체에 붙이지
-않는다. `*.domain-pure`(`confine-type`)와 `*.domain-no-framework`(`forbid-import`)가 기계로
-막는 지점이다([[hexagonal]] R2·R3). 값 객체를 컬럼으로 펼치는 일은 어댑터의 매핑 코드가 한다.
+않는다. 값 객체를 컬럼으로 펼치는 일은 영속 코드 쪽의 매핑이 한다([[persistence]] R1).
+
+**기계는 이것을 막지 않는다** — 검사가 보는 것은 컨텍스트 사이의 참조뿐이므로, 값 객체에 붙은
+영속 애노테이션은 리뷰에서만 드러난다([[persistence]] R2 표의 넷째 행).
 
 ### R7. 리뷰 체크리스트
 
@@ -193,5 +195,4 @@ fun transfer(from: AccountId, to: AccountId, amount: Money)
 - [[aggregates]] — 값 객체가 구성 요소로 들어가는 단위, ID 타입 승격의 근거
 - [[persistence]] — 값 객체를 컬럼으로 펼치는 매핑과 value class 컨버터의 위치
 - [[domain-events]] — 이벤트 페이로드도 값 객체다(불변·구조적 동등성)
-- [[hexagonal]] — 값 객체를 순수하게 유지하는 규칙(R2·R3)의 정의
-- [[layered-simple]] — 값 객체 승격 없이 원시 타입으로 가는 것이 정당한 경우
+- [[domain-classification]] — 값 객체 승격 없이 원시 타입으로 가는 것이 정당한 `generic` 컨텍스트

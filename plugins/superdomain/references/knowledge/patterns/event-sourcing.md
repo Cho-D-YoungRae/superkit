@@ -1,6 +1,6 @@
 ---
 summary: 대부분의 컨텍스트에는 불필요하다 — 적용 판단 기준, 스냅샷·리플레이·스키마 진화
-read_when: [apply, review, scaffold]
+read_when: [apply, review]
 ---
 
 ## 개념
@@ -99,8 +99,9 @@ read_when: [apply, review, scaffold]
 
 ## 규칙
 
-채택한 컨텍스트에 적용하는 **리뷰 판정 도구**다(기계 규칙 id는 스타일이 소유한다 —
-`references/governance/rule-vocabulary.md` §1). R1~R5는 diff 위에서 판정할 수 있도록 적었다.
+채택한 컨텍스트에 적용하는 **리뷰 판정 도구**다 — 이 플러그인의 유일한 기계 강제 규칙
+(`derived.context-isolation`)은 컨텍스트 사이의 참조만 보므로 아래를 아무것도 잡지 않는다.
+R1~R5는 diff 위에서 판정할 수 있도록 적었다.
 
 ### R1. 저장된 이벤트는 수정·삭제되지 않는다
 
@@ -258,6 +259,6 @@ UPDATE ledger_event
 - [[outbox]] — 이벤트 소싱 없이 이벤트를 안전하게 내보내는, 훨씬 흔한 답
 - [[cqrs]] — 이벤트 소싱은 L2 이상을 강제한다. 역방향 함의는 없다
 - [[aggregates]] — 이벤트 소싱의 단위는 컨텍스트가 아니라 애그리거트다
-- [[persistence]] — 이벤트 스토어 어댑터와 도메인의 경계, 업캐스터를 두는 위치
+- [[persistence]] — 이벤트 스토어 코드와 도메인의 경계, 업캐스터를 두는 위치
 - [[event-storming]] — 모델 발견 기법이며 저장 방식 결정이 아니다
 - [[domain-classification]] — 검토 대상은 `core`로 분류된 컨텍스트뿐이다

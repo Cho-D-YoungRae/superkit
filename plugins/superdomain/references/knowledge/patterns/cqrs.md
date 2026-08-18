@@ -1,6 +1,6 @@
 ---
 summary: CQRS 적용 판단 스펙트럼(호출 분리~저장소 분리)과 커맨드/쿼리 분리 규칙 — 기본값은 가장 낮은 단계다
-read_when: [apply, review, scaffold]
+read_when: [apply, review]
 ---
 
 ## 개념
@@ -27,9 +27,9 @@ CQRS는 **커맨드(상태를 바꾸는 것)와 쿼리(상태를 읽는 것)를 
 CQRS 없이 이벤트 소싱을 하는 것은 어렵지만([[event-sourcing]] R5), 이벤트 소싱 없는 CQRS는
 L1~L3 어디서든 정상이며 훨씬 흔하다. 하나를 채택하는 근거로 다른 하나를 끌어오지 않는다.
 
-**CQRS는 스타일이 아니다.** [[hexagonal]]·[[layered-domain]] 같은 스타일 선언과 직교하며, 레이어
-구조를 바꾸지 않는다. 선언은 컨텍스트의 `- 패턴: cqrs` 한 줄이고, 강제되는 것은 스타일이 선언한
-규칙뿐이다 — 이 문서의 `## 규칙`은 fitness가 아니라 review가 읽는 판정 도구다.
+**CQRS는 경계 결정이 아니다.** 컨텍스트를 나누지도 합치지도 않고 코드 배치 관례만 바꾼다. 선언은
+컨텍스트의 `- 패턴: cqrs` 한 줄이고 **파서는 그 값을 검증하지 않는다** — 이 문서의 `## 규칙`은
+기계가 아니라 `apply`·`review`가 읽는 판정 도구다.
 
 ## 적용 기준
 
@@ -67,8 +67,8 @@ L3를 채택하면 발행 경로의 유실이 곧 데이터 불일치가 되므�
 
 ### 고르지 않는 조건
 
-- **CRUD에 가까운 컨텍스트다** → L1에서 끝낸다. `generic`으로 분류되어 [[layered-simple]]을 고른
-  컨텍스트에 command/query 패키지를 가르는 것은 이름만 늘린다([[domain-classification]]).
+- **CRUD에 가까운 컨텍스트다** → L1에서 끝낸다. `generic`으로 분류한 컨텍스트에 command/query
+  패키지를 가르는 것은 이름만 늘린다([[domain-classification]]).
 - **조회가 느린 원인이 인덱스 부재·N+1이다** → 그것을 고친다. CQRS는 질의 성능 도구가 아니다.
   인덱스를 넣지 않은 채 L3로 올라가면 리드 모델에서도 같은 질의가 느리다.
 - **"나중에 확장될 것 같아서"** → 세지 않는다. Q·W는 지금 이름을 댈 수 있는 것만 센다.
@@ -89,8 +89,9 @@ L3를 채택하면 발행 경로의 유실이 곧 데이터 불일치가 되므�
 
 ## 규칙
 
-기계 검증 규칙이 아니라 **리뷰 판정 도구**다(규칙 id는 스타일이 소유한다 —
-`references/governance/rule-vocabulary.md` §1·§4). 아래 R1~R3은 diff 위에서 그대로 판정할 수
+기계 검증 규칙이 아니라 **리뷰 판정 도구**다 — 이 플러그인의 유일한 기계 강제 규칙
+(`derived.context-isolation`)은 컨텍스트 사이의 참조만 보므로 아래를 아무것도 잡지 않는다.
+아래 R1~R3은 diff 위에서 그대로 판정할 수
 있도록 "어디를 보는가 / 위반 문형 / 위반이 아닌 것"으로 적었다. R1·R2는 `- 패턴: cqrs` 선언
 여부와 무관하게 적용한다(L1은 항상 채택하므로). R3은 command/query 패키지가 실재할 때만 적용한다.
 
@@ -168,18 +169,16 @@ L3를 채택하면 발행 경로의 유실이 곧 데이터 불일치가 되므�
 것이 잘못 놓인 경우가 대부분이다. 커맨드 쪽이 쿼리 DTO를 쓰고 싶어진 것이라면 그것은 공유 문제가
 아니라 R1 위반 신호다.
 
-**기계에 넘기려면** 이 검사는 `forbid-import` 두 인스턴스로 표현할 수 있다. 다만 규칙 id는
-스타일이 소유하므로 패턴 문서가 아니라 **커스텀 스타일 선언**에 쓴다(`rule-vocabulary.md` §4).
-컨텍스트별 리터럴 패턴으로 쓰거나(`from=com.acme.claim.application.command..;
-to=com.acme.claim.application.query..`), command·query를 스타일의 레이어로 선언해 정규화가
-컨텍스트별로 전개하게 한다. 선언하기 전까지 이 항목은 리뷰 체크리스트다.
+**기계에 넘길 자리는 없다.** 이 플러그인의 선언은 컨텍스트 경계만 표현하고, command·query처럼
+**컨텍스트 안**의 구획을 강제하는 규칙 문법이 없다. 팀이 이 금지를 세우기로 했다면
+`docs/conventions/`의 리뷰 체크리스트로 적고 근거를 ADR에 남긴다 — 여기서는 끝까지 리뷰 항목이다.
 
 **보고**: `type=violation`, `severity=warn`.
 
 ### R4. 선언과 코드가 같은 단계를 가리킨다
 
-`- 패턴: cqrs` 선언은 단계를 담지 못한다(라벨 값은 문서 key뿐이다 —
-`references/governance/architecture-template.md` §4). 그러므로 채택 단계는 ARCHITECTURE.md의 근거
+`- 패턴: cqrs` 선언은 단계를 담지 못한다(라벨 값은 문서 key 목록이고 파서가 검증하지 않는다 —
+`references/governance/domain-template.md` §3). 그러므로 채택 단계는 `DOMAIN.md`의 `### 근거`
 절이나 ADR에 한 줄로 남긴다: `cqrs: L2 (조회 프로젝션 분리, 저장소는 하나)`.
 
 - 선언은 있는데 단계 기록이 없다 → `type=missing`, `severity=info`.
@@ -286,5 +285,4 @@ class ClaimDetailQueryService(private val loadClaim: LoadClaimPort) {
 - [[aggregates]] — 쓰기 모델의 단위. L2가 걷어내는 왜곡은 대부분 애그리거트에 쌓인다
 - [[repositories-domain-services]] — 쓰기용 리포지토리와 조회 전용 DAO의 책임 경계
 - [[persistence]] — 조회 프로젝션이 영속 엔티티를 어디까지 노출해도 되는가
-- [[package-conventions]] — command·query를 패키지로 가를 때의 명명과 패턴
 - [[domain-classification]] — generic 컨텍스트에 L2 이상을 올리지 않는 이유
