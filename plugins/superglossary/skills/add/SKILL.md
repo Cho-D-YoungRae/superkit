@@ -2,7 +2,7 @@
 name: add
 description: 용어사전에 새 용어를 등록한다. 사용자가 용어 추가를 요청할 때("용어 추가", "사전에 등록")와, 작업 중 사전(core.md)에 없는 개념의 영문 네이밍이 필요해졌을 때 사용한다. 복합어는 단일어로 분해해 등록한다.
 argument-hint: <한글> <영문> [축약어] [--desc "설명"]
-allowed-tools: Bash, Read
+allowed-tools: Bash(superglossary:*), Bash(python3 .claude/superglossary/glossary.py:*), Read
 ---
 
 # 용어 등록
@@ -11,7 +11,8 @@ allowed-tools: Bash, Read
 
 1. **복합어 검사**: 등록 대상이 복합어(예: "회원번호")면 단일어로 분해한다. 등록된 단일어 조합으로 표현 가능하면(예: 회원=member + 식별자=id → `member_id`) 그 방법을 쓰고, 미등록 단일어만 등록 대상으로 삼는다.
 2. **등록**: 단일어마다 실행한다 —
-   `python3 .claude/superglossary/glossary.py add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "금지변형,..."]`
+   `superglossary add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "금지변형,..."]`
+   (`superglossary`를 찾지 못하면 `python3 .claude/superglossary/glossary.py add …`로 대체한다.)
    스크립트가 중복·충돌(한글/영문/축약어/금지 변형)을 검사하고 통과 시 추가 + 재빌드한다. 같은 개념에 쓰이면 안 되는 영문 변형을 알고 있다면 `--avoid`로 함께 보존한다.
 3. **충돌 시**: 스크립트가 기존 항목·표준을 출력하며 비정상 종료하면, 그 내용을 설명하고 해당 항목 등록을 중단한다(금지 변형 충돌이면 안내된 표준을 사용).
 4. **자율 등록이었다면**: 작업을 계속하기 전에 "용어 등록: 회원 → member" 형식 한 줄로 사용자에게 알린다.

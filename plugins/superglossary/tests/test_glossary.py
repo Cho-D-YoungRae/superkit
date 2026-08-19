@@ -34,10 +34,20 @@ class TempDirCase(unittest.TestCase):
 
 class DataTest(TempDirCase):
     def test_save_load_roundtrip(self):
-        data = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
-                           "description": "", "relatedElements": []}]}
-        g.save_glossary(self.dir, data)
-        self.assertEqual(g.load_glossary(self.dir), data)
+        terms = [{"korean": "회원", "english": "member", "abbreviation": None,
+                  "description": "", "relatedElements": [], "avoid": []}]
+        g.save_glossary(self.dir, {"schemaVersion": g.SCHEMA_VERSION, "terms": terms})
+        loaded = g.load_glossary(self.dir)
+        self.assertEqual(loaded["terms"], terms)
+        self.assertEqual(loaded["schemaVersion"], g.SCHEMA_VERSION)
+
+    def test_save_puts_schema_version_first(self):
+        g.save_glossary(self.dir, {"terms": []})
+        raw = load_file(os.path.join(self.dir, "glossary.json"))
+        self.assertTrue(raw.startswith('{\n  "schemaVersion":'), raw[:40])
+
+    def test_initial_data_carries_schema_version(self):
+        self.assertEqual(g.INITIAL_DATA["schemaVersion"], g.SCHEMA_VERSION)
 
     def test_save_writes_hangul_unescaped(self):
         g.save_glossary(self.dir, {"terms": [{"korean": "회원", "english": "member"}]})
@@ -449,7 +459,7 @@ class ScaffoldTest(TempDirCase):
         return os.path.join(self.dir, ".claude", "superglossary")
 
     def test_assert_data_dir_placement(self):
-        with self.assertRaisesRegex(g.GlossaryError, "복사한 뒤 실행하세요"):
+        with self.assertRaisesRegex(g.GlossaryError, "\\.claude/superglossary/ 여야 합니다"):
             g.assert_data_dir_placement(os.path.join("/tmp", "plugin", "templates"))
         g.assert_data_dir_placement(os.path.join("/tmp", "proj", ".claude", "superglossary"))
 
@@ -490,6 +500,120 @@ class ScaffoldTest(TempDirCase):
         warnings = g.scaffold(self.data_dir())
         self.assertTrue(any("무시되어" in w for w in warnings), "무시 경고 포함")
         self.assertTrue(any("!.claude/superglossary/" in w for w in warnings), "해법 안내 포함")
+
+
+class SchemaMigrationTest(TempDirCase):
+    def test_v0_file_is_migrated_on_load(self):
+        # 0.4.0 이전 파일: schemaVersion 없음, 일부 필드 누락
+        write_file(os.path.join(self.dir, "glossary.json"),
+                   json.dumps({"terms": [{"korean": "회원", "english": "member"}]}, ensure_ascii=False))
+        data = g.load_glossary(self.dir)
+        self.assertEqual(data["schemaVersion"], g.SCHEMA_VERSION)
+        self.assertEqual(data["terms"][0]["avoid"], [])
+        self.assertEqual(data["terms"][0]["relatedElements"], [])
+        self.assertIsNone(data["terms"][0]["abbreviation"])
+        self.assertEqual(data["terms"][0]["description"], "")
+
+    def test_migrate_reports_whether_it_changed_anything(self):
+        self.assertTrue(g.migrate({"terms": []}))
+        self.assertFalse(g.migrate({"schemaVersion": g.SCHEMA_VERSION, "terms": []}))
+
+    def test_future_schema_version_is_rejected(self):
+        write_file(os.path.join(self.dir, "glossary.json"),
+                   json.dumps({"schemaVersion": g.SCHEMA_VERSION + 1, "terms": []}))
+        with self.assertRaisesRegex(g.GlossaryError, "CLI가 오래됐습니다"):
+            g.load_glossary(self.dir)
+
+    def test_init_rerun_upgrades_old_file_in_place(self):
+        data_dir = os.path.join(self.dir, ".claude", "superglossary")
+        os.makedirs(data_dir)
+        write_file(os.path.join(data_dir, "glossary.json"),
+                   json.dumps({"terms": [{"korean": "회원", "english": "member"}]}, ensure_ascii=False))
+        g.scaffold(data_dir)
+        raw = json.loads(load_file(os.path.join(data_dir, "glossary.json")))
+        self.assertEqual(raw["schemaVersion"], g.SCHEMA_VERSION, "init 재실행이 스키마를 올린다")
+        self.assertEqual(raw["terms"][0]["korean"], "회원", "기존 용어는 보존된다")
+
+
+class StopwordsConfigTest(TempDirCase):
+    def test_effective_stopwords_adds_and_removes(self):
+        data = {"terms": [], "stopwords": {"add": ["Acme", "svc"], "remove": ["repository"]}}
+        words = g.effective_stopwords(data)
+        self.assertIn("acme", words, "add는 소문자로 정규화된다")
+        self.assertIn("svc", words)
+        self.assertNotIn("repository", words)
+        self.assertIn("const", words, "기본 스톱워드는 유지된다")
+
+    def test_effective_stopwords_defaults_to_builtin(self):
+        self.assertEqual(g.effective_stopwords({"terms": []}), set(g.STOPWORDS))
+
+    def test_lint_honors_project_stopwords(self):
+        f = os.path.join(self.dir, "sample.js")
+        write_file(f, "const acmeWidget = 1; const repositoryUrl = 2;")
+        base = {"terms": []}
+        tokens = {c["token"] for c in g.lint_files(base, [f])["candidates"]}
+        self.assertIn("acme", tokens)
+        self.assertNotIn("repository", tokens)
+
+        tuned = {"terms": [], "stopwords": {"add": ["acme"], "remove": ["repository"]}}
+        tokens = {c["token"] for c in g.lint_files(tuned, [f])["candidates"]}
+        self.assertNotIn("acme", tokens, "add된 단어는 후보에서 빠진다")
+        self.assertIn("repository", tokens, "remove된 단어는 후보로 올라온다")
+
+    def test_avoid_still_beats_custom_stopwords(self):
+        f = os.path.join(self.dir, "sample.js")
+        write_file(f, "const acmeWidget = 1;")
+        data = {"terms": [{"korean": "위젯", "english": "widget", "abbreviation": None, "avoid": ["acme"]}],
+                "stopwords": {"add": ["acme"]}}
+        violations = g.lint_files(data, [f])["violations"]
+        self.assertEqual([v["token"] for v in violations], ["acme"], "금지 변형은 스톱워드보다 우선한다")
+
+
+class ResolveDataDirTest(TempDirCase):
+    def test_env_override_wins(self):
+        target = os.path.join(self.dir, "elsewhere")
+        resolved = g.resolve_data_dir(script_path=None, cwd=self.dir, env={"SUPERGLOSSARY_DIR": target})
+        self.assertEqual(resolved, os.path.abspath(target))
+
+    def test_script_inside_data_dir_uses_its_own_directory(self):
+        # 프로젝트 복사본 모드 — 스크립트가 .claude/superglossary 안에 있다
+        data_dir = os.path.join(self.dir, ".claude", "superglossary")
+        os.makedirs(data_dir)
+        script = os.path.join(data_dir, "glossary.py")
+        write_file(script, "")
+        self.assertEqual(g.resolve_data_dir(script, cwd="/", env={}), data_dir)
+
+    def test_walks_up_from_cwd(self):
+        # bin/ 모드 — 스크립트는 플러그인 안에 있고, 하위 디렉토리에서 실행한다
+        data_dir = os.path.join(self.dir, ".claude", "superglossary")
+        os.makedirs(data_dir)
+        nested = os.path.join(self.dir, "src", "main", "java")
+        os.makedirs(nested)
+        plugin_script = os.path.join(self.dir, "plugin", "templates", "glossary.py")
+        os.makedirs(os.path.dirname(plugin_script))
+        write_file(plugin_script, "")
+        self.assertEqual(g.resolve_data_dir(plugin_script, cwd=nested, env={}), data_dir)
+
+    def test_falls_back_to_cwd_when_not_found(self):
+        nested = os.path.join(self.dir, "fresh")
+        os.makedirs(nested)
+        self.assertEqual(g.resolve_data_dir(None, cwd=nested, env={}),
+                         os.path.join(nested, ".claude", "superglossary"))
+
+    def test_is_data_dir(self):
+        self.assertTrue(g.is_data_dir(os.path.join("/proj", ".claude", "superglossary")))
+        self.assertTrue(g.is_data_dir(os.path.join("/proj", ".claude", "superglossary") + os.sep))
+        self.assertFalse(g.is_data_dir(os.path.join("/proj", "superglossary")))
+        self.assertFalse(g.is_data_dir(os.path.join("/proj", ".claude")))
+
+
+class BinEntryPointTest(unittest.TestCase):
+    def test_bin_executable_runs_the_bundled_cli(self):
+        script = os.path.join(ROOT, "bin", "superglossary")
+        self.assertTrue(os.access(script, os.X_OK), "bin/superglossary는 실행 권한이 있어야 한다")
+        done = subprocess.run([sys.executable, script, "version"], capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn(g.VERSION, done.stdout)
 
 
 class MainTest(TempDirCase):

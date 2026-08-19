@@ -8,15 +8,19 @@
 - `.claude-plugin/marketplace.json` — 자체 호스팅 마켓플레이스(`source: "./"`).
 - `scripts/bump_version.py` — 버전 갱신·검증 스크립트.
 - `skills/` — 스킬 정의 (`init/`, `add/`, `check/` — 각 디렉토리에 `SKILL.md`).
+- `bin/superglossary` — 플러그인이 `PATH`에 노출하는 CLI 진입점. `templates/glossary.py`를 그대로 실행합니다.
 - `agents/` — 서브에이전트 정의 (`check-analyzer.md`, `glossary-scanner.md`).
 - `templates/glossary.py` — 사용자 프로젝트에 배포되는 CLI 원본 (Python 3 표준 라이브러리만 사용, 외부 패키지 0).
 - `tests/` — 테스트 스위트 (표준 라이브러리 `unittest`).
+- `.github/workflows/ci.yml` — PR·push마다 테스트·버전 일관성·`bin/` 진입점을 검증(Python 3.9/3.13).
 - `.claude-plugin/` 안에는 매니페스트(JSON)만 넣습니다.
 
 ## 컴포넌트 규칙
 
-- `skills/`, `agents/`는 **반드시 저장소 루트**에 둡니다.
+- `skills/`, `agents/`, `bin/`은 **반드시 저장소 루트**에 둡니다.
+- CLI 로직은 `templates/glossary.py` 한 곳에만 둡니다. `bin/superglossary`는 그 파일을 로드해 실행하는 얇은 진입점이며, 로직을 복제하지 않습니다.
 - 용어사전 데이터는 사용자 프로젝트의 `.claude/superglossary/`에 생성됩니다(glossary.json·core.md·terms.md·glossary.py).
+- `glossary.json`의 구조를 바꾸면 `SCHEMA_VERSION`을 올리고 `migrate()`에 업그레이드 경로를 추가합니다. CLI 버전(`VERSION`)과는 별개입니다.
 
 ## 로컬 개발·검증
 

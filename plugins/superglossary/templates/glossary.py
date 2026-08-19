@@ -11,6 +11,11 @@ import sys
 
 VERSION = "0.4.0"
 
+# glossary.json 데이터 스키마 버전. 구조가 바뀔 때만 올린다(CLI 버전과 별개).
+#   0 → schemaVersion 필드가 없던 0.4.0 이전 파일
+#   1 → schemaVersion·stopwords 도입
+SCHEMA_VERSION = 1
+
 AUTOGEN = "<!-- 이 파일은 glossary.json에서 자동 생성됩니다. 직접 편집하지 마세요. (glossary.py build) -->"
 
 RULE_COMMENT = "<!-- 규칙: 단일어만 등록·조합해 사용한다. 축약어는 이 표에 등록된 것만 허용한다. -->"
@@ -22,19 +27,44 @@ class GlossaryError(Exception):
     """사용자에게 그대로 보여줄 수 있는 오류."""
 
 
+def migrate(data):
+    """구 스키마 데이터를 현재 스키마로 올린다(메모리 상). 변경이 있었으면 True."""
+    version = data.get("schemaVersion", 0)
+    if version > SCHEMA_VERSION:
+        raise GlossaryError(
+            f"glossary.json이 스키마 v{version}인데 이 CLI는 v{SCHEMA_VERSION}까지 지원합니다. "
+            "CLI가 오래됐습니다 — /superglossary:init을 재실행해 갱신하세요."
+        )
+    if version == SCHEMA_VERSION:
+        return False
+    # v0 → v1: 0.3.0 이전 파일은 avoid 등 일부 필드가 없을 수 있다.
+    for term in data.get("terms", []):
+        term.setdefault("abbreviation", None)
+        term.setdefault("description", "")
+        term.setdefault("relatedElements", [])
+        term.setdefault("avoid", [])
+    data["schemaVersion"] = SCHEMA_VERSION
+    return True
+
+
 def load_glossary(directory):
     path = os.path.join(directory, "glossary.json")
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except FileNotFoundError:
         raise GlossaryError("용어사전이 없습니다. /superglossary:init(또는 glossary.py init)을 먼저 실행하세요.")
+    migrate(data)
+    return data
 
 
 def save_glossary(directory, data):
+    # schemaVersion을 항상 첫 키로 써서 파일을 열었을 때 바로 보이게 한다.
+    ordered = {"schemaVersion": data.get("schemaVersion", SCHEMA_VERSION)}
+    ordered.update({k: v for k, v in data.items() if k != "schemaVersion"})
     path = os.path.join(directory, "glossary.json")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+        f.write(json.dumps(ordered, ensure_ascii=False, indent=2) + "\n")
 
 
 def sorted_terms(data):
@@ -318,7 +348,17 @@ def read_text(path):
         return None
 
 
+def effective_stopwords(data):
+    """기본 스톱워드에 프로젝트별 add/remove 설정을 반영한 집합."""
+    config = data.get("stopwords") or {}
+    words = set(STOPWORDS)
+    words |= {w.lower() for w in config.get("add") or []}
+    words -= {w.lower() for w in config.get("remove") or []}
+    return words
+
+
 def lint_files(data, paths, all_tokens=False):
+    stopwords = effective_stopwords(data)
     known = set()
     avoid_map = {}
     for t in data["terms"]:
@@ -340,7 +380,7 @@ def lint_files(data, paths, all_tokens=False):
             for tok in tokenize(identifier):
                 if len(tok) < 2 or tok in known:
                     continue
-                if tok not in avoid_map and not all_tokens and tok in STOPWORDS:
+                if tok not in avoid_map and not all_tokens and tok in stopwords:
                     continue
                 hit = hits.setdefault(tok, {"count": 0, "files": []})
                 hit["count"] += 1
@@ -366,6 +406,7 @@ def format_file_list(files):
 
 
 INITIAL_DATA = {
+    "schemaVersion": SCHEMA_VERSION,
     "terms": [
         {"korean": "식별자", "english": "identifier", "abbreviation": "id",
          "description": "데이터를 고유 식별하는 값. {엔티티}_id 형식", "relatedElements": [], "avoid": []},
@@ -388,10 +429,50 @@ CLAUDE_BLOCK = """## 용어 사전
 """
 
 
+CLAUDE_DIR_NAME = ".claude"
+DATA_DIR_NAME = "superglossary"
+
+
+def is_data_dir(path):
+    normalized = os.path.normpath(path)
+    return (os.path.basename(normalized) == DATA_DIR_NAME
+            and os.path.basename(os.path.dirname(normalized)) == CLAUDE_DIR_NAME)
+
+
 def assert_data_dir_placement(data_dir):
-    normalized = os.path.normpath(data_dir)
-    if os.path.basename(normalized) != "superglossary" or os.path.basename(os.path.dirname(normalized)) != ".claude":
-        raise GlossaryError("glossary.py를 <프로젝트>/.claude/superglossary/로 복사한 뒤 실행하세요.")
+    if not is_data_dir(data_dir):
+        raise GlossaryError(
+            "용어사전 디렉토리는 <프로젝트>/.claude/superglossary/ 여야 합니다. "
+            "프로젝트 루트에서 실행하거나 SUPERGLOSSARY_DIR로 경로를 지정하세요."
+        )
+
+
+def resolve_data_dir(script_path=None, cwd=None, env=None):
+    """CLI가 다룰 .claude/superglossary 디렉토리를 찾는다.
+
+    1. SUPERGLOSSARY_DIR 환경변수 — 명시적 지정
+    2. 스크립트 자신이 .claude/superglossary 안에 있으면 그 디렉토리 — 프로젝트 복사본 모드
+    3. 현재 디렉토리에서 위로 올라가며 탐색 — 플러그인 bin/ 모드, 하위 디렉토리에서 실행할 때
+    4. 못 찾으면 <cwd>/.claude/superglossary — init이 새로 만들 자리
+    """
+    env = os.environ if env is None else env
+    override = env.get("SUPERGLOSSARY_DIR")
+    if override:
+        return os.path.abspath(override)
+    if script_path:
+        script_dir = os.path.dirname(os.path.abspath(script_path))
+        if is_data_dir(script_dir):
+            return script_dir
+    cwd = os.path.abspath(cwd if cwd else os.getcwd())
+    current = cwd
+    while True:
+        candidate = os.path.join(current, CLAUDE_DIR_NAME, DATA_DIR_NAME)
+        if os.path.isdir(candidate):
+            return candidate
+        parent = os.path.dirname(current)
+        if parent == current:
+            return os.path.join(cwd, CLAUDE_DIR_NAME, DATA_DIR_NAME)
+        current = parent
 
 
 def git_ignore_warnings(data_dir):
@@ -421,7 +502,10 @@ def git_ignore_warnings(data_dir):
 def scaffold(data_dir):
     assert_data_dir_placement(data_dir)
     os.makedirs(data_dir, exist_ok=True)
-    if not os.path.exists(os.path.join(data_dir, "glossary.json")):
+    if os.path.exists(os.path.join(data_dir, "glossary.json")):
+        # 기존 사전은 보존하되, 구 스키마면 여기서 올린다(init 재실행 = 업그레이드 경로).
+        save_glossary(data_dir, load_glossary(data_dir))
+    else:
         save_glossary(data_dir, INITIAL_DATA)
     build(data_dir)
     claude_md = os.path.join(os.path.dirname(os.path.normpath(data_dir)), "CLAUDE.md")
@@ -467,7 +551,8 @@ def _csv_option(options, key):
     return [s.strip() for s in raw.split(",") if s.strip()]
 
 
-USAGE = """사용법: python3 glossary.py <subcommand>
+USAGE = """사용법: python3 .claude/superglossary/glossary.py <subcommand>
+       (플러그인이 활성화되어 있으면 `superglossary <subcommand>`로도 실행됩니다)
   init                                          초기화(.claude/superglossary/에 복사 후 실행)
   build                                         glossary.json → core.md·terms.md 재생성
   add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "a,b"]
@@ -579,9 +664,8 @@ def run(argv, data_dir):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
-    self_dir = os.path.dirname(os.path.abspath(__file__))
     try:
-        out = run(argv, self_dir)
+        out = run(argv, resolve_data_dir(__file__))
     except (GlossaryError, OSError, ValueError) as err:
         print(f"✗ {err}", file=sys.stderr)
         return 1

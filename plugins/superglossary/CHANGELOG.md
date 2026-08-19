@@ -9,6 +9,16 @@
 
 ## [0.4.0] - 2026-08-20
 
+### Added
+
+- `bin/superglossary` — 플러그인이 `PATH`에 노출하는 CLI 진입점. 프로젝트 안 어느 디렉토리에서든 `superglossary <서브커맨드>`로 실행되며, 항상 설치된 플러그인의 최신 CLI가 돕니다(프로젝트 복사본의 버전 드리프트 회피). 복사본은 플러그인 미설치 팀원·CI를 위해 유지됩니다.
+- 데이터 디렉토리 자동 탐색 — `SUPERGLOSSARY_DIR` 환경변수 → 스크립트 위치 → 현재 디렉토리에서 상위로 탐색 → 없으면 `<cwd>/.claude/superglossary`. 하위 디렉토리에서 실행해도 동작합니다.
+- `glossary.json`의 `schemaVersion` 필드 — 구 스키마는 자동으로 올리고, CLI가 모르는 상위 버전은 조용히 오작동하는 대신 오류로 안내합니다. `schemaVersion`이 없는 이전 파일도 그대로 읽힙니다.
+- `glossary.json`의 `stopwords.add`/`stopwords.remove` — 프로젝트별 `lint` 스톱워드 조정. 금지 변형(`avoid`)은 여전히 스톱워드보다 우선합니다.
+- `.github/workflows/ci.yml` — PR·push마다 테스트(Python 3.9/3.13)·버전 일관성·`bin/` 진입점 검증.
+- `check` 스킬에 `allowed-tools` 추가, `add` 스킬은 CLI 명령으로 범위를 좁힘 — 매 실행 권한 프롬프트가 사라집니다.
+- `plugin.json`에 `$schema`(에디터 자동완성·검증)와 `displayName` 추가.
+
 ### Changed
 
 - **BREAKING**: CLI 런타임을 Node.js에서 **Python 3(표준 라이브러리만)**으로 이관 — `templates/glossary.mjs` → `templates/glossary.py`.
