@@ -1,0 +1,594 @@
+#!/usr/bin/env python3
+"""프로젝트 용어사전 CLI (의존성 0 — Python 3 표준 라이브러리만 사용).
+
+사용자 프로젝트의 `.claude/superglossary/`로 복사되어 동작한다.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+VERSION = "0.4.0"
+
+AUTOGEN = "<!-- 이 파일은 glossary.json에서 자동 생성됩니다. 직접 편집하지 마세요. (glossary.py build) -->"
+
+RULE_COMMENT = "<!-- 규칙: 단일어만 등록·조합해 사용한다. 축약어는 이 표에 등록된 것만 허용한다. -->"
+
+CORE_SPLIT_THRESHOLD = 180
+
+
+class GlossaryError(Exception):
+    """사용자에게 그대로 보여줄 수 있는 오류."""
+
+
+def load_glossary(directory):
+    path = os.path.join(directory, "glossary.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise GlossaryError("용어사전이 없습니다. /superglossary:init(또는 glossary.py init)을 먼저 실행하세요.")
+
+
+def save_glossary(directory, data):
+    path = os.path.join(directory, "glossary.json")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+
+def sorted_terms(data):
+    # 한글 음절(U+AC00~U+D7A3)은 코드포인트 순서가 곧 가나다순이다.
+    return sorted(data["terms"], key=lambda t: t["korean"])
+
+
+def avoid_of(term):
+    return term.get("avoid") or []
+
+
+def related_of(term):
+    return term.get("relatedElements") or []
+
+
+def find_conflict(other_terms, korean, english, abbreviation=None, avoid=()):
+    e = english.lower() if english else None
+    a = abbreviation.lower() if abbreviation else None
+    av = [s.lower() for s in avoid]
+    if e and e in av:
+        return f"금지 변형 '{english}'이(가) 자신의 영문과 같습니다"
+    if a and a in av:
+        return f"금지 변형 '{abbreviation}'이(가) 자신의 축약어와 같습니다"
+    for t in other_terms:
+        te = t["english"].lower()
+        ta = t["abbreviation"].lower() if t.get("abbreviation") else None
+        tav = [s.lower() for s in avoid_of(t)]
+        if t["korean"] == korean:
+            return f"이미 등록된 한글: {korean} → {t['english']}"
+        if e == te:
+            return f"이미 등록된 영문: {english} ({t['korean']})"
+        if e and e == ta:
+            return f"이미 등록된 축약어와 충돌: {english} ({t['korean']})"
+        if e and e in tav:
+            return f"'{english}'은(는) 금지 변형입니다. 표준: {t['english']}({t['korean']})"
+        if a and a == ta:
+            return f"이미 등록된 축약어: {abbreviation} ({t['korean']})"
+        if a and a == te:
+            return f"이미 등록된 영문과 충돌: {abbreviation} ({t['korean']})"
+        if a and a in tav:
+            return f"'{abbreviation}'은(는) 금지 변형입니다. 표준: {t['english']}({t['korean']})"
+        for v in av:
+            if v == te or v == ta:
+                return f"금지 변형 '{v}'이(가) 등록 용어 {t['korean']}({t['english']})과(와) 충돌합니다"
+            if v in tav:
+                return f"금지 변형 '{v}'은(는) 이미 {t['korean']}({t['english']})의 금지 목록에 있습니다"
+    return None
+
+
+def add_term(data, korean, english, abbreviation=None, description="", related_elements=None, avoid=None):
+    if not korean or not english:
+        raise GlossaryError("korean과 english는 필수입니다.")
+    related_elements = list(related_elements or [])
+    avoid = list(avoid or [])
+    conflict = find_conflict(data["terms"], korean, english, abbreviation, avoid)
+    if conflict:
+        raise GlossaryError(conflict)
+    data["terms"].append({
+        "korean": korean,
+        "english": english,
+        "abbreviation": abbreviation,
+        "description": description,
+        "relatedElements": related_elements,
+        "avoid": avoid,
+    })
+    return data
+
+
+def find_term(data, korean):
+    for t in data["terms"]:
+        if t["korean"] == korean:
+            return t
+    return None
+
+
+def update_term(data, korean, fields):
+    term = find_term(data, korean)
+    if term is None:
+        raise GlossaryError(f"등록되지 않은 용어: {korean}")
+    nxt = dict(term)
+    for key in ("english", "abbreviation", "description", "relatedElements", "avoid"):
+        if key in fields:
+            nxt[key] = fields[key]
+    others = [t for t in data["terms"] if t["korean"] != korean]
+    conflict = find_conflict(
+        others, nxt["korean"], nxt["english"], nxt.get("abbreviation"), avoid_of(nxt)
+    )
+    if conflict:
+        raise GlossaryError(conflict)
+    term.update(nxt)
+    return data
+
+
+def remove_term(data, korean):
+    for i, t in enumerate(data["terms"]):
+        if t["korean"] == korean:
+            del data["terms"][i]
+            return data
+    raise GlossaryError(f"등록되지 않은 용어: {korean}")
+
+
+def list_terms(data):
+    return sorted_terms(data)
+
+
+def lookup(data, query):
+    q = query.lower()
+    result = []
+    for t in sorted_terms(data):
+        abbr = t.get("abbreviation")
+        if q in t["korean"].lower() or q in t["english"].lower() or (abbr and q in abbr.lower()):
+            result.append(t)
+    return result
+
+
+def format_term_detail(t):
+    abbr = f" (축약: {t['abbreviation']})" if t.get("abbreviation") else ""
+    lines = [f"{t['korean']} → {t['english']}{abbr}"]
+    if t.get("description"):
+        lines.append(f"  설명: {t['description']}")
+    if related_of(t):
+        lines.append(f"  관련: {', '.join(related_of(t))}")
+    if avoid_of(t):
+        lines.append(f"  금지: {', '.join(avoid_of(t))}")
+    return "\n".join(lines)
+
+
+def escape_cell(value):
+    return re.sub(r"\r?\n", "<br>", str(value if value is not None else "").replace("|", "\\|"))
+
+
+def render_core(data):
+    terms = sorted_terms(data)
+    rows = "\n".join(
+        f"| {escape_cell(t['korean'])} | {escape_cell(t['english'])} | {escape_cell(t.get('abbreviation') or '')} |"
+        for t in terms
+    )
+    avoided = [t for t in terms if avoid_of(t)]
+    if avoided:
+        summary = "\n".join(
+            f"- {', '.join(avoid_of(t))} → {t['english']}({t['korean']})" for t in avoided
+        )
+        avoid_block = f"\n금지 변형(대신 표준 사용):\n{summary}\n"
+    else:
+        avoid_block = ""
+    return (
+        f"{AUTOGEN}\n{RULE_COMMENT}\n\n"
+        "| 한글 | 영문 | 축약 |\n| --- | --- | --- |\n"
+        f"{rows}\n{avoid_block}"
+    )
+
+
+def render_terms(data):
+    rows = "\n".join(
+        "| {} | {} | {} | {} | {} | {} |".format(
+            escape_cell(t["korean"]),
+            escape_cell(t["english"]),
+            escape_cell(t.get("abbreviation") or ""),
+            escape_cell(t.get("description") or ""),
+            escape_cell(", ".join(related_of(t))),
+            escape_cell(", ".join(avoid_of(t))),
+        )
+        for t in sorted_terms(data)
+    )
+    return (
+        f"{AUTOGEN}\n\n"
+        "| 한글 | 영문 | 축약 | 설명 | 관련 요소 | 금지 |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"{rows}\n"
+    )
+
+
+def build(directory):
+    data = load_glossary(directory)
+    core = render_core(data)
+    with open(os.path.join(directory, "core.md"), "w", encoding="utf-8") as f:
+        f.write(core)
+    with open(os.path.join(directory, "terms.md"), "w", encoding="utf-8") as f:
+        f.write(render_terms(data))
+    lines = len(core.split("\n"))
+    if lines > CORE_SPLIT_THRESHOLD:
+        return f"안내: core.md가 {lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요."
+    return None
+
+
+def is_stale(directory, data):
+    for name, render in (("core.md", render_core), ("terms.md", render_terms)):
+        path = os.path.join(directory, name)
+        if not os.path.exists(path):
+            return True
+        with open(path, encoding="utf-8") as f:
+            if f.read() != render(data):
+                return True
+    return False
+
+
+def warn_if_stale(directory, data):
+    if is_stale(directory, data):
+        print("⚠ core.md/terms.md가 glossary.json과 다릅니다. 'glossary.py build'를 실행하세요.", file=sys.stderr)
+
+
+def tokenize(identifier):
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", identifier)
+    return [part.lower() for part in re.split(r"[_\s]+", spaced) if part]
+
+
+# 결정 #11: 언어 키워드·표준 타입·기술 계층 어휘만 포함한다.
+# 도메인 개연성이 있는 일반명사(user, order, item, price, status, state 등)는 넣지 않는다.
+STOPWORDS = {
+    # 언어 키워드 (JS/TS/Java/Kotlin/Python/Go/SQL)
+    "abstract", "and", "as", "assert", "async", "await", "boolean", "break", "byte", "case", "cascade",
+    "catch", "chan", "char", "class", "const", "constraint", "continue", "def", "default", "defer",
+    "delete", "do", "double", "elif", "else", "enum", "except", "exists", "export", "extends", "false",
+    "final", "finally", "float", "for", "foreign", "from", "fun", "func", "function", "global", "go",
+    "having", "if", "implements", "import", "in", "init", "inner", "insert", "instanceof", "int",
+    "interface", "internal", "is", "join", "key", "lambda", "left", "let", "like", "limit", "long",
+    "module", "namespace", "new", "nil", "none", "nonlocal", "not", "null", "object", "of", "offset",
+    "open", "or", "outer", "override", "package", "pass", "primary", "private", "protected", "public",
+    "raise", "range", "readonly", "references", "require", "return", "right", "sealed", "select",
+    "self", "short", "static", "struct", "super", "switch", "table", "this", "throw", "throws", "true",
+    "try", "type", "typeof", "union", "unique", "val", "var", "void", "when", "where", "while", "with", "yield",
+    # 표준 타입·라이브러리 어휘
+    "array", "bigdecimal", "bigint", "biginteger", "buffer", "bytes", "calendar", "collection",
+    "collections", "column", "com", "console", "date", "datetime", "dict", "duration", "error",
+    "errors", "example", "exception", "file", "files", "fs", "http", "https", "index", "instant",
+    "integer", "io", "iterator", "java", "javax", "json", "kotlin", "list", "local", "locale", "map",
+    "math", "net", "node", "number", "optional", "os", "path", "process", "promise", "regex",
+    "runtime", "set", "sql", "stream", "string", "sys", "time", "timestamp", "tuple", "uri", "url",
+    "util", "utils", "uuid", "xml", "zone", "zoned",
+    # 범용 프로그래밍 어휘
+    "add", "app", "application", "apply", "arg", "args", "bar", "baz", "bin", "build", "builder",
+    "by", "call", "check", "config", "configuration", "context", "convert", "count", "create",
+    "current", "data", "dist", "doc", "docs", "empty", "execute", "fetch", "find", "first", "foo",
+    "format", "get", "handle", "handler", "impl", "info", "invoke", "last", "length", "lib", "load",
+    "main", "make", "max", "meta", "min", "mock", "next", "now", "old", "on", "opts", "options",
+    "param", "params", "parse", "prev", "read", "remove", "request", "response", "result", "results",
+    "run", "save", "size", "spec", "src", "start", "stop", "stub", "sum", "temp", "test", "tests",
+    "tmp", "to", "token", "update", "validate", "value", "values", "verify", "view", "write",
+    # 기술 계층 어휘 (결정 #11)
+    "adapter", "api", "cli", "controller", "dao", "db", "dto", "entity", "facade", "factory", "grpc",
+    "manager", "model", "orm", "provider", "proxy", "repository", "rest", "sdk", "service",
+    "singleton", "ui", "vo",
+}
+
+# 탐색에서 제외할 디렉토리 — 생성물·의존성·VCS 메타데이터.
+IGNORED_DIRS = {
+    ".git", ".hg", ".svn", ".idea", ".vscode", ".gradle", ".mypy_cache", ".pytest_cache",
+    ".ruff_cache", ".next", ".nuxt", ".venv", "venv", "__pycache__", "node_modules",
+    "dist", "build", "out", "target", "vendor", "coverage",
+}
+
+
+def collect_files(paths):
+    """파일·디렉토리 경로를 실제 파일 목록으로 펼친다(디렉토리는 재귀, 중복 제거)."""
+    files = []
+    seen = set()
+
+    def push(path):
+        key = os.path.abspath(path)
+        if key not in seen:
+            seen.add(key)
+            files.append(path)
+
+    for path in paths:
+        if os.path.isdir(path):
+            for root, dirnames, filenames in os.walk(path):
+                dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
+                for name in sorted(filenames):
+                    push(os.path.join(root, name))
+        elif os.path.isfile(path):
+            push(path)
+    return files
+
+
+def read_text(path):
+    """텍스트 파일 내용을 반환한다. 바이너리·읽기 실패 파일은 None."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except (UnicodeDecodeError, OSError):
+        return None
+
+
+def lint_files(data, paths, all_tokens=False):
+    known = set()
+    avoid_map = {}
+    for t in data["terms"]:
+        e = t["english"].lower()
+        known.add(e)
+        if " " in e:
+            known.update(e.split())
+        if t.get("abbreviation"):
+            known.add(t["abbreviation"].lower())
+        for v in avoid_of(t):
+            avoid_map[v.lower()] = t
+
+    hits = {}
+    for file in collect_files(paths):
+        text = read_text(file)
+        if text is None:
+            continue
+        for identifier in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text):
+            for tok in tokenize(identifier):
+                if len(tok) < 2 or tok in known:
+                    continue
+                if tok not in avoid_map and not all_tokens and tok in STOPWORDS:
+                    continue
+                hit = hits.setdefault(tok, {"count": 0, "files": []})
+                hit["count"] += 1
+                if file not in hit["files"]:
+                    hit["files"].append(file)
+
+    entries = sorted(
+        ({"token": tok, "count": hit["count"], "files": hit["files"]} for tok, hit in hits.items()),
+        key=lambda e: -e["count"],
+    )
+    violations = []
+    for entry in entries:
+        if entry["token"] in avoid_map:
+            standard = avoid_map[entry["token"]]
+            violations.append({**entry, "standard": standard["english"], "korean": standard["korean"]})
+    candidates = [e for e in entries if e["token"] not in avoid_map]
+    return {"violations": violations, "candidates": candidates}
+
+
+def format_file_list(files):
+    shown = ", ".join(files[:3])
+    return f"{shown} 외 {len(files) - 3}" if len(files) > 3 else shown
+
+
+INITIAL_DATA = {
+    "terms": [
+        {"korean": "식별자", "english": "identifier", "abbreviation": "id",
+         "description": "데이터를 고유 식별하는 값. {엔티티}_id 형식", "relatedElements": [], "avoid": []},
+        {"korean": "일시", "english": "datetime", "abbreviation": "at",
+         "description": "날짜와 시각. created_at 처럼 _at 접미사로 사용", "relatedElements": [], "avoid": []},
+        {"korean": "이름", "english": "name", "abbreviation": None,
+         "description": "대상을 지칭하는 명칭", "relatedElements": [], "avoid": []},
+    ]
+}
+
+CLAUDE_BLOCK = """## 용어 사전
+@superglossary/core.md
+
+- 클래스/변수/함수/컬럼/테이블 등 모든 네이밍은 위 표의 영문명만 사용한다. 축약어는 표에 등록된 것만 쓰고, 금지 변형은 표준으로 대체한다.
+- 표에 없는 단일어가 필요하면 임의로 짓지 말고 superglossary의 add 스킬로 등록한다(복합어는 단일어로 분해). 플러그인이 없으면 `python3 .claude/superglossary/glossary.py add <korean> <english> [abbreviation]`을 직접 실행한다. 변경은 같은 diff에 포함한다.
+- 용어의 의미가 모호하면 `python3 .claude/superglossary/glossary.py lookup <질의>` 또는 `.claude/superglossary/terms.md`에서 상세를 확인한다.
+- 수정·삭제는 `glossary.py update/remove`를 쓴다(자동 재빌드). core.md·terms.md는 생성물이므로 직접 편집하지 않는다.
+- 기존 모듈 수정 시 그 모듈의 기존 컨벤션을 우선하고, 신규 코드에는 사전을 우선한다. 임의 리네이밍은 하지 않는다.
+- 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 사전에 없는 용어만 추가 → 완료 후 check 스킬로 검토.
+"""
+
+
+def assert_data_dir_placement(data_dir):
+    normalized = os.path.normpath(data_dir)
+    if os.path.basename(normalized) != "superglossary" or os.path.basename(os.path.dirname(normalized)) != ".claude":
+        raise GlossaryError("glossary.py를 <프로젝트>/.claude/superglossary/로 복사한 뒤 실행하세요.")
+
+
+def git_ignore_warnings(data_dir):
+    root = os.path.dirname(os.path.dirname(os.path.normpath(data_dir)))
+    warnings = []
+    targets = [os.path.join(".claude", "superglossary", "glossary.json"), os.path.join(".claude", "CLAUDE.md")]
+    for rel in targets:
+        try:
+            done = subprocess.run(
+                ["git", "check-ignore", "-q", rel], cwd=root,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return []  # git 부재 — 판단 불가이므로 경고하지 않는다
+        if done.returncode == 0:
+            warnings.append(f"⚠ {rel} 이(가) .gitignore에 의해 무시되어 팀과 공유되지 않습니다.")
+    if warnings:
+        warnings += [
+            "  .gitignore를 다음과 같이 조정하세요:",
+            "    .claude/*",
+            "    !.claude/CLAUDE.md",
+            "    !.claude/superglossary/",
+        ]
+    return warnings
+
+
+def scaffold(data_dir):
+    assert_data_dir_placement(data_dir)
+    os.makedirs(data_dir, exist_ok=True)
+    if not os.path.exists(os.path.join(data_dir, "glossary.json")):
+        save_glossary(data_dir, INITIAL_DATA)
+    build(data_dir)
+    claude_md = os.path.join(os.path.dirname(os.path.normpath(data_dir)), "CLAUDE.md")
+    existing = ""
+    if os.path.exists(claude_md):
+        with open(claude_md, encoding="utf-8") as f:
+            existing = f.read()
+    if "## 용어 사전" not in existing:
+        head = existing.rstrip()
+        with open(claude_md, "w", encoding="utf-8") as f:
+            f.write((head + "\n\n" if head else "") + CLAUDE_BLOCK)
+    return git_ignore_warnings(data_dir)
+
+
+BOOLEAN_OPTIONS = {"all"}
+
+
+def parse_args(rest):
+    positional = []
+    options = {}
+    i = 0
+    while i < len(rest):
+        arg = rest[i]
+        if arg.startswith("--"):
+            name, sep, inline = arg[2:].partition("=")
+            if sep:
+                options[name] = inline
+            elif name in BOOLEAN_OPTIONS:
+                options[name] = True
+            else:
+                i += 1
+                options[name] = rest[i] if i < len(rest) else None
+        else:
+            positional.append(arg)
+        i += 1
+    return positional, options
+
+
+def _csv_option(options, key):
+    raw = options.get(key)
+    if not raw or raw is True:
+        return None
+    return [s.strip() for s in raw.split(",") if s.strip()]
+
+
+USAGE = """사용법: python3 glossary.py <subcommand>
+  init                                          초기화(.claude/superglossary/에 복사 후 실행)
+  build                                         glossary.json → core.md·terms.md 재생성
+  add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "a,b"]
+  update <korean> [--english E] [--abbreviation A] [--desc D] [--related "a,b"] [--avoid "a,b"]
+  remove <korean>
+  list                                          전체 용어(간결)
+  lookup <질의>                                  용어 상세 검색
+  lint [--all] <paths...>                       코드 대조([위반]/[후보], 디렉토리 재귀, --all=스톱워드 해제)
+  version | help"""
+
+
+def run(argv, data_dir):
+    if not argv:
+        raise GlossaryError(f"커맨드를 지정하세요.\n{USAGE}")
+    cmd, rest = argv[0], argv[1:]
+    positional, options = parse_args(rest)
+
+    def at(index):
+        return positional[index] if len(positional) > index else None
+
+    if cmd == "init":
+        warnings = scaffold(data_dir)
+        return "\n".join([f"초기화 완료: {data_dir}", *warnings])
+
+    if cmd == "build":
+        notice = build(data_dir)
+        return "\n".join(x for x in ["빌드 완료: core.md, terms.md", notice] if x)
+
+    if cmd == "add":
+        korean, english, abbreviation = at(0), at(1), at(2)
+        data = load_glossary(data_dir)
+        add_term(
+            data, korean, english, abbreviation,
+            description=options.get("desc") if isinstance(options.get("desc"), str) else "",
+            related_elements=_csv_option(options, "related") or [],
+            avoid=_csv_option(options, "avoid") or [],
+        )
+        save_glossary(data_dir, data)
+        notice = build(data_dir)
+        return "\n".join(x for x in [f"추가: {korean} → {english}", notice] if x)
+
+    if cmd == "update":
+        korean = at(0)
+        data = load_glossary(data_dir)
+        fields = {}
+        if isinstance(options.get("english"), str):
+            fields["english"] = options["english"]
+        if isinstance(options.get("abbreviation"), str):
+            fields["abbreviation"] = options["abbreviation"] or None
+        if isinstance(options.get("desc"), str):
+            fields["description"] = options["desc"]
+        related = _csv_option(options, "related")
+        if related is not None:
+            fields["relatedElements"] = related
+        avoid = _csv_option(options, "avoid")
+        if avoid is not None:
+            fields["avoid"] = avoid
+        update_term(data, korean, fields)
+        save_glossary(data_dir, data)
+        notice = build(data_dir)
+        return "\n".join(x for x in [f"수정: {korean}", notice] if x)
+
+    if cmd == "remove":
+        korean = at(0)
+        data = load_glossary(data_dir)
+        remove_term(data, korean)
+        save_glossary(data_dir, data)
+        notice = build(data_dir)
+        return "\n".join(x for x in [f"삭제: {korean}", notice] if x)
+
+    if cmd == "list":
+        data = load_glossary(data_dir)
+        warn_if_stale(data_dir, data)
+        return "\n".join(
+            f"{t['korean']}\t{t['english']}\t{t.get('abbreviation') or ''}" for t in list_terms(data)
+        )
+
+    if cmd == "lookup":
+        data = load_glossary(data_dir)
+        warn_if_stale(data_dir, data)
+        found = lookup(data, at(0) or "")
+        return "\n\n".join(format_term_detail(t) for t in found) if found else "일치하는 용어 없음"
+
+    if cmd == "lint":
+        if not positional:
+            raise GlossaryError(f"lint에는 검사할 파일이나 디렉토리를 지정하세요. 예: lint src/\n{USAGE}")
+        data = load_glossary(data_dir)
+        warn_if_stale(data_dir, data)
+        report = lint_files(data, positional, all_tokens=options.get("all") is True)
+        lines = []
+        if report["violations"]:
+            lines.append("[위반]")
+            for v in report["violations"]:
+                lines.append(f"{v['token']}\t{v['standard']}({v['korean']})\t{v['count']}\t{format_file_list(v['files'])}")
+        if report["candidates"]:
+            lines.append("[후보]")
+            for c in report["candidates"]:
+                lines.append(f"{c['token']}\t{c['count']}\t{format_file_list(c['files'])}")
+        return "\n".join(lines) if lines else "이상 없음"
+
+    if cmd == "version":
+        return f"superglossary CLI v{VERSION}"
+
+    if cmd == "help":
+        return USAGE
+
+    raise GlossaryError(f"알 수 없는 커맨드: {cmd}\n{USAGE}")
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    self_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        out = run(argv, self_dir)
+    except (GlossaryError, OSError, ValueError) as err:
+        print(f"✗ {err}", file=sys.stderr)
+        return 1
+    if out:
+        print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

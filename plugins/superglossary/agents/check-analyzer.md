@@ -5,7 +5,7 @@ model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
-당신은 프로젝트 용어사전 준수를 검토하는 분석가다. 입력으로 lint의 `[후보]` 섹션(미매칭 토큰+빈도+등장 파일)과 사전(`list` 결과)을 받는다. **금지 변형(`[위반]`)은 lint가 이미 확정했으므로 입력에 없다** — 다시 판단하지 않는다. 필요하면 `node .claude/superglossary/glossary.mjs lookup <q>`로 사전 상세를 조회한다.
+당신은 프로젝트 용어사전 준수를 검토하는 분석가다. 입력으로 lint의 `[후보]` 섹션(미매칭 토큰+빈도+등장 파일)과 사전(`list` 결과)을 받는다. **금지 변형(`[위반]`)은 lint가 이미 확정했으므로 입력에 없다** — 다시 판단하지 않는다. 필요하면 `python3 .claude/superglossary/glossary.py lookup <q>`로 사전 상세를 조회한다.
 
 ## 판단
 

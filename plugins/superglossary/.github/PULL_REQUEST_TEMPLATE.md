@@ -14,10 +14,10 @@
 
 - [ ] `claude plugin validate .` 통과
 - [ ] `claude --plugin-dir .`로 로컬 동작 확인
-- [ ] `pnpm version:check` 통과(해당 시)
+- [ ] `python3 scripts/bump_version.py --check` 통과(해당 시)
 
 ## 체크리스트
 
 - [ ] 대상 브랜치가 `develop`입니다(릴리즈/hotfix 제외).
 - [ ] 커밋 메시지가 Conventional Commits를 따릅니다.
-- [ ] 버전을 변경했다면 `pnpm bump`로 갱신하고 `CHANGELOG.md`를 업데이트했습니다.
+- [ ] 버전을 변경했다면 `python3 scripts/bump_version.py <version>`으로 갱신하고 `CHANGELOG.md`를 업데이트했습니다.
