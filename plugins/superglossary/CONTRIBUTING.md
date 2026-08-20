@@ -41,15 +41,18 @@ claude plugin validate .
 # 로컬 로드 후 동작 확인
 claude --plugin-dir .
 
+# 테스트 실행
+python3 -m unittest discover -s tests
+
 # 버전 일관성 점검
-pnpm version:check
+python3 scripts/bump_version.py --check
 ```
 
 ## 릴리즈 절차
 
 릴리즈는 `develop`에서 준비합니다.
 
-1. 버전 상향: `pnpm bump <version>` (예: `pnpm bump 0.2.0`)
+1. 버전 상향: `python3 scripts/bump_version.py <version>` (예: `python3 scripts/bump_version.py 0.4.0`)
 2. `CHANGELOG.md`의 `[Unreleased]` 항목을 `[<version>] - <YYYY-MM-DD>`로 정리
 3. `develop` → `main` PR 생성 및 병합
 4. `main`에서 태그: `git tag v<version> && git push --tags`

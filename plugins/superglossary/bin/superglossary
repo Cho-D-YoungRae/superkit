@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""superglossary — 플러그인이 PATH에 노출하는 CLI 진입점.
+
+번들된 templates/glossary.py를 그대로 실행한다. 프로젝트에 복사된
+.claude/superglossary/glossary.py 와 동일한 코드이며, 다른 점은 데이터
+디렉토리를 현재 작업 디렉토리에서 위로 올라가며 찾는다는 것뿐이다
+(glossary.resolve_data_dir 참고).
+"""
+import importlib.util
+import os
+import sys
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CLI = os.path.join(_ROOT, "templates", "glossary.py")
+
+_spec = importlib.util.spec_from_file_location("superglossary_cli", _CLI)
+if _spec is None or _spec.loader is None:
+    print(f"✗ CLI를 찾지 못했습니다: {_CLI}", file=sys.stderr)
+    sys.exit(1)
+_cli = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_cli)
+
+sys.exit(_cli.main())

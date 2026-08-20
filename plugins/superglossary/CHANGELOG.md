@@ -7,6 +7,32 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-20
+
+### Added
+
+- `bin/superglossary` — 플러그인이 `PATH`에 노출하는 CLI 진입점. 프로젝트 안 어느 디렉토리에서든 `superglossary <서브커맨드>`로 실행되며, 항상 설치된 플러그인의 최신 CLI가 돕니다(프로젝트 복사본의 버전 드리프트 회피). 복사본은 플러그인 미설치 팀원·CI를 위해 유지됩니다.
+- 데이터 디렉토리 자동 탐색 — `SUPERGLOSSARY_DIR` 환경변수 → 스크립트 위치 → 현재 디렉토리에서 상위로 탐색 → 없으면 `<cwd>/.claude/superglossary`. 하위 디렉토리에서 실행해도 동작합니다.
+- `glossary.json`의 `schemaVersion` 필드 — 구 스키마는 자동으로 올리고, CLI가 모르는 상위 버전은 조용히 오작동하는 대신 오류로 안내합니다. `schemaVersion`이 없는 이전 파일도 그대로 읽힙니다.
+- `glossary.json`의 `stopwords.add`/`stopwords.remove` — 프로젝트별 `lint` 스톱워드 조정. 금지 변형(`avoid`)은 여전히 스톱워드보다 우선합니다.
+- `.github/workflows/ci.yml` — PR·push마다 테스트(Python 3.9/3.13)·버전 일관성·`bin/` 진입점 검증.
+- `check` 스킬에 `allowed-tools` 추가, `add` 스킬은 CLI 명령으로 범위를 좁힘 — 매 실행 권한 프롬프트가 사라집니다.
+- `plugin.json`에 `$schema`(에디터 자동완성·검증)와 `displayName` 추가.
+
+### Changed
+
+- **BREAKING**: CLI 런타임을 Node.js에서 **Python 3(표준 라이브러리만)**으로 이관 — `templates/glossary.mjs` → `templates/glossary.py`.
+  호출 방식이 `node .claude/superglossary/glossary.mjs …` → `python3 .claude/superglossary/glossary.py …`로 바뀝니다.
+  Claude Code가 네이티브 바이너리로 배포되어 `node` 런타임이 더 이상 보장되지 않는 반면, python3는 macOS·주요 Linux에 기본 탑재됩니다.
+  **업그레이드 방법**: 각 프로젝트에서 `/superglossary:init`을 재실행하면 새 CLI가 배포되고 기존 `glossary.json`은 보존됩니다.
+  이전 `glossary.mjs` 복사본과 `.claude/CLAUDE.md`의 `node …` 안내 문구는 수동으로 정리하세요(`## 용어 사전` 섹션 삭제 후 init 재실행).
+- 저장소 개발 도구도 Python으로 통일 — `scripts/bump-version.mjs` → `scripts/bump_version.py`, 테스트는 `node:test` → `unittest`(65개). `package.json` 제거.
+
+### Fixed
+
+- `lint`가 디렉토리 인자를 조용히 무시하던 문제 — 이제 재귀 탐색합니다(`.git`·`node_modules`·`dist` 등 생성물 디렉토리와 바이너리 파일은 제외). 기존에는 README 예시인 `lint src/`가 항상 `이상 없음`을 출력했습니다.
+- 인자 없는 `lint`가 `이상 없음`을 출력하던 문제 — 이제 사용법 오류로 종료합니다. `check` 스킬은 검사 대상이 없으면 lint를 호출하지 않습니다.
+
 ## [0.3.0] - 2026-07-09
 
 ### Added
@@ -51,7 +77,8 @@
 - MIT 라이선스
 - PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 
-[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Cho-D-YoungRae/superglossary/releases/tag/v0.1.0
