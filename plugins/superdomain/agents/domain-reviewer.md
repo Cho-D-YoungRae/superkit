@@ -243,7 +243,7 @@ domain 문서의 `## 불변식` 표와 코드가 정합한가. **갈래가 둘�
 | `rationale` | 필수 | 관측과 근거를 각각 한 문장으로. 둘을 섞지 말고 둘 다 적는다. 근거로 삼은 규칙 절(`context-mapping R3`)과 수정 제안도 여기 문장으로 들어간다 |
 | `related_rule` | 선택 | §4의 `semantic.*` 범주 태그. **규칙 절 식별자를 여기 넣지 않는다** — 이 값은 `review-log.jsonl`의 집계 키가 되고 그 어휘는 세 형태뿐이다(`skills/review/SKILL.md` 5-c) |
 | `related_invariant` | 선택 | `INV-<CONTEXT>-NNN` |
-| `related_adr` | 선택 | ADR 번호 또는 파일명 |
+| `related_adr` | 선택 | ADR 파일명 |
 
 review 스킬은 이 배열을 리포트와 `review-log.jsonl`로 옮긴다. `discussion` 항목은 domain 문서의
 `## 열린 질문`에 append되므로 답이 필요한 **질문 형태**로 쓴다.

@@ -1,8 +1,8 @@
 # ADR 템플릿 — 정본
 
-아키텍처 결정 기록(Architecture Decision Record). MADR 형식을 한국어로 옮긴 것이며, `adr` 스킬과 `init`의 `0001` 문서가 이 형식을 쓴다.
+아키텍처 결정 기록(Architecture Decision Record). MADR 형식을 한국어로 옮긴 것이며, `adr` 스킬과 `init`이 만드는 첫 결정 기록이 이 형식을 쓴다.
 
-위치: `docs/decisions/NNNN-slug.md`
+위치: `docs/decisions/yyyy-MM-dd-slug.md`
 
 ---
 
@@ -29,13 +29,14 @@
 ## 2. 파일명 규칙
 
 ```
-docs/decisions/NNNN-slug.md
+docs/decisions/yyyy-MM-dd-slug.md
 ```
 
-- `NNNN` — 4자리 0 패딩 일련번호. `0001`부터, 저장소 전체에서 유일하고 재사용하지 않는다.
-- `slug` — 소문자 영문 kebab-case. 결정의 요지를 짧게. 예: `0002-open-claim-admin-pair`.
-- 번호는 **결정이 폐기되어도 재사용하지 않는다.** 링크가 다른 문서를 가리키게 되는 것이 빈 번호보다 나쁘다.
-- 파일명은 바꾸지 않는다 — 다른 ADR·`DOMAIN.md`·리뷰 로그가 번호로 참조한다.
+- `yyyy-MM-dd` — 결정을 기록하는 날짜(`date +%F`). 머리의 `- 날짜:`와 같은 값이다.
+- `slug` — 소문자 영문 kebab-case. 결정의 요지를 짧게. 예: `open-claim-admin-pair` → `2026-03-11-open-claim-admin-pair.md`.
+- **채번하지 않는다.** 일련번호는 병렬 작업에서 조용히 깨진다 — 두 브랜치가 같은 번호를 집으면 파일명이 서로 달라 git 충돌 없이 둘 다 병합되고, 그렇게 생긴 번호 중복은 어느 게이트에도 걸리지 않는다. 날짜 접두는 겹쳐도 무해하다.
+- **같은 날 결정이 여럿이면 `slug`가 구분한다.** 날짜와 slug가 통째로 겹치는 때만 slug를 더 구체적으로 고친다.
+- 파일명은 바꾸지 않는다 — 다른 ADR·`DOMAIN.md`·리뷰 로그가 이 파일명으로 참조한다. 삭제된 결정의 파일명도 다시 쓰지 않는다: 링크가 다른 문서를 가리키게 되는 것이 이름을 아끼는 것보다 나쁘다.
 
 ---
 
@@ -50,7 +51,7 @@ docs/decisions/NNNN-slug.md
 ```
 proposed ──→ accepted ──→ superseded
    │
-   └──→ (철회 시 문서 삭제 — 번호는 재사용하지 않는다)
+   └──→ (철회 시 문서 삭제 — 그 파일명은 다시 쓰지 않는다)
 ```
 
 - `evolve`가 생성하는 제안 ADR은 항상 `proposed`로 시작한다. 사용자가 수락해야 `accepted`가 된다.
@@ -61,11 +62,11 @@ proposed ──→ accepted ──→ superseded
 ## 4. 템플릿 (복사해서 쓴다)
 
 ```markdown
-# NNNN. <결정을 한 줄로 — 명사구가 아니라 결정문으로>
+# <결정을 한 줄로 — 명사구가 아니라 결정문으로>
 
 - 상태: proposed
 - 날짜: YYYY-MM-DD
-- 관련: <컨텍스트 이름 / 규칙 id / 다른 ADR 번호 — 없으면 생략>
+- 관련: <컨텍스트 이름 / 규칙 id / 다른 ADR 파일명 — 없으면 생략>
 
 ## 문제 상황
 
@@ -107,25 +108,25 @@ proposed ──→ accepted ──→ superseded
 새 결정이 옛 결정을 대체할 때. **양방향 링크는 선택이 아니다** — 어느 문서에 먼저 도착한 독자도 현재 유효한 결정에 도달할 수 있어야 한다.
 
 - [ ] 새 ADR을 작성한다 (`상태: accepted`).
-- [ ] 새 ADR에 뒤 링크를 넣는다: `- 대체함: [0002](0002-open-claim-admin-pair.md)`
+- [ ] 새 ADR에 뒤 링크를 넣는다: `- 대체함: [2026-03-11-open-claim-admin-pair](2026-03-11-open-claim-admin-pair.md)`
 - [ ] 옛 ADR의 `상태:`를 `superseded`로 바꾼다.
-- [ ] 옛 ADR에 앞 링크를 넣는다: `- 대체됨: [0007](0007-close-claim-admin-pair.md)`
-- [ ] 옛 ADR을 참조하던 다른 문서(`DOMAIN.md`의 `### 근거` 절 등)를 새 번호로 갱신한다.
+- [ ] 옛 ADR에 앞 링크를 넣는다: `- 대체됨: [2026-09-02-close-claim-admin-pair](2026-09-02-close-claim-admin-pair.md)`
+- [ ] 옛 ADR을 참조하던 다른 문서(`DOMAIN.md`의 `### 근거` 절 등)를 새 파일명으로 갱신한다.
 - [ ] 옛 ADR의 본문은 그대로 둔다. 고쳐 쓰지 않는다.
 
-**대체된 ADR의 머리 부분 예시**
+**대체된 ADR(`2026-03-11-open-claim-admin-pair.md`)의 머리 부분 예시**
 
 ```markdown
-# 0002. claim과 admin 사이의 직접 참조를 연다
+# claim과 admin 사이의 직접 참조를 연다
 
 - 상태: superseded
 - 날짜: 2026-03-11
-- 대체됨: [0007](0007-close-claim-admin-pair.md)
+- 대체됨: [2026-09-02-close-claim-admin-pair](2026-09-02-close-claim-admin-pair.md)
 ```
 
-부분적으로만 무효가 되었다면 supersede가 아니다. 새 ADR에서 "0002의 X 부분을 조정한다"고 쓰고 옛 문서는 `accepted`로 둔다 — 상태는 문서 단위이지 문장 단위가 아니다.
+부분적으로만 무효가 되었다면 supersede가 아니다. 새 ADR에서 "`2026-03-11-open-claim-admin-pair`의 X 부분을 조정한다"고 쓰고 옛 문서는 `accepted`로 둔다 — 상태는 문서 단위이지 문장 단위가 아니다.
 
-**부분 조정에도 역방향 표시는 남긴다.** 옛 ADR **머리(메타데이터)** 에 `- 조정됨: [NNNN](NNNN-slug.md)` 한 줄을 추가한다. 본문이 아니라 메타데이터이므로 §3의 "accepted 본문 수정 금지"에 걸리지 않는다. 이 줄이 없으면 옛 ADR에 먼저 도착한 독자가 조정된 부분을 모른 채 결정을 적용하게 되고, 그것이 이 절이 막으려는 상황이다. 조정이 여러 번 쌓이면 줄을 추가로 나열한다.
+**부분 조정에도 역방향 표시는 남긴다.** 옛 ADR **머리(메타데이터)** 에 `- 조정됨: [<새 ADR 파일명>](<새 ADR 파일명>.md)` 한 줄을 추가한다. 본문이 아니라 메타데이터이므로 §3의 "accepted 본문 수정 금지"에 걸리지 않는다. 이 줄이 없으면 옛 ADR에 먼저 도착한 독자가 조정된 부분을 모른 채 결정을 적용하게 되고, 그것이 이 절이 막으려는 상황이다. 조정이 여러 번 쌓이면 줄을 추가로 나열한다.
 
 ---
 

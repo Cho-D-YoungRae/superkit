@@ -417,15 +417,17 @@ graph LR
   admin["admin · generic"]
 ```
 
-### 7-c. `docs/decisions/0001-record-architecture-decisions.md`
+### 7-c. `docs/decisions/<오늘 날짜>-record-architecture-decisions.md`
 
-`${CLAUDE_PLUGIN_ROOT}/references/governance/adr-template.md` §4의 템플릿을 그대로 쓴다.
+`${CLAUDE_PLUGIN_ROOT}/references/governance/adr-template.md` §4의 템플릿을 그대로 쓴다. 파일명은
+같은 문서 §2가 정한다 — `date +%F`의 출력 + `-record-architecture-decisions`. 채번하지 않는다.
 
-- 제목은 결정문으로("아키텍처 결정을 ADR로 기록한다"), `- 상태: accepted`, `- 날짜:` 오늘.
+- 제목은 결정문으로("아키텍처 결정을 ADR로 기록한다"), `- 상태: accepted`, `- 날짜:` 오늘 —
+  파일명의 날짜와 같은 값이다.
 - 기각한 대안을 반드시 채운다(기록하지 않음 / 위키·이슈 트래커에 산재 등) — 대안 칸이 빈 ADR은
   반년 뒤 도움이 되지 않는다.
 
-### 7-d. 0002 이후 — 이번 초기화의 실질적 결정
+### 7-d. 그 밖의 ADR — 이번 초기화의 실질적 결정
 
 ADR을 쓸지 말지는 `adr-template.md` §1의 기준으로 판단한다. 해당하지 않으면 만들지 않는다 —
 빈 ADR을 양산하면 아무도 ADR을 읽지 않게 된다. 전형적으로 해당하는 것:
