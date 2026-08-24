@@ -149,7 +149,7 @@ flowchart TB
 | `/superdomain:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·패키지·관계를 확정하고 `DOMAIN.md`와 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역·ADR)을 만든다. 기존 코드의 격리 위반은 실측해 **동결할지 묻고**, 동결하면 `docs/domain/baseline.jsonl`을 만든다 |
 | `/superdomain:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 컨텍스트 문서를 키운다. 불변식은 `INV-<CONTEXT>-NNN`으로 채번되고 `proposed` → `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다. `DOMAIN.md`는 읽기만 한다 |
 | `/superdomain:apply` | `skills/apply/` | 컨텍스트 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
-| `/superdomain:adr` | `skills/adr/` | 결정을 MADR로 `docs/decisions/NNNN-slug.md`에 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 SSOT를 함의하면 고칠 자리를 짚고 파서 게이트 재실행을 권한다 |
+| `/superdomain:adr` | `skills/adr/` | 결정을 MADR로 `docs/decisions/yyyy-MM-dd-slug.md`에 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 SSOT를 함의하면 고칠 자리를 짚고 파서 게이트 재실행을 권한다 |
 | `/superdomain:review` | `skills/review/` | 변경을 결정적 검사 둘로 먼저 거른 뒤 의미론 판단만 `domain-reviewer`에 위임하고, 결과를 `docs/domain/review-log.jsonl`에 append한다. 코드는 고치지 않는다 |
 | `/superdomain:sync` | `skills/sync/` | 선언과 디스크를 다섯 축으로 대조해 드리프트를 찾고, 항목마다 [패키지 생성 / 코드 수정 / 문서 수정 / 무시]를 제시한다. 방향은 권고하되 확인 없이 확정하지 않고, 대조하지 못한 축은 "0건"이 아니라 "대조하지 않음"으로 남긴다 |
 | `/superdomain:evolve` | `skills/evolve/` | `collect_signals.py`의 관측에 `evolution-signals.md`의 임계값·해석을 적용해 **경계 재획정·분류 변경·관계 추가/삭제** 세 갈래의 제안과 `proposed` ADR 초안을 낸다. 임계값을 스스로 만들지 않고, 수락된 제안만 선언·파생물까지 반영한다 |
@@ -298,5 +298,5 @@ docs/superpowers/            설계 스펙과 구현 계획
 | `docs/domain/<컨텍스트>.md` | 불변식·애그리거트·값 객체·도메인 이벤트·도메인 서비스·열린 질문. 컨텍스트가 하나뿐이면 `docs/domain.md`. **용어 정의는 쓰지 않는다** — 보편언어는 별도 용어집의 몫이다 | `model`(본문) · `apply`·`review`(열린 질문 append) |
 | `docs/domain/baseline.jsonl` | 동결된 격리 위반 | `init`(동결) · `migrate`(축소) |
 | `docs/domain/review-log.jsonl` | 리뷰 판정 이력 — `collect_signals.py`의 입력 | `review`(append) |
-| `docs/decisions/NNNN-slug.md` | MADR 결정 기록 | `adr` · `init`(초기화가 실제로 내린 결정) · `evolve`(제안마다 `proposed` 초안) |
+| `docs/decisions/yyyy-MM-dd-slug.md` | MADR 결정 기록 | `adr` · `init`(초기화가 실제로 내린 결정) · `evolve`(제안마다 `proposed` 초안) |
 | `docs/conventions/<key>.md` | 선언에 자리가 없는 팀 규약. 반복되는 의미론 지적의 착지점 | 사용자(스킬이 승격 여부를 제안만 한다) |
