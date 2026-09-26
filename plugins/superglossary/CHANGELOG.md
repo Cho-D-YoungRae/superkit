@@ -16,12 +16,14 @@
 
 ### Changed
 
-- `superglossary init`(bin 모드)도 프로젝트 복사본 `glossary.py`를 배치합니다. 복사본이 실행한 CLI보다 새 버전이면 덮어쓰지 않고 경고합니다(팀원 간 플러그인 버전 차이 대비).
+- `superglossary init`(bin 모드)도 프로젝트 복사본 `glossary.py`를 배치합니다. init 스킬은 복사 단계 없이 이 명령 하나로 초기화합니다. 복사본이 실행한 CLI보다 새 버전이면 덮어쓰지 않고 경고합니다(팀원 간 플러그인 버전 차이 대비).
 - `lint` 디렉토리 탐색이 git 저장소 안에서는 `.gitignore`를 따릅니다(`git ls-files`). 락 파일(`package-lock.json`·`yarn.lock`·`go.sum` 등)·`*.min.js`·`*.map`은 경로를 직접 줘도 건너뜁니다.
 - 토크나이저가 약어 경계를 나눕니다 — `HTTPServer` → `http`·`server`, `getURLForMember` → `get`·`url`·`for`·`member`. 복수형 약어(`URLs`·`IDs`)는 쪼개지 않습니다.
 - 등록 영문이 여러 단어(`order_item`·`orderItem`·`Stock Keeping Unit`)면 부분 단어로 매칭합니다.
 - 금지 변형(`avoid`)은 단일어만 등록할 수 있습니다 — 여러 단어짜리(`cust_no`)는 lint가 영원히 잡지 못하기 때문입니다. 이미 들어간 값은 막지 않고 build가 안내합니다.
 - `glossary.json`·`core.md`·`terms.md`·`CLAUDE.md`를 임시 파일에 쓴 뒤 교체합니다(기존 권한 유지) — 쓰는 도중 실패해도 원본이 잘리지 않습니다.
+- `glossary-scanner`가 혼용 빈도를 `lint` 출력에서 결정론적으로 얻습니다(Bash 도구 추가).
+- 스킬의 서브에이전트 도구 표기를 `Task` → `Agent`로 갱신하고, check 스킬에 `Read`·`Grep`을 사전 승인했습니다.
 
 ### Fixed
 
