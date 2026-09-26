@@ -3,11 +3,14 @@
 
 사용자 프로젝트의 `.claude/superglossary/`로 복사되어 동작한다.
 """
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
 VERSION = "0.4.0"
 
@@ -25,6 +28,37 @@ CORE_SPLIT_THRESHOLD = 180
 
 class GlossaryError(Exception):
     """사용자에게 그대로 보여줄 수 있는 오류."""
+
+
+class ViolationsFound(Exception):
+    """lint --strict에서 [위반]이 있을 때. 결과(output)는 그대로 출력하고 종료 코드만 1로 만든다."""
+
+    def __init__(self, output):
+        super().__init__(output)
+        self.output = output
+
+
+def write_text(path, text):
+    """임시 파일에 쓴 뒤 교체한다 — 쓰는 도중 실패해도 원본이 반쯤 잘린 채 남지 않는다."""
+    if os.path.exists(path):
+        mode = os.stat(path).st_mode & 0o7777
+    else:
+        umask = os.umask(0)
+        os.umask(umask)
+        mode = 0o666 & ~umask
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                               prefix=f".{os.path.basename(path)}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(tmp, mode)  # mkstemp는 0600으로 만든다
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def migrate(data):
@@ -127,9 +161,7 @@ def save_glossary(directory, data):
     # schemaVersion을 항상 첫 키로 써서 파일을 열었을 때 바로 보이게 한다.
     ordered = {"schemaVersion": data.get("schemaVersion", SCHEMA_VERSION)}
     ordered.update({k: v for k, v in data.items() if k != "schemaVersion"})
-    path = os.path.join(directory, "glossary.json")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(json.dumps(ordered, ensure_ascii=False, indent=2) + "\n")
+    write_text(os.path.join(directory, "glossary.json"), json.dumps(ordered, ensure_ascii=False, indent=2) + "\n")
 
 
 def sorted_terms(data):
@@ -188,6 +220,7 @@ def add_term(data, korean, english, abbreviation=None, description="", related_e
     require_names(korean, english)
     related_elements = list(related_elements or [])
     avoid = list(avoid or [])
+    check_avoid_words(avoid)
     conflict = find_conflict(data["terms"], korean, english, abbreviation, avoid)
     if conflict:
         raise GlossaryError(conflict)
@@ -218,6 +251,9 @@ def update_term(data, korean, fields):
         if key in fields:
             nxt[key] = fields[key]
     require_names(nxt["korean"], nxt["english"])
+    if "avoid" in fields:
+        # 기존 값은 막지 않는다 — 다른 필드만 고치는 update가 옛 데이터 때문에 실패하지 않도록.
+        check_avoid_words(fields["avoid"])
     others = [t for t in data["terms"] if t["korean"] != korean]
     conflict = find_conflict(
         others, nxt["korean"], nxt["english"], nxt.get("abbreviation"), avoid_of(nxt)
@@ -311,14 +347,19 @@ def build(directory):
     data = load_glossary(directory)
     assert_consistent(data)
     core = render_core(data)
-    with open(os.path.join(directory, "core.md"), "w", encoding="utf-8") as f:
-        f.write(core)
-    with open(os.path.join(directory, "terms.md"), "w", encoding="utf-8") as f:
-        f.write(render_terms(data))
+    write_text(os.path.join(directory, "core.md"), core)
+    write_text(os.path.join(directory, "terms.md"), render_terms(data))
+    notices = []
     lines = len(core.split("\n"))
     if lines > CORE_SPLIT_THRESHOLD:
-        return f"안내: core.md가 {lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요."
-    return None
+        notices.append(f"안내: core.md가 {lines}줄입니다. core.md는 매 세션 컨텍스트에 올라가므로 "
+                       "쓰지 않는 용어는 remove로 정리하세요.")
+    for t in data["terms"]:
+        for v in avoid_of(t):
+            if not is_single_word(v):
+                notices.append(f"안내: {t['korean']}의 금지 변형 '{v}'은(는) 단일어가 아니라 lint가 잡지 못합니다. "
+                               "update --avoid로 단일어로 바꾸세요.")
+    return "\n".join(notices) or None
 
 
 def is_stale(directory, data):
@@ -338,8 +379,25 @@ def warn_if_stale(directory, data):
 
 
 def tokenize(identifier):
-    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", identifier)
+    # 약어 경계(HTTPServer → HTTP Server)를 먼저 나눈다. 뒤따르는 소문자가 2자 이상일 때만
+    # 나눠야 복수형 약어(URLs·IDs)가 UR+Ls처럼 쪼개지지 않는다.
+    spaced = re.sub(r"([A-Z]+)([A-Z][a-z]{2,})", r"\1 \2", identifier)
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", spaced)
     return [part.lower() for part in re.split(r"[_\s]+", spaced) if part]
+
+
+def is_single_word(value):
+    """lint 토큰 하나로 매칭될 수 있는 값인가(영문·숫자만, 쪼개면 한 단어)."""
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", value)) and len(tokenize(value)) == 1
+
+
+def check_avoid_words(avoid):
+    for v in avoid:
+        if not is_single_word(v):
+            raise GlossaryError(
+                f"금지 변형 '{v}'은(는) 단일어여야 합니다 — lint는 식별자를 단어로 나눠 비교하므로 "
+                "여러 단어짜리 변형은 잡히지 않습니다(예: cust_no → cust)."
+            )
 
 
 # 결정 #11: 언어 키워드·표준 타입·기술 계층 어휘만 포함한다.
@@ -387,17 +445,44 @@ IGNORED_DIRS = {
     "dist", "build", "out", "target", "vendor", "coverage",
 }
 
+# 제외할 생성 파일 — 락 파일·번들 산출물. 해시·압축 코드가 무의미한 토큰을 쏟아낸다.
+IGNORED_FILES = {
+    "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock",
+    "poetry.lock", "uv.lock", "Pipfile.lock", "Cargo.lock", "Gemfile.lock", "composer.lock",
+    "go.sum", "gradle.lockfile", "mix.lock", "pubspec.lock", "Podfile.lock", "flake.lock",
+    "packages.lock.json",
+}
+IGNORED_SUFFIXES = (".min.js", ".min.css", ".map")
+
+
+def git_listed_files(directory):
+    """git 저장소 안이면 .gitignore를 반영한 파일 목록(추적 + 미추적, directory 기준 상대 경로). 아니면 None."""
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "."],
+            cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # git 부재
+    if done.returncode != 0:
+        return None  # 저장소 밖
+    return [os.fsdecode(rel) for rel in done.stdout.split(b"\0") if rel]
+
 
 def collect_files(paths, exclude=None):
     """파일·디렉토리 경로를 실제 파일 목록으로 펼친다(디렉토리는 재귀, 중복 제거).
 
-    exclude 디렉토리 아래 파일은 경로를 직접 지정해도 건너뛴다.
+    git 저장소 안의 디렉토리는 .gitignore를 따른다. exclude 디렉토리 아래 파일과
+    락 파일 같은 생성 파일은 경로를 직접 지정해도 건너뛴다.
     """
     files = []
     seen = set()
     skip = os.path.realpath(exclude) if exclude else None
 
     def push(path):
+        name = os.path.basename(path)
+        if name in IGNORED_FILES or name.endswith(IGNORED_SUFFIXES):
+            return
         key = os.path.realpath(path)
         if skip and (key == skip or key.startswith(skip + os.sep)):
             return
@@ -407,6 +492,15 @@ def collect_files(paths, exclude=None):
 
     for path in paths:
         if os.path.isdir(path):
+            listed = git_listed_files(path)
+            # 비어 있으면(.gitignore로 통째로 무시된 디렉토리를 직접 준 경우 등) 아래의 직접 탐색으로 넘어간다.
+            if listed:
+                for rel in listed:
+                    parts = rel.split("/")
+                    full = os.path.join(path, *parts)
+                    if not any(p in IGNORED_DIRS for p in parts[:-1]) and os.path.isfile(full):
+                        push(full)
+                continue
             for root, dirnames, filenames in os.walk(path):
                 dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
                 for name in sorted(filenames):
@@ -442,12 +536,10 @@ def lint_files(data, paths, all_tokens=False, exclude=None):
     known = set()
     avoid_map = {}
     for t in data["terms"]:
-        e = t["english"].lower()
-        known.add(e)
-        if " " in e:
-            known.update(e.split())
+        # 식별자와 같은 규칙으로 쪼개야 order_item·orderItem·"Stock Keeping Unit"이 부분 단어로 매칭된다.
+        known.update(tokenize(t["english"]))
         if t.get("abbreviation"):
-            known.add(t["abbreviation"].lower())
+            known.update(tokenize(t["abbreviation"]))
         for v in avoid_of(t):
             avoid_map[v.lower()] = t
 
@@ -507,6 +599,63 @@ CLAUDE_BLOCK = """## 용어 사전
 - 기존 모듈 수정 시 그 모듈의 기존 컨벤션을 우선하고, 신규 코드에는 사전을 우선한다. 임의 리네이밍은 하지 않는다.
 - 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 사전에 없는 용어만 추가 → 완료 후 check 스킬로 검토.
 """
+
+# init이 CLAUDE.md에서 관리하는 구간. 마커 안쪽은 init을 다시 실행할 때마다 최신 CLAUDE_BLOCK으로 바뀐다.
+BLOCK_BEGIN = "<!-- superglossary:begin — /superglossary:init이 관리합니다. 고친 내용은 init을 다시 실행하면 덮어써집니다. -->"
+BLOCK_END = "<!-- superglossary:end -->"
+MANAGED_BLOCK_RE = re.compile(r"<!-- superglossary:begin\b.*?-->.*?<!-- superglossary:end -->\n?", re.S)
+LEGACY_SECTION_RE = re.compile(r"^## 용어 사전\n.*?(?=^#{1,2} |\Z)", re.S | re.M)
+
+# 마커 도입 전 init이 넣던 블록의 SHA-256(앞뒤 공백 제거). 사용자가 고치지 않은 블록만 마커 블록으로 바꾼다.
+LEGACY_BLOCK_SHA256 = {
+    "932361ed00cbe1ce3130a33a1035ed6c7311779a7e7e8f76b5e423d534698516",  # v0.2.0 (node glossary.mjs)
+    "efe537cbe40a29b2159aa44e93fd0fe1e4a618218f98b000c85ad3e0b7738de7",  # v0.3.0 (node glossary.mjs)
+    "93ceb7e127b05efb3ff895971cf9dce9ddd58d41f7a03408f9e897235148c4fa",  # v0.4.0
+}
+
+
+def upsert_claude_block(existing):
+    """CLAUDE.md 내용에 최신 용어사전 블록을 넣거나 갱신한다. (새 내용, 경고 목록)을 반환한다."""
+    block = f"{BLOCK_BEGIN}\n{CLAUDE_BLOCK}{BLOCK_END}\n"
+    if MANAGED_BLOCK_RE.search(existing):
+        return MANAGED_BLOCK_RE.sub(lambda _: block, existing, count=1), []
+    legacy = LEGACY_SECTION_RE.search(existing)
+    if legacy:
+        digest = hashlib.sha256(legacy.group(0).strip().encode("utf-8")).hexdigest()
+        if digest not in LEGACY_BLOCK_SHA256:
+            return existing, [
+                "⚠ .claude/CLAUDE.md의 '## 용어 사전' 섹션이 직접 수정되어 있어 갱신하지 않았습니다. "
+                "최신 안내로 바꾸려면 그 섹션을 지우고 init을 다시 실행하세요."
+            ]
+        rest = existing[legacy.end():]
+        return existing[:legacy.start()] + block + ("\n" + rest if rest else ""), []
+    head = existing.rstrip()
+    return (head + "\n\n" if head else "") + block, []
+
+
+def parse_version(text):
+    matched = re.search(r'^VERSION = "(\d+)\.(\d+)\.(\d+)', text, re.M)
+    return tuple(int(x) for x in matched.groups()) if matched else None
+
+
+def install_cli_copy(data_dir, source=None):
+    """실행 중인 CLI를 프로젝트 복사본(glossary.py)으로 둔다 — 플러그인이 없는 팀원·CI용. 경고 목록을 반환한다."""
+    source = os.path.abspath(source or __file__)
+    dest = os.path.join(data_dir, "glossary.py")
+    if os.path.exists(dest):
+        if os.path.samefile(source, dest):
+            return []  # 복사본 자신이 init을 실행하는 중
+        try:
+            with open(dest, encoding="utf-8") as f:
+                existing = parse_version(f.read())
+        except (OSError, UnicodeDecodeError):
+            existing = None
+        current = parse_version(f'VERSION = "{VERSION}"')
+        if existing and existing > current:
+            return [f"⚠ 프로젝트의 CLI 복사본(v{'.'.join(map(str, existing))})이 이 CLI(v{VERSION})보다 새 버전이라 "
+                    "덮어쓰지 않았습니다. 플러그인을 업데이트하세요."]
+    shutil.copy(source, dest)  # 실행 권한 비트도 함께 복사
+    return []
 
 
 CLAUDE_DIR_NAME = ".claude"
@@ -592,20 +741,23 @@ def scaffold(data_dir):
         save_glossary(data_dir, load_glossary(data_dir))
     else:
         save_glossary(data_dir, INITIAL_DATA)
-    build(data_dir)
+    notice = build(data_dir)
+    warnings = notice.split("\n") if notice else []
+    warnings += install_cli_copy(data_dir)
+    if os.path.exists(os.path.join(data_dir, "glossary.mjs")):
+        warnings.append("⚠ 0.4.0 이전 CLI 복사본 glossary.mjs가 남아 있습니다. 더 이상 쓰이지 않으니 삭제하세요.")
     claude_md = os.path.join(os.path.dirname(os.path.normpath(data_dir)), "CLAUDE.md")
     existing = ""
     if os.path.exists(claude_md):
         with open(claude_md, encoding="utf-8") as f:
             existing = f.read()
-    if "## 용어 사전" not in existing:
-        head = existing.rstrip()
-        with open(claude_md, "w", encoding="utf-8") as f:
-            f.write((head + "\n\n" if head else "") + CLAUDE_BLOCK)
-    return git_ignore_warnings(data_dir)
+    updated, block_warnings = upsert_claude_block(existing)
+    if updated != existing:
+        write_text(claude_md, updated)
+    return warnings + block_warnings + git_ignore_warnings(data_dir)
 
 
-BOOLEAN_OPTIONS = {"all"}
+BOOLEAN_OPTIONS = {"all", "strict"}
 
 
 def parse_args(rest):
@@ -641,7 +793,7 @@ def _csv_option(options, key):
 
 USAGE = """사용법: python3 .claude/superglossary/glossary.py <subcommand>
        (플러그인이 활성화되어 있으면 `superglossary <subcommand>`로도 실행됩니다)
-  init                                          초기화(.claude/superglossary/에 복사 후 실행)
+  init                                          초기화·업그레이드(사전·생성물·CLI 복사본·CLAUDE.md 블록)
   build                                         glossary.json → core.md·terms.md 재생성
   add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "a,b"]
       (축약어는 --abbreviation A로도 지정 가능)
@@ -650,7 +802,8 @@ USAGE = """사용법: python3 .claude/superglossary/glossary.py <subcommand>
   remove <korean>
   list                                          전체 용어(간결)
   lookup <질의>                                  용어 상세 검색
-  lint [--all] <paths...>                       코드 대조([위반]/[후보], 디렉토리 재귀, .claude/ 제외, --all=스톱워드 해제)
+  lint [--all] [--strict] <paths...>            코드 대조([위반]/[후보], 디렉토리 재귀·.gitignore 반영, .claude/·락 파일 제외)
+      (--all=스톱워드 해제, --strict=[위반]이 있으면 종료 코드 1)
   version | help"""
 
 # 서브커맨드별 (최소 위치 인자 수, 최대 위치 인자 수 — None은 무제한, 허용 옵션)
@@ -662,7 +815,7 @@ COMMANDS = {
     "remove": (1, 1, set()),
     "list": (0, 0, set()),
     "lookup": (0, 1, set()),
-    "lint": (0, None, {"all"}),  # 경로 누락은 lint 전용 안내로 처리
+    "lint": (0, None, {"all", "strict"}),  # 경로 누락은 lint 전용 안내로 처리
     "version": (0, 0, set()),
     "help": (0, 0, set()),
 }
@@ -785,7 +938,10 @@ def run(argv, data_dir):
             lines.append("[후보]")
             for c in report["candidates"]:
                 lines.append(f"{c['token']}\t{c['count']}\t{format_file_list(c['files'])}")
-        return "\n".join(lines) if lines else "이상 없음"
+        output = "\n".join(lines) if lines else "이상 없음"
+        if options.get("strict") and report["violations"]:
+            raise ViolationsFound(output)
+        return output
 
     if cmd == "version":
         return f"superglossary CLI v{VERSION}"
@@ -800,6 +956,9 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     try:
         out = run(argv, resolve_data_dir(__file__))
+    except ViolationsFound as found:
+        print(found.output)
+        return 1
     except (GlossaryError, OSError, ValueError) as err:
         print(f"✗ {err}", file=sys.stderr)
         return 1

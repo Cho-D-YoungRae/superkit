@@ -14,9 +14,9 @@ jobs:
         # README가 명시한 최소 버전과 최신 버전을 함께 검증한다.
         python-version: ["3.9", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 

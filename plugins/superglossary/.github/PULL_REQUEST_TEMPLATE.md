@@ -12,6 +12,7 @@
 
 ## 테스트
 
+- [ ] `python3 -m unittest discover -s tests` 통과
 - [ ] `claude plugin validate .` 통과
 - [ ] `claude --plugin-dir .`로 로컬 동작 확인
 - [ ] `python3 scripts/bump_version.py --check` 통과(해당 시)

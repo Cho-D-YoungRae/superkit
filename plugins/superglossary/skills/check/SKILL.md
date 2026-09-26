@@ -1,7 +1,7 @@
 ---
 name: check
 description: 작업 완료 후나 커밋 전에 코드 네이밍을 프로젝트 용어사전과 대조해 위반·누락 용어를 검토할 때 사용한다. "용어 검사", "사전이랑 맞는지 확인", "네이밍 점검" 같은 요청에 트리거.
-allowed-tools: Bash(superglossary:*), Bash(python3 .claude/superglossary/glossary.py:*), Bash(git diff:*), Bash(git ls-files:*), Task
+allowed-tools: Bash(superglossary:*), Bash(python3 .claude/superglossary/glossary.py:*), Bash(git diff:*), Bash(git ls-files:*), Read, Grep, Agent
 ---
 
 # 용어사전 검토
@@ -12,7 +12,7 @@ allowed-tools: Bash(superglossary:*), Bash(python3 .claude/superglossary/glossar
 4. **위반 처리**: `[위반]`은 사전이 결정론적으로 확정한 결과다. 그대로 보고 표에 올린다.
 5. **후보 처리(하이브리드)**:
    - `[후보]`가 **10개 이하**면 이 세션에서 직접 의미 확정한다. 판단 기준: ① 사전 등록 개념을 다른 영문으로 쓴 동의어(빈도·문맥 확인) ② 미등록 축약어 ③ 반복 등장하는 미등록 단일어는 추가 후보 ④ 일반 영어·라이브러리 식별자는 노이즈로 제외 ⑤ 기존 모듈 컨벤션 존중.
-   - **10개 초과**면 `[후보]` 목록(파일 위치 포함)과 `superglossary list` 결과를 `check-analyzer` 서브에이전트에 넘겨(Task) 확정을 받는다.
+   - **10개 초과**면 `[후보]` 목록(파일 위치 포함)과 `superglossary list` 결과를 `check-analyzer` 서브에이전트에 넘겨(Agent 도구) 확정을 받는다.
 6. **보고**: 위반(금지 변형 + 의미 위반)과 추가 후보(add 스킬로 등록할 대상)를 표로 보고한다. **자동 수정은 하지 않는다** — 적용은 사용자 판단.
 7. **노이즈가 반복되면**: 사내 접두사처럼 후보로 계속 올라오는 무의미한 토큰이 있으면, `glossary.json`의 `stopwords.add`에 넣자고 제안한다(반대로 도메인 핵심어가 기본 스톱워드에 걸려 누락되면 `stopwords.remove`).
 
