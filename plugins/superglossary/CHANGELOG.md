@@ -11,6 +11,13 @@
 
 - `add --abbreviation <A>` — `update`와 같은 이름으로 축약어를 지정합니다(위치 인자와 동시 지정은 오류).
 
+### Changed
+
+- `lint` 디렉토리 탐색이 git 저장소 안에서는 `.gitignore`를 따릅니다(`git ls-files`). 락 파일(`package-lock.json`·`yarn.lock`·`go.sum` 등)·`*.min.js`·`*.map`은 경로를 직접 줘도 건너뜁니다.
+- 토크나이저가 약어 경계를 나눕니다 — `HTTPServer` → `http`·`server`, `getURLForMember` → `get`·`url`·`for`·`member`. 복수형 약어(`URLs`·`IDs`)는 쪼개지 않습니다.
+- 등록 영문이 여러 단어(`order_item`·`orderItem`·`Stock Keeping Unit`)면 부분 단어로 매칭합니다.
+- 금지 변형(`avoid`)은 단일어만 등록할 수 있습니다 — 여러 단어짜리(`cust_no`)는 lint가 영원히 잡지 못하기 때문입니다. 이미 들어간 값은 막지 않고 build가 안내합니다.
+
 ### Fixed
 
 - `lint`가 용어사전 자신(`.claude/superglossary/`·`.claude/CLAUDE.md`)을 검사해 금지 변형을 `[위반]`으로, JSON 키를 `[후보]`로 올리던 문제 — 프로젝트 `.claude/`는 경로를 직접 줘도 건너뛰고, 디렉토리 탐색에서도 하위 패키지의 `.claude/`까지 제외합니다. `add` 직후 `check`를 돌리면 항상 발생했습니다.

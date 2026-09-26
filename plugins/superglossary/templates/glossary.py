@@ -188,6 +188,7 @@ def add_term(data, korean, english, abbreviation=None, description="", related_e
     require_names(korean, english)
     related_elements = list(related_elements or [])
     avoid = list(avoid or [])
+    check_avoid_words(avoid)
     conflict = find_conflict(data["terms"], korean, english, abbreviation, avoid)
     if conflict:
         raise GlossaryError(conflict)
@@ -218,6 +219,9 @@ def update_term(data, korean, fields):
         if key in fields:
             nxt[key] = fields[key]
     require_names(nxt["korean"], nxt["english"])
+    if "avoid" in fields:
+        # 기존 값은 막지 않는다 — 다른 필드만 고치는 update가 옛 데이터 때문에 실패하지 않도록.
+        check_avoid_words(fields["avoid"])
     others = [t for t in data["terms"] if t["korean"] != korean]
     conflict = find_conflict(
         others, nxt["korean"], nxt["english"], nxt.get("abbreviation"), avoid_of(nxt)
@@ -315,10 +319,16 @@ def build(directory):
         f.write(core)
     with open(os.path.join(directory, "terms.md"), "w", encoding="utf-8") as f:
         f.write(render_terms(data))
+    notices = []
     lines = len(core.split("\n"))
     if lines > CORE_SPLIT_THRESHOLD:
-        return f"안내: core.md가 {lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요."
-    return None
+        notices.append(f"안내: core.md가 {lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요.")
+    for t in data["terms"]:
+        for v in avoid_of(t):
+            if not is_single_word(v):
+                notices.append(f"안내: {t['korean']}의 금지 변형 '{v}'은(는) 단일어가 아니라 lint가 잡지 못합니다. "
+                               "update --avoid로 단일어로 바꾸세요.")
+    return "\n".join(notices) or None
 
 
 def is_stale(directory, data):
@@ -338,8 +348,25 @@ def warn_if_stale(directory, data):
 
 
 def tokenize(identifier):
-    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", identifier)
+    # 약어 경계(HTTPServer → HTTP Server)를 먼저 나눈다. 뒤따르는 소문자가 2자 이상일 때만
+    # 나눠야 복수형 약어(URLs·IDs)가 UR+Ls처럼 쪼개지지 않는다.
+    spaced = re.sub(r"([A-Z]+)([A-Z][a-z]{2,})", r"\1 \2", identifier)
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", spaced)
     return [part.lower() for part in re.split(r"[_\s]+", spaced) if part]
+
+
+def is_single_word(value):
+    """lint 토큰 하나로 매칭될 수 있는 값인가(영문·숫자만, 쪼개면 한 단어)."""
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", value)) and len(tokenize(value)) == 1
+
+
+def check_avoid_words(avoid):
+    for v in avoid:
+        if not is_single_word(v):
+            raise GlossaryError(
+                f"금지 변형 '{v}'은(는) 단일어여야 합니다 — lint는 식별자를 단어로 나눠 비교하므로 "
+                "여러 단어짜리 변형은 잡히지 않습니다(예: cust_no → cust)."
+            )
 
 
 # 결정 #11: 언어 키워드·표준 타입·기술 계층 어휘만 포함한다.
@@ -387,17 +414,44 @@ IGNORED_DIRS = {
     "dist", "build", "out", "target", "vendor", "coverage",
 }
 
+# 제외할 생성 파일 — 락 파일·번들 산출물. 해시·압축 코드가 무의미한 토큰을 쏟아낸다.
+IGNORED_FILES = {
+    "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock",
+    "poetry.lock", "uv.lock", "Pipfile.lock", "Cargo.lock", "Gemfile.lock", "composer.lock",
+    "go.sum", "gradle.lockfile", "mix.lock", "pubspec.lock", "Podfile.lock", "flake.lock",
+    "packages.lock.json",
+}
+IGNORED_SUFFIXES = (".min.js", ".min.css", ".map")
+
+
+def git_listed_files(directory):
+    """git 저장소 안이면 .gitignore를 반영한 파일 목록(추적 + 미추적, directory 기준 상대 경로). 아니면 None."""
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "."],
+            cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # git 부재
+    if done.returncode != 0:
+        return None  # 저장소 밖
+    return [os.fsdecode(rel) for rel in done.stdout.split(b"\0") if rel]
+
 
 def collect_files(paths, exclude=None):
     """파일·디렉토리 경로를 실제 파일 목록으로 펼친다(디렉토리는 재귀, 중복 제거).
 
-    exclude 디렉토리 아래 파일은 경로를 직접 지정해도 건너뛴다.
+    git 저장소 안의 디렉토리는 .gitignore를 따른다. exclude 디렉토리 아래 파일과
+    락 파일 같은 생성 파일은 경로를 직접 지정해도 건너뛴다.
     """
     files = []
     seen = set()
     skip = os.path.realpath(exclude) if exclude else None
 
     def push(path):
+        name = os.path.basename(path)
+        if name in IGNORED_FILES or name.endswith(IGNORED_SUFFIXES):
+            return
         key = os.path.realpath(path)
         if skip and (key == skip or key.startswith(skip + os.sep)):
             return
@@ -407,6 +461,15 @@ def collect_files(paths, exclude=None):
 
     for path in paths:
         if os.path.isdir(path):
+            listed = git_listed_files(path)
+            # 비어 있으면(.gitignore로 통째로 무시된 디렉토리를 직접 준 경우 등) 아래의 직접 탐색으로 넘어간다.
+            if listed:
+                for rel in listed:
+                    parts = rel.split("/")
+                    full = os.path.join(path, *parts)
+                    if not any(p in IGNORED_DIRS for p in parts[:-1]) and os.path.isfile(full):
+                        push(full)
+                continue
             for root, dirnames, filenames in os.walk(path):
                 dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
                 for name in sorted(filenames):
@@ -442,12 +505,10 @@ def lint_files(data, paths, all_tokens=False, exclude=None):
     known = set()
     avoid_map = {}
     for t in data["terms"]:
-        e = t["english"].lower()
-        known.add(e)
-        if " " in e:
-            known.update(e.split())
+        # 식별자와 같은 규칙으로 쪼개야 order_item·orderItem·"Stock Keeping Unit"이 부분 단어로 매칭된다.
+        known.update(tokenize(t["english"]))
         if t.get("abbreviation"):
-            known.add(t["abbreviation"].lower())
+            known.update(tokenize(t["abbreviation"]))
         for v in avoid_of(t):
             avoid_map[v.lower()] = t
 
@@ -650,7 +711,7 @@ USAGE = """사용법: python3 .claude/superglossary/glossary.py <subcommand>
   remove <korean>
   list                                          전체 용어(간결)
   lookup <질의>                                  용어 상세 검색
-  lint [--all] <paths...>                       코드 대조([위반]/[후보], 디렉토리 재귀, .claude/ 제외, --all=스톱워드 해제)
+  lint [--all] <paths...>                       코드 대조([위반]/[후보], 디렉토리 재귀·.gitignore 반영, .claude/·락 파일 제외, --all=스톱워드 해제)
   version | help"""
 
 # 서브커맨드별 (최소 위치 인자 수, 최대 위치 인자 수 — None은 무제한, 허용 옵션)

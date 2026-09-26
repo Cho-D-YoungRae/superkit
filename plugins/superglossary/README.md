@@ -103,7 +103,7 @@ claude --plugin-dir .
 - **단일어 후보** — 엔티티·컬럼·주요 변수에서 추출한 핵심 개념(복합어는 분해).
 - **혼용 리포트** — 같은 개념에 쓰인 영문 변형과 빈도(예: 사용자 → `user`×120 / `member`×45 / `customer`×12).
 
-혼용 건은 **표준 1개**를 고르면, 탈락한 변형을 금지 목록으로 보존하며 등록됩니다.
+혼용 건은 **표준 1개**를 고르면, 탈락한 변형을 금지 목록으로 보존하며 등록됩니다. lint는 식별자를 단어로 나눠 비교하므로 금지 변형도 단일어여야 합니다(`cust_no`가 아니라 `cust`).
 
 ```bash
 python3 .claude/superglossary/glossary.py add 회원 member --avoid "customer,user"
@@ -129,7 +129,7 @@ python3 .claude/superglossary/glossary.py <서브커맨드>   # 프로젝트 복
 | `add <한글> <영문> [축약어]` | 등록 (`--desc`, `--related`, `--avoid` 옵션. 축약어는 `--abbreviation`으로도 지정) | `... add 청구 claim --desc "요금 청구"` |
 | `update <한글>` | 지정 필드만 수정 (`--english`/`--abbreviation`/`--desc`/`--related`/`--avoid`). `--avoid ""`처럼 빈 값을 주면 목록을 비움 | `... update 청구 --english billing` |
 | `remove <한글>` | 삭제 | `... remove 청구` |
-| `lint [--all] <paths...>` | 코드 대조 (`[위반]`/`[후보]`, 디렉토리는 재귀 탐색, `.claude/`는 제외, `--all`은 스톱워드 필터 해제) | `... lint src/` |
+| `lint [--all] <paths...>` | 코드 대조 (`[위반]`/`[후보]`). 디렉토리는 재귀 탐색하며 git 저장소에서는 `.gitignore`를 따름. `.claude/`·락 파일(`package-lock.json` 등)·`*.min.js`·`*.map`은 제외. `--all`은 스톱워드 필터 해제 | `... lint src/` |
 | `build` | `glossary.json` → `core.md`·`terms.md` 재생성 | `... build` |
 | `version` / `help` | CLI 버전 / 사용법 | `... version` |
 

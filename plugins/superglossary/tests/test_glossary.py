@@ -180,6 +180,23 @@ class ConflictTest(unittest.TestCase):
         with self.assertRaisesRegex(g.GlossaryError, r"이미 회원\(member\)의 금지 목록에 있습니다"):
             g.add_term(data, "고객", "client", avoid=["customer"])
 
+    def test_avoid_must_be_a_single_word(self):
+        # lint는 식별자를 단어로 쪼개 비교하므로 여러 단어짜리 금지 변형은 영원히 걸리지 않는다
+        for variant in ("cust_no", "custNo", "cust no", "e-mail"):
+            with self.subTest(variant):
+                with self.assertRaisesRegex(g.GlossaryError, "단일어"):
+                    g.add_term({"terms": []}, "고객", "client", avoid=[variant])
+                data = {"terms": [{"korean": "고객", "english": "client", "abbreviation": None, "avoid": []}]}
+                with self.assertRaisesRegex(g.GlossaryError, "단일어"):
+                    g.update_term(data, "고객", {"avoid": [variant]})
+        g.add_term({"terms": []}, "고객", "client", avoid=["cust", "URLs", "v2"])
+
+    def test_legacy_multiword_avoid_does_not_block_other_updates(self):
+        data = {"terms": [{"korean": "고객", "english": "client", "abbreviation": None,
+                           "description": "", "relatedElements": [], "avoid": ["cust_no"]}]}
+        g.update_term(data, "고객", {"description": "구매자"})
+        self.assertEqual(g.find_term(data, "고객")["description"], "구매자")
+
     def test_avoid_cannot_equal_own_english_or_abbreviation(self):
         with self.assertRaisesRegex(g.GlossaryError, "자신의 영문"):
             g.add_term({"terms": []}, "고객", "client", avoid=["client"])
@@ -268,6 +285,14 @@ class RenderTest(TempDirCase):
         g.save_glossary(self.dir, {"terms": many[:3]})
         self.assertIsNone(g.build(self.dir))
 
+    def test_build_notes_multiword_avoid_left_in_existing_glossary(self):
+        # 이전 버전 CLI나 손 편집으로 이미 들어간 값은 막지 않고 안내만 한다
+        g.save_glossary(self.dir, {"terms": [{"korean": "고객", "english": "client", "abbreviation": None,
+                                              "description": "", "relatedElements": [], "avoid": ["cust_no"]}]})
+        notice = g.build(self.dir)
+        self.assertIn("cust_no", notice or "")
+        self.assertTrue(os.path.exists(os.path.join(self.dir, "core.md")), "빌드는 그대로 진행")
+
     def test_is_stale(self):
         g.save_glossary(self.dir, {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
                                               "description": "", "relatedElements": [], "avoid": []}]})
@@ -286,6 +311,40 @@ class LintTest(TempDirCase):
         self.assertEqual(g.tokenize("memberId"), ["member", "id"])
         self.assertEqual(g.tokenize("reg_dt"), ["reg", "dt"])
         self.assertEqual(g.tokenize("ship_address"), ["ship", "address"])
+
+    def test_tokenize_splits_acronym_boundaries(self):
+        cases = {
+            "HTTPServer": ["http", "server"],
+            "getURLForMember": ["get", "url", "for", "member"],
+            "parseJSONData": ["parse", "json", "data"],
+            "XMLHttpRequest": ["xml", "http", "request"],
+            "IOError": ["io", "error"],
+            "memberID": ["member", "id"],
+            # 복수형 약어는 쪼개지 않는다(URLs → ur + ls 가 되면 안 됨)
+            "userIDs": ["user", "ids"],
+            "getURLsFor": ["get", "urls", "for"],
+        }
+        for identifier, expected in cases.items():
+            with self.subTest(identifier):
+                self.assertEqual(g.tokenize(identifier), expected)
+
+    def test_compound_english_matches_its_parts(self):
+        f = os.path.join(self.dir, "sample.js")
+        write_file(f, "const orderItem = 1; const order_item = 2;")
+        for english in ("order_item", "orderItem", "Order Item"):
+            with self.subTest(english):
+                data = {"terms": [{"korean": "주문항목", "english": english, "abbreviation": None}]}
+                self.assertEqual(g.lint_files(data, [f])["candidates"], [])
+
+    def test_lock_and_generated_files_are_skipped(self):
+        data = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None, "avoid": ["customer"]}]}
+        names = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock",
+                 "Cargo.lock", "go.sum", "app.min.js", "app.min.css", "app.js.map"]
+        for name in names:
+            write_file(os.path.join(self.dir, name), '{"customerName": "sha512-Kx9fQzPmTr8w=="}')
+        explicit = [os.path.join(self.dir, n) for n in names]
+        self.assertEqual(g.lint_files(data, explicit), {"violations": [], "candidates": [], "missing": []})
+        self.assertEqual(g.lint_files(data, [self.dir])["violations"], [], "디렉토리 탐색에서도 제외")
 
     def test_unregistered_tokens_become_candidates(self):
         f = os.path.join(self.dir, "sample.js")
@@ -412,6 +471,41 @@ class LintScopeTest(TempDirCase):
         app = os.path.join(self.dir, "app.js")
         write_file(app, "const customerName = 1;")
         self.assertIn("customer\tmember(회원)", g.run(["lint", app], data_dir))
+
+
+@unittest.skipIf(shutil.which("git") is None, "git 없는 환경")
+class LintGitTest(TempDirCase):
+    """git 저장소 안에서는 디렉토리 탐색이 .gitignore를 따른다."""
+
+    AVOID = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None, "avoid": ["customer"]}]}
+
+    def setUp(self):
+        super().setUp()
+        subprocess.run(["git", "init", "-q"], cwd=self.dir, check=True)
+
+    def violations(self, paths):
+        return [v["token"] for v in g.lint_files(self.AVOID, paths)["violations"]]
+
+    def test_directory_walk_respects_gitignore(self):
+        write_file(os.path.join(self.dir, ".gitignore"), "generated/\n")
+        os.makedirs(os.path.join(self.dir, "generated"))
+        write_file(os.path.join(self.dir, "generated", "api.js"), "const customerName = 1;")
+        write_file(os.path.join(self.dir, "app.js"), "const memberName = 1;")
+        self.assertEqual(self.violations([self.dir]), [])
+
+    def test_ignored_directory_given_explicitly_is_still_checked(self):
+        write_file(os.path.join(self.dir, ".gitignore"), "generated/\n")
+        os.makedirs(os.path.join(self.dir, "generated"))
+        write_file(os.path.join(self.dir, "generated", "api.js"), "const customerName = 1;")
+        self.assertEqual(self.violations([os.path.join(self.dir, "generated")]), ["customer"])
+
+    def test_git_listing_still_skips_ignored_dirs(self):
+        # .gitignore에 없어도 의존성·.claude 디렉토리는 건너뛴다
+        for rel in ("node_modules/dep.js", "packages/web/.claude/CLAUDE.md"):
+            path = os.path.join(self.dir, *rel.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            write_file(path, "const customerName = 1;")
+        self.assertEqual(self.violations([self.dir]), [])
 
 
 class LintPathTest(TempDirCase):
