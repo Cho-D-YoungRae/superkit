@@ -7,7 +7,7 @@ allowed-tools: Bash(superglossary:*), Bash(python3 .claude/superglossary/glossar
 # 용어사전 검토
 
 1. **사전 확인**: `.claude/superglossary/`가 없으면 `/superglossary:init` 실행을 제안하고 종료한다.
-2. **대상 결정**: 인자가 없으면 `git diff --name-only`(staged+unstaged 합집합) + `git ls-files --others --exclude-standard`(신규 untracked)의 파일, 경로가 주어지면 그 범위. **대상이 하나도 없으면** "검사할 변경 파일이 없습니다"로 보고하고 종료한다(빈 목록으로 lint를 호출하지 않는다).
+2. **대상 결정**: 인자가 없으면 `git diff --name-only --diff-filter=d`(unstaged) + `git diff --cached --name-only --diff-filter=d`(staged) + `git ls-files --others --exclude-standard`(신규 untracked)의 합집합, 경로가 주어지면 그 범위. 삭제된 파일은 넘기지 않는다(lint는 없는 경로를 경고한다). `.claude/`(용어사전·CLAUDE.md)는 lint가 스스로 제외하므로 따로 거르지 않아도 된다. **대상이 하나도 없으면** "검사할 변경 파일이 없습니다"로 보고하고 종료한다(빈 목록으로 lint를 호출하지 않는다).
 3. **후보 추출(결정론)**: `superglossary lint <paths...>` 실행(디렉토리를 주면 재귀 탐색한다). `superglossary`를 찾지 못하면 `python3 .claude/superglossary/glossary.py lint <paths...>`로 대체한다. 출력은 두 섹션 — `[위반]`(금지 변형 사용: `토큰	표준영문(한글)	빈도	파일`)과 `[후보]`(미등록 토큰: `토큰	빈도	파일`).
 4. **위반 처리**: `[위반]`은 사전이 결정론적으로 확정한 결과다. 그대로 보고 표에 올린다.
 5. **후보 처리(하이브리드)**:

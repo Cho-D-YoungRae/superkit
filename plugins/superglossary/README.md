@@ -92,7 +92,7 @@ claude --plugin-dir .
   glossary.py     — 용어사전 관리 CLI (init/build/add/update/remove/list/lookup/lint/version/help, templates/glossary.py 복사본)
 ```
 
-**상시 로드**: init이 `.claude/CLAUDE.md`에 `@superglossary/core.md` import와 네이밍 규칙 블록을 자동으로 넣습니다. 이후 Claude가 세션마다 용어를 자동 참조합니다. `core.md`·`terms.md`는 `glossary.json`에서 생성되므로 직접 편집하지 말고, JSON을 고치면 `glossary.py build`로 재생성합니다.
+**상시 로드**: init이 `.claude/CLAUDE.md`에 `@superglossary/core.md` import와 네이밍 규칙 블록을 자동으로 넣습니다. 이후 Claude가 세션마다 용어를 자동 참조합니다. `core.md`·`terms.md`는 `glossary.json`에서 생성되므로 직접 편집하지 말고, JSON을 고치면 `glossary.py build`로 재생성합니다. 손으로 고친 JSON에 구조 오류(필드 누락·타입 오류)나 용어 간 충돌(영문·축약어 중복 등)이 있으면 CLI가 어디가 틀렸는지 알려 주고, 충돌이 남은 사전은 저장·빌드하지 않습니다.
 
 **팀 공유**: 용어사전은 팀이 공유해야 가치가 있습니다. `.claude/superglossary/`와 `.claude/CLAUDE.md`를 **git에 커밋**하세요. `.gitignore`가 `.claude/`를 무시하면 init이 경고와 함께 해결 패턴(`.claude/*` + `!.claude/superglossary/`)을 안내합니다.
 
@@ -126,10 +126,10 @@ python3 .claude/superglossary/glossary.py <서브커맨드>   # 프로젝트 복
 |---|---|---|
 | `lookup <질의>` | 한 용어의 상세(설명·관련·금지)를 조회 | `... lookup 회원` |
 | `list` | 전체 용어를 간결히 나열 | `... list` |
-| `add <한글> <영문> [축약어]` | 등록 (`--desc`, `--related`, `--avoid` 옵션) | `... add 청구 claim --desc "요금 청구"` |
-| `update <한글>` | 지정 필드만 수정 (`--english`/`--abbreviation`/`--desc`/`--related`/`--avoid`) | `... update 청구 --english billing` |
+| `add <한글> <영문> [축약어]` | 등록 (`--desc`, `--related`, `--avoid` 옵션. 축약어는 `--abbreviation`으로도 지정) | `... add 청구 claim --desc "요금 청구"` |
+| `update <한글>` | 지정 필드만 수정 (`--english`/`--abbreviation`/`--desc`/`--related`/`--avoid`). `--avoid ""`처럼 빈 값을 주면 목록을 비움 | `... update 청구 --english billing` |
 | `remove <한글>` | 삭제 | `... remove 청구` |
-| `lint [--all] <paths...>` | 코드 대조 (`[위반]`/`[후보]`, 디렉토리는 재귀 탐색, `--all`은 스톱워드 필터 해제) | `... lint src/` |
+| `lint [--all] <paths...>` | 코드 대조 (`[위반]`/`[후보]`, 디렉토리는 재귀 탐색, `.claude/`는 제외, `--all`은 스톱워드 필터 해제) | `... lint src/` |
 | `build` | `glossary.json` → `core.md`·`terms.md` 재생성 | `... build` |
 | `version` / `help` | CLI 버전 / 사용법 | `... version` |
 
@@ -148,6 +148,8 @@ delivery	3	src/OrderService.java
 ```
 
 `[위반]` 행은 `토큰 · 표준영문(한글) · 빈도 · 파일`, `[후보]` 행은 `토큰 · 빈도 · 파일`입니다. 이상이 없으면 `이상 없음` 한 줄만 출력됩니다.
+
+CLI는 입력을 조용히 버리지 않습니다. 모르는 옵션(`--description` 등), 값이 빠진 옵션, 남는 인자는 오류로 알립니다. `lint`에 존재하지 않는 경로를 주면 경고하고, 모든 경로가 없으면 오류로 멈춥니다.
 
 ### 스톱워드 조정 (lint 노이즈 줄이기)
 
