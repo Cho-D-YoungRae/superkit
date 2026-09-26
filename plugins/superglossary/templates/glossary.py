@@ -352,7 +352,8 @@ def build(directory):
     notices = []
     lines = len(core.split("\n"))
     if lines > CORE_SPLIT_THRESHOLD:
-        notices.append(f"안내: core.md가 {lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요.")
+        notices.append(f"안내: core.md가 {lines}줄입니다. core.md는 매 세션 컨텍스트에 올라가므로 "
+                       "쓰지 않는 용어는 remove로 정리하세요.")
     for t in data["terms"]:
         for v in avoid_of(t):
             if not is_single_word(v):

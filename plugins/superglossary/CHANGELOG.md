@@ -24,9 +24,12 @@
 - `glossary.json`·`core.md`·`terms.md`·`CLAUDE.md`를 임시 파일에 쓴 뒤 교체합니다(기존 권한 유지) — 쓰는 도중 실패해도 원본이 잘리지 않습니다.
 - `glossary-scanner`가 혼용 빈도를 `lint` 출력에서 결정론적으로 얻습니다(Bash 도구 추가).
 - 스킬의 서브에이전트 도구 표기를 `Task` → `Agent`로 갱신하고, check 스킬에 `Read`·`Grep`을 사전 승인했습니다.
+- core.md 크기 안내가 없는 기능(분류) 대신 사용하지 않는 용어 정리를 권합니다.
+- CI 액션을 `actions/checkout@v7`·`actions/setup-python@v7`(Node 24)로 올렸습니다. PR 템플릿에 단위 테스트 항목을 추가했습니다.
 
 ### Fixed
 
+- `bump_version.py`가 CLI `VERSION` 상수를 찾지 못해 실패할 때 `plugin.json`만 바뀐 채 남던 문제 — 두 파일을 모두 검증한 뒤 씁니다.
 - README의 pre-commit 예시가 공백이 든 파일명에서 깨지던 문제 — NUL 구분(`-z`/`-0`)으로 바꿨습니다.
 
 - `lint`가 용어사전 자신(`.claude/superglossary/`·`.claude/CLAUDE.md`)을 검사해 금지 변형을 `[위반]`으로, JSON 키를 `[후보]`로 올리던 문제 — 프로젝트 `.claude/`는 경로를 직접 줘도 건너뛰고, 디렉토리 탐색에서도 하위 패키지의 `.claude/`까지 제외합니다. `add` 직후 `check`를 돌리면 항상 발생했습니다.
