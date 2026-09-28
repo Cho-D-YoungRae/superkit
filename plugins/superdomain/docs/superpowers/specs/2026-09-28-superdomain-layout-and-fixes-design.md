@@ -135,7 +135,7 @@ def legacy_leftovers(root) -> list[tuple[str, str]]   # (옛 경로, 새 경로)
 |---|---|
 | `parse_domain.py` | 라이브러리 함수는 **배치를 모른다**(임의 경로의 픽스처를 파싱할 수 있어야 한다). CLI만 `from_domain_path`로 검증하고, `LayoutError`는 exit 2 |
 | `check_imports.py` | `base = Layout.root`. `BASELINE_RELATIVE` 상수를 제거하고 `layout.baseline`을 쓴다. `LayoutError`는 exit 2 |
-| `check_invariants.py` | 컨텍스트 문서는 `layout.contexts_dir`의 `*.md`만 읽는다. `CONSOLIDATED_DOC`와 통합 배치 분기 삭제. `contexts/`에 선언되지 않은 이름의 문서가 있으면 지금처럼 오류 |
+| `check_invariants.py` | 컨텍스트 문서는 `layout.contexts_dir`의 `*.md`만 읽는다. `CONSOLIDATED_DOC`와 통합 배치 분기 삭제. `contexts/`에 선언되지 않은 이름의 문서가 있으면 지금처럼 `stray-doc` 경고 |
 | `collect_signals.py` | `REVIEW_LOG`·`BASELINE` 상수를 layout으로 대체. **baseline 추이(⑤)는 pathspec에 새 경로와 옛 경로(`docs/domain/baseline.jsonl`)를 함께 준다** — `--no-renames`를 유지하므로 이동 커밋은 −N/+N으로 상쇄되어 누적 줄 수가 끊기지 않는다. 옛 경로를 아는 것은 layout 모듈의 상수로만 |
 | `build_index.py` | 배치와 무관(플러그인 저장소의 `references/`만 본다) |
 
@@ -180,7 +180,9 @@ JSON 출력의 `path`·표시 경로는 전부 `Layout.display`를 거친다(지
 ### 4.1 소스 인코딩 — BOM
 
 - `check_imports.py`의 소스 읽기(:240)와 `check_invariants.py`의 테스트 소스 읽기(:401)를
-  `encoding="utf-8-sig"`로 바꾼다.
+  `encoding="utf-8-sig"`로 바꾼다. 같은 결함(선두 U+FEFF가 `^\s*`·`json.loads`를 깨뜨림)이
+  `DOMAIN.md` 첫 줄 마커, `baseline.jsonl`, `review-log.jsonl`에도 있으므로 **모든 텍스트 입력**을
+  같은 인코딩으로 읽는다(구현 계획 Task 2).
 - 재현(2026-09-26): 첫 줄에 BOM이 있는 `Leaky.kt`는 `package`가 매칭되지 않아 귀속 불가 →
   `claim → admin` 위반이 누락되고 exit 0. 같은 컨텍스트에 BOM 없는 파일이 하나라도 있으면
   `[0건 경고]`도 뜨지 않는다.
@@ -211,7 +213,9 @@ JSON 출력의 `path`·표시 경로는 전부 `Layout.display`를 거친다(지
 - 재현: 두 헤딩만 있고 본문이 빈 문서가 `draft=False`로 등재된다. knowledge-doc-template §8과 study
   스킬은 "비워 두면 draft"라고 안내하므로 "draft는 판정 근거 불가" 장치가 우회된다.
 - knowledge-doc-template §8의 템플릿에서 자리표시 위키링크 `[[다른-문서-key]]`를 없앤다(그대로 복사하면
-  "존재하지 않는 문서" 오류로 빌드가 실패한다).
+  "존재하지 않는 문서" 오류로 빌드가 실패한다). 템플릿의 다른 자리표시(`- (언제 쓰는가)` 등)도 한 줄
+  HTML 주석으로 바꾸고, **주석만 있는 줄은 본문으로 세지 않는다** — 그래야 템플릿을 그대로 복사한
+  문서가 draft로 색인된다.
 - 현행 지식 12종이 새 판정에서도 전부 성숙인지 확인한다(INDEX의 draft 열이 비어 있어야 한다).
 
 ### 4.4 `read_when` 검증 — `build_index.py`
@@ -283,7 +287,9 @@ review 스킬의 5-c(리포트)·6(열린 질문 append)·7(`review-log.jsonl`�
 
 **`references/governance/derived-artifacts.md` — 파생물 재생성 규정.** 지금 `skills/init/SKILL.md`의 7-a
 (요약)·7-b(컨텍스트 맵 생성 구역)에만 있는 세부(요약 표의 열, 30줄 한도, mermaid 규칙, 생성 구역 마커 처리)를
-옮긴다. init·sync·evolve가 공유한다. 지금 sync(:311,372)·evolve(:350,371)는 `skills/init/SKILL.md 7-a·7-b`를
+옮긴다. init·sync·evolve가 공유한다. init 6단계의 「고쳐도 되는 것과 안 되는 것」(sync 5-a·evolve 9-a가
+상대경로로 지목)과, 거의 같은 문단인 sync 5-d·evolve 9-b의 「게이트 → 파생물 재생성 → 게이트」도 같은
+문서의 절로 모은다. 지금 sync(:311,372)·evolve(:350,371)는 `skills/init/SKILL.md 7-a·7-b`를
 상대경로로 지목하는데, 대상 프로젝트 cwd에서는 열리지 않는다.
 
 모든 정본 지목은 `${CLAUDE_PLUGIN_ROOT}/references/…` 절대 형식으로 쓴다.
