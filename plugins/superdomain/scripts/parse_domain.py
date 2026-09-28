@@ -136,6 +136,10 @@ RE_TABLE = re.compile(r"^\|")
 RE_TABLE_DIVIDER = re.compile(r"^\|(?:\s*:?-{3,}:?\s*\|)+\s*$")
 RE_TEMPLATE_MARKER = re.compile(
     r"^\s*<!--\s*" + re.escape(MARKER_TEMPLATE) + r"\s+v(\d+)\s*-->\s*$")
+# 코드 펜스(``` 또는 ~~~, 3개 이상, 들여쓰기 3칸까지). 여는 줄 뒤에는 정보 문자열(```mermaid)이
+# 올 수 있고, 닫는 줄은 같은 문자로 여는 줄 이상의 길이여야 하며 뒤에 아무것도 없어야 한다.
+# 펜스 안은 헤딩·라벨·표가 아니다 — 예시로 적은 선언이 진짜 선언을 덮어쓰지 않게 한다.
+RE_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})(.*)$")
 
 # 패키지 세그먼트 하나의 문법(구 `resolve_rules.RE_PACKAGE_SEGMENT`에서 이관).
 # 컨텍스트 이름과 `기본 패키지`가 그대로 패키지 자리에 들어가므로 둘 다 이 문법을 지켜야 한다.
@@ -232,6 +236,15 @@ def _parse_packages(raw: str, line: int, errors: list) -> list:
     return packages
 
 
+def _retired_label_error(key: str, lineno: int) -> ParseError:
+    """구 템플릿 라벨의 명시 거부. 조용히 버리면 사용자는 그 결정이 강제된다고 믿는다."""
+    return ParseError(
+        lineno,
+        f"'{key}'은(는) 구 템플릿(ARCHITECTURE.md)의 라벨입니다 — DOMAIN.md에는 쓸 수 "
+        f"없습니다 ({NEW_TEMPLATE_DOC} 참조).",
+    )
+
+
 def _apply_label(current_project, current_context, key: str, value: str,
                  lineno: int, errors: list) -> None:
     """'- 키: 값' 한 줄을 현재 활성 섹션에 반영한다.
@@ -240,11 +253,7 @@ def _apply_label(current_project, current_context, key: str, value: str,
     아니라) 그 라벨 자신의 줄에 붙일 수 있게 한다.
     """
     if key in RETIRED_LABELS:
-        errors.append(ParseError(
-            lineno,
-            f"'{key}'은(는) 구 템플릿(ARCHITECTURE.md)의 라벨입니다 — DOMAIN.md에는 쓸 수 "
-            f"없습니다 ({NEW_TEMPLATE_DOC} 참조).",
-        ))
+        errors.append(_retired_label_error(key, lineno))
         return
 
     # 같은 섹션에 같은 라벨이 두 줄이면 뒤가 앞을 조용히 덮어쓴다. 복수 값은 쉼표로 한 줄에
@@ -375,6 +384,11 @@ def _check_template_marker(lines: list, errors: list) -> None:
 def _parse_document(text: str) -> Domain:
     """라인 기반 상태 머신으로 문서를 파싱해 Domain을 만든다.
 
+    **템플릿 밖의 서술은 파싱 결과를 바꾸지 않는다**(domain-template §1). 그 약속을 지키는 규칙이
+    둘이다 — 라벨은 **섹션 머리**(`##` 헤딩 다음부터 그 섹션의 첫 `###` 전까지)에서만 읽고,
+    **코드 펜스 안**은 어디서든 헤딩·라벨·표로 해석하지 않는다. `### 근거` 아래에 예시로 적은
+    `- 패키지:`가 진짜 선언을 덮어쓰던 결함(2026-09-26 재현)을 이 둘이 막는다.
+
     생성 구역 마커(`<!-- ...:generated:... -->` 쌍)는 라벨도 표도 헤딩도 아니므로 다른 주석과
     똑같이 무시된다 — 스킬이 그 사이를 통째로 갈아 끼워도 파싱 결과는 변하지 않는다.
     """
@@ -385,12 +399,25 @@ def _parse_document(text: str) -> Domain:
     current_project = None
     current_context = None
     current_subheading = None
+    fence = None          # (문자, 길이, 여는 줄 번호) — 펜스 안에 있는 동안만 채워진다
 
     i = 0
     n = len(lines)
     while i < n:
         line = lines[i]
         lineno = i + 1
+
+        m_fence = RE_FENCE.match(line)
+        if fence is not None:
+            if (m_fence and m_fence.group(1)[0] == fence[0]
+                    and len(m_fence.group(1)) >= fence[1] and not m_fence.group(2).strip()):
+                fence = None
+            i += 1
+            continue
+        if m_fence:
+            fence = (m_fence.group(1)[0], len(m_fence.group(1)), lineno)
+            i += 1
+            continue
 
         m_project = RE_PROJECT.match(line)
         if m_project:
@@ -424,21 +451,33 @@ def _parse_document(text: str) -> Domain:
             i += 1
             continue
 
-        if current_project is not None or current_context is not None:
-            m_label = RE_LABEL.match(line)
-            if m_label:
+        m_label = RE_LABEL.match(line)
+        if m_label and current_subheading is None:
+            if current_project is not None or current_context is not None:
                 _apply_label(current_project, current_context,
                              m_label.group(1), m_label.group(2), lineno, domain.errors)
-                i += 1
-                continue
+            elif m_label.group(1) in RETIRED_LABELS:
+                # 문서 머리·모르는 '##' 섹션에는 라벨을 적용할 대상이 없다. 그래도 구 템플릿
+                # 라벨은 여기서 거부한다 — 옛 문서의 머리에 남은 '- 스타일:'이 조용히 사라지면
+                # 사용자는 그 결정이 아직 강제된다고 믿는다.
+                domain.errors.append(_retired_label_error(m_label.group(1), lineno))
+            i += 1
+            continue
 
-            if RE_TABLE.match(line):
-                block, next_i = _collect_table_block(lines, i)
-                _apply_table(current_context, current_subheading, block, lineno, domain.errors)
-                i = next_i
-                continue
+        if current_context is not None and RE_TABLE.match(line):
+            block, next_i = _collect_table_block(lines, i)
+            _apply_table(current_context, current_subheading, block, lineno, domain.errors)
+            i = next_i
+            continue
 
         i += 1
+
+    if fence is not None:
+        domain.errors.append(ParseError(
+            fence[2],
+            "닫히지 않은 코드 펜스입니다 — 이 줄 아래의 헤딩·라벨·표가 전부 무시됩니다. "
+            "같은 문자로 된 닫는 펜스를 넣으세요.",
+        ))
 
     if len(domain.projects) == 1:
         only_name = domain.projects[0].name

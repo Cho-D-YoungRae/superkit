@@ -166,6 +166,47 @@ class TestGeneratedZoneInsideSection(DomainTextCase):
         self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"])
 
 
+class TestFreeTextIsolation(DomainTextCase):
+    """템플릿 밖의 서술은 파싱 결과를 바꾸지 않는다(domain-template §1).
+
+    라벨은 섹션 머리에서만 읽고, 코드 펜스 안은 어디서든 헤딩·라벨·표로 해석하지 않는다.
+    """
+
+    def test_label_under_subheading_is_free_text(self):
+        d = self._parse_text(MINIMAL + "\n### 근거\n- 패키지: com.legacy.claim\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
+    def test_label_inside_fence_is_ignored(self):
+        # 2026-09-26 재현: 펜스 안의 라벨이 OK / exit 0인 채 컨텍스트 패키지를 바꿨다.
+        d = self._parse_text(MINIMAL + "```\n- 패키지: com.legacy.claim\n```\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
+    def test_heading_inside_fence_is_ignored(self):
+        text = MINIMAL + "\n### 메모\n```markdown\n## 컨텍스트: ghost\n- 분류: core\n```\n"
+        d = self._parse_text(text)
+        self.assertEqual(d.errors, [])
+        self.assertEqual([c.name for c in d.contexts], ["claim"])
+
+    def test_labels_after_a_closed_fence_still_apply(self):
+        d = self._parse_text(MINIMAL + "~~~~\n- 패키지: x.y\n~~~~~\n- 패턴: cqrs\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+        self.assertEqual(d.contexts[0].patterns, ["cqrs"])
+
+    def test_fence_closes_only_with_the_same_character(self):
+        d = self._parse_text(MINIMAL + "```\n~~~\n- 패키지: x.y\n```\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
+    def test_unclosed_fence_is_error(self):
+        text = (MINIMAL + "\n### 메모\n```\n열고 닫지 않았다\n\n"
+                "## 컨텍스트: billing\n- 분류: supporting\n")
+        d = self._parse_text(text)
+        self.assertHasError(d, "닫히지 않은 코드 펜스")
+
+
 class TestParenComments(DomainTextCase):
     """라벨 값 뒤의 괄호 주석은 값에서 제거된다(기존 파서에서 이관한 동작)."""
 
@@ -410,6 +451,19 @@ class TestRetiredLabels(DomainTextCase):
 
     def test_other_unknown_labels_are_still_ignored(self):
         d = self._parse_text(MINIMAL + "- 담당팀: 청구스쿼드\n")
+        self.assertEqual(d.errors, [])
+
+    def test_retired_label_in_document_head_is_rejected(self):
+        text = MINIMAL.replace("<!-- superdomain:template v1 -->\n",
+                               "<!-- superdomain:template v1 -->\n- 스타일: hexagonal\n")
+        self.assertHasError(self._parse_text(text), "'스타일'")
+
+    def test_retired_label_in_unknown_section_is_rejected(self):
+        d = self._parse_text(MINIMAL + "\n## 모듈: core\n- 모듈 구성: multi\n")
+        self.assertHasError(d, "'모듈 구성'")
+
+    def test_retired_label_under_subheading_is_free_text(self):
+        d = self._parse_text(MINIMAL + "\n### 근거\n- 스타일: 예전엔 hexagonal이었다\n")
         self.assertEqual(d.errors, [])
 
 
