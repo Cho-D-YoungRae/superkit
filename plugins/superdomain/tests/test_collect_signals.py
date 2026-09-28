@@ -80,7 +80,8 @@ MULTI_DOMAIN = ("""# 모노레포 — Domain
 
 class SignalsTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.repo = self.tmpdir / "repo"
         self.repo.mkdir()
         self.domain_path = self.repo / "DOMAIN.md"
@@ -89,9 +90,6 @@ class SignalsTestCase(unittest.TestCase):
         for key, value in (("user.email", "t@example.com"), ("user.name", "T"),
                            ("commit.gpgsign", "false")):
             self.git("config", key, value)
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     # ---- 저장소 도우미 ----------------------------------------------------
 

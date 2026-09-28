@@ -28,14 +28,15 @@ MINIMAL = (FIXTURES / "minimal.md").read_text(encoding="utf-8")
 class DomainTextCase(unittest.TestCase):
     """문서 텍스트를 임시 파일에 써서 파싱하는 공통 도우미.
 
-    임시 디렉터리는 `tests/tmp*`(.gitignore 대상)에 만들고 테스트마다 지운다 —
-    시스템 /tmp에 파일을 흘리지 않는다.
+    임시 디렉터리는 시스템 temp에 만들고 addCleanup으로 지운다 — 실패한 테스트도 흔적을
+    남기지 않는다.
     """
 
     def _write(self, text, name="DOMAIN.md"):
-        tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
+        tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
         self.addCleanup(shutil.rmtree, tmpdir, True)
         path = tmpdir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
 

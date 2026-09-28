@@ -14,7 +14,6 @@ import subprocess
 from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).resolve().parent.parent / "scripts" / "session_summary.sh"
-TESTS_DIR = Path(__file__).resolve().parent
 
 
 class TestSessionSummary(unittest.TestCase):
@@ -22,12 +21,8 @@ class TestSessionSummary(unittest.TestCase):
 
     def setUp(self):
         """Create isolated temp directory for each test."""
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
-
-    def tearDown(self):
-        """Clean up temp directory after each test."""
-        if self.tmpdir.exists():
-            shutil.rmtree(self.tmpdir)
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def _run_script(self, cwd):
         """Run session_summary.sh from specified directory, return (stdout, returncode)."""

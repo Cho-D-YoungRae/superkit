@@ -78,11 +78,9 @@ def skeleton():
 
 class InvariantTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.domain_path = self.tmpdir / "DOMAIN.md"
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     # ---- 트리 구성 -------------------------------------------------------
 

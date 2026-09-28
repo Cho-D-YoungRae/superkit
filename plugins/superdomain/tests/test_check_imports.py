@@ -76,11 +76,11 @@ LEAKY = "app/src/main/kotlin/com/acme/claim/Leaky.kt"
 
 class CheckTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
+        # 시스템 temp에 만들고 삭제는 addCleanup에 건다 — setUp이 중간에 실패해도 정리된다.
+        # 저장소 안(tests/)에 두면 정리에 실패한 디렉터리가 작업 트리에 쌓인다.
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.domain_path = self.tmpdir / "DOMAIN.md"
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def domain(self, text):
         self.domain_path.write_text(text, encoding="utf-8")

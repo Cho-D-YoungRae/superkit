@@ -50,16 +50,9 @@ class TestFrontmatter(unittest.TestCase):
 
 
 class TestScan(unittest.TestCase):
-    def setUp(self):
-        self._tmp_dirs = []
-
-    def tearDown(self):
-        for d in self._tmp_dirs:
-            shutil.rmtree(d, ignore_errors=True)
-
     def _make(self, files):  # {상대경로: 내용} → 임시 references/ 디렉터리
-        d = Path(tempfile.mkdtemp(dir=Path(__file__).resolve().parent))
-        self._tmp_dirs.append(d)
+        d = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, d, True)
         for rel, content in files.items():
             p = d / "knowledge" / rel
             p.parent.mkdir(parents=True, exist_ok=True)
