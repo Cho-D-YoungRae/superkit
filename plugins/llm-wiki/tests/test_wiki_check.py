@@ -51,9 +51,10 @@ def make_wiki(root: Path) -> Path:
         "## Sources\n\n- [노트 요약](sources/note-summary.md)\n\n## Synthesis\n\n(없음)\n",
         encoding="utf-8",
     )
+    # 규약대로 원본의 실제 sha256 앞 12자리를 남긴다 — 정상 위키에선 --pending이 비어야 한다
     (w / "log.md").write_text(
         "# Log\n\n## [2026-07-27] init | 위키 생성\n\n설정: markdown\n\n"
-        "## [2026-07-27] ingest | 노트\n\nsha: abc123def456\n",
+        f"## [2026-07-27] ingest | 노트\n\nsha: {hashlib.sha256(src.read_bytes()).hexdigest()[:12]}\n",
         encoding="utf-8",
     )
     (w / "overview.md").write_text("# Overview\n", encoding="utf-8")
@@ -394,7 +395,7 @@ def test_markdown_self_link_is_not_inbound(wiki_check, wiki):
 
 # --- raw/sources 원본 드리프트: raw-unreferenced · log-sha · --pending ---
 
-# `printf '# note\n' | shasum -a 256 | cut -c1-12` — 픽스처 원본의 실제 sha12(픽스처 log엔 abc123def456)
+# `printf '# note\n' | shasum -a 256 | cut -c1-12` — 픽스처 원본의 실제 sha12(make_wiki가 log에 기록)
 NOTE_SHA12 = "4874464a2b14"
 NEW_SHA12 = "a9e3182e383f"  # `printf '# new\n' | shasum -a 256 | cut -c1-12`
 
@@ -478,10 +479,7 @@ def test_pending_lists_uningested_sources(wiki_check, wiki):
     code, out = run(wiki_check, wiki, ["--pending", "--format", "json"])
     assert code == 0
     assert json.loads(out) == {
-        "pending": [
-            {"file": "raw/sources/2026-07-27-note.md", "sha12": NOTE_SHA12},  # log의 abc123def456과 불일치
-            {"file": "raw/sources/2026-07-28-new.md", "sha12": NEW_SHA12},
-        ]
+        "pending": [{"file": "raw/sources/2026-07-28-new.md", "sha12": NEW_SHA12}],  # note·done은 log에 sha 있음
     }
 
 
@@ -489,11 +487,11 @@ def test_pending_md_runs_no_checks_and_exits_zero(wiki_check, wiki):
     _append(wiki / "wiki" / "concepts" / "llm-wiki-pattern.md", "\n[없음](../entities/nope.md)\n")
     code, out = run(wiki_check, wiki, ["--pending"])
     assert code == 0
-    assert out == f"- raw/sources/2026-07-27-note.md (sha: {NOTE_SHA12})\n"
-    _append(wiki / "wiki" / "log.md", f"\n## [2026-07-28] ingest | 재인제스트\n\nsha: {NOTE_SHA12}\n")
+    assert out == "미인제스트 원본 없음\n"  # 기준 픽스처는 log에 원본 sha가 있다 — 깨진 링크가 있어도 검사하지 않는다
+    (wiki / "raw" / "sources" / "2026-07-28-new.md").write_text("# new\n", encoding="utf-8")
     code, out = run(wiki_check, wiki, ["--pending"])
     assert code == 0
-    assert out == "미인제스트 원본 없음\n"
+    assert out == f"- raw/sources/2026-07-28-new.md (sha: {NEW_SHA12})\n"
 
 
 def test_pending_and_stats_are_mutually_exclusive(wiki_check, capsys):
