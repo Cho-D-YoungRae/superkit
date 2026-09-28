@@ -348,6 +348,12 @@ class TestContextIsolation(CheckTestCase):
         self.assertEqual(report.zero_match, [])
         self.assertEqual(report.skipped, [])
 
+    def test_violation_carries_both_contexts(self):
+        # evolve·migrate가 컨텍스트 쌍을 메시지 문자열에서 파싱하지 않아도 되게 한다.
+        self.leaky_tree()
+        violation = self.assert_violation(self.check(), count=1)
+        self.assertEqual((violation.from_context, violation.to_context), ("claim", "admin"))
+
 
 class TestSourceParsing(CheckTestCase):
     def test_kotlin_import_alias(self):
@@ -641,7 +647,7 @@ class TestSilenceGuards(CheckTestCase):
         self.kt("com.acme.claim", "Claim", module="backend")
         report = self.check()
         lines = render(report)
-        self.assertIn("검사한 규칙 1건 / 생략한 규칙 1건", lines)
+        self.assertIn("검사한 컨텍스트 1개 / 생략 1개", lines)
         self.assertTrue(any(line.startswith("생략:") and "billing" in line for line in lines))
 
     def test_footer_states_the_limitation(self):
@@ -736,6 +742,12 @@ class TestBaseline(CheckTestCase):
         self.assertEqual(len(report.errors), 1, report.errors)
         self.assertEqual(report.errors[0].line, 1)
 
+    def test_demoted_debt_carries_both_contexts(self):
+        self.leaky_tree()
+        self.baseline(self.entry(RULE_ID, LEAKY))
+        debt = self.check().debt
+        self.assertEqual([(v.from_context, v.to_context) for v in debt], [("claim", "admin")])
+
 
 class TestCli(CheckTestCase):
     def run_cli(self, *args):
@@ -784,7 +796,7 @@ class TestCli(CheckTestCase):
                          ["ambiguous_package", "baseline", "checked", "inherited", "skipped",
                           "unreadable", "violations", "zero_match"])
         self.assertEqual(sorted(payload["violations"][0]),
-                         ["line", "message", "path", "rule_id"])
+                         ["from_context", "line", "message", "path", "rule_id", "to_context"])
         self.assertEqual(payload["violations"][0]["rule_id"], RULE_ID)
         self.assertEqual(payload["checked"], 2)
 

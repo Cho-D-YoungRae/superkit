@@ -41,7 +41,7 @@ string 안의 `import`도 위반이 된다) — 시끄러운 실패이고, 사�
 
 같은 이유로 **아무것도 검사하지 않은 컨텍스트를 침묵으로 넘기지 않는다.** 이제 남은 코드 검증이
 이 하나뿐이라 "위반 0건"과 "검사할 소스가 0건"이 뭉뚱그려지면 플러그인이 통째로 조용해진다.
-두 층위로 나누어 전부 고지한다.
+네 층위로 나누어 전부 고지한다.
 
 | 층위 | 무엇이 없는가 | 출력 |
 |---|---|---|
@@ -121,6 +121,10 @@ class Violation:
     line: int
     rule_id: str
     message: str
+    # 참조하는 쪽(소스의 소유 컨텍스트)과 참조되는 쪽(import 대상의 소유 컨텍스트). 소비자가
+    # 컨텍스트 쌍을 메시지 문자열에서 파싱하지 않도록 필드로 준다.
+    from_context: str = ""
+    to_context: str = ""
 
 
 @dataclass(frozen=True)
@@ -411,7 +415,8 @@ def _judge(report, sources, scopes, allowlist) -> dict:
             report.violations.append(Violation(
                 source.display, imported.line, RULE_ID,
                 f"컨텍스트 '{owner}'가 다른 컨텍스트 '{target}'의 코드를 직접 참조합니다 — "
-                f"{imported.text} ('### 관계' 표에 이 쌍이 없습니다)"))
+                f"{imported.text} ('### 관계' 표에 이 쌍이 없습니다)",
+                owner, target))
     return members
 
 
@@ -486,7 +491,7 @@ def render(report) -> list:
     lines += [f"{v.path}:{v.line}: [{v.rule_id}] {v.message}" for v in report.violations]
     lines += [f"[기존 부채] {v.path}:{v.line}: [{v.rule_id}] {v.message}" for v in report.debt]
     lines += [warning.message for warning in report.zero_match]
-    lines.append(f"검사한 규칙 {report.checked}건 / 생략한 규칙 {len(report.skipped)}건")
+    lines.append(f"검사한 컨텍스트 {report.checked}개 / 생략 {len(report.skipped)}개")
     if report.baseline is not None:
         matched = len({(v.rule_id, v.path) for v in report.debt})
         lines.append(
