@@ -28,16 +28,24 @@ flowchart TB
 sequenceDiagram
     participant U as 사용자
     participant C as /llm-wiki:wiki-ingest
-    participant S as 스크립트/WebFetch
+    participant X as web-extract (포크된 서브에이전트)
+    participant S as 스크립트
     participant R as raw/
     participant W as wiki/
 
     U->>C: /llm-wiki:wiki-ingest <url|경로>
     C->>C: 위키 루트 탐색 · config 로드 · 소스 유형 판별
-    C->>S: yt_transcript.py / pdf_chunk.py / WebFetch / 복사
-    S-->>C: stdout(트랜스크립트·manifest) 또는 raw/.cache/
-    C->>R: raw/sources/YYYY-MM-DD-slug.ext 저장
-    C->>C: sha256 12자리 → grep wiki/log.md (중복이면 스킵, --force로 강제)
+    C->>C: 저장 전 중복 확인 — 로컬=파일 sha12, URL=raw frontmatter url → grep wiki/log.md (--force로 강제)
+    alt 유튜브 · PDF · 로컬 md
+        C->>S: yt_transcript.py / pdf_chunk.py / 복사
+        S-->>C: stdout(트랜스크립트·manifest) 또는 raw/.cache/
+        C->>R: raw/sources/YYYY-MM-DD-slug.ext 저장
+    else 웹 URL · 로컬 HTML
+        C->>X: Skill(web-extract, URL)
+        X->>S: html_to_md.py (fetch · 기계 변환 → raw/.cache/)
+        X->>R: 본문만 추려 원문 그대로 저장
+        X-->>C: 짧은 보고 (경로·제목·추출 방식·경고)
+    end
     C->>U: 1단계 분석 노트 (엔티티·개념 후보, 연결, 모순)
     U-->>C: 확인 (--batch면 생략)
     C->>W: 2단계: 페이지 생성·편집 + sources/ 요약 1페이지
@@ -50,8 +58,8 @@ sequenceDiagram
 | 무엇 | 어디 사는가 | 역할 |
 |------|------------|------|
 | 워크플로 스킬 4개 = 슬래시 커맨드 (`wiki-init`·`wiki-ingest`·`wiki-lint`·`wiki-status`) | 플러그인 `skills/wiki-*/` | 워크플로의 순서·게이트·출력만 |
-| 보조 스킬 2개 (`wiki-maintainer`·`source-extract`, 모델 전용) | 플러그인 `skills/` | 운영 보강 · 추출 레시피(단일 소스) |
-| 스크립트 3개 (`yt_transcript`·`pdf_chunk`·`wiki_check`) | 플러그인 `skills/source-extract/scripts/` | 기계 작업. stdout·캐시만 출력 |
+| 보조 스킬 3개 (`wiki-maintainer`·`source-extract`·`web-extract`, 모델 전용) | 플러그인 `skills/` | 운영 보강 · 추출 레시피(단일 소스) · 웹 원본 추출(포크 실행) |
+| 스크립트 4개 (`yt_transcript`·`pdf_chunk`·`wiki_check`·`html_to_md`) | 플러그인 `skills/source-extract/scripts/` | 기계 작업. stdout·캐시만 출력 |
 | 템플릿 7종 | 플러그인 `templates/` | init이 렌더링하는 원본. `schema_version`의 기준 |
 | `AGENTS.md` (운영 규칙 전체) | **위키** 루트 | 헌법 — 플러그인 없이도 위키가 동작하는 근거 |
 | `CLAUDE.md` (포인터) | **위키** 루트 | `@AGENTS.md` 임포트 한 줄 + 폴백 안내 |
@@ -84,3 +92,6 @@ Codex·Cursor 등은 `AGENTS.md` 표준을 읽지만 임포트 문법이 없고,
 
 **ADR-5. 슬래시 커맨드는 `commands/`가 아니라 스킬로 둔다.**
 공식 문서는 `commands/`를 "여전히 지원되는 이전 형식"으로, 새 플러그인엔 `skills/`를 권장한다. 스킬 형식이어도 호출명(`/llm-wiki:<디렉토리명>`)·인자(`$ARGUMENTS`)·모델 호출 가능성은 같고, 보조 파일·`${CLAUDE_SKILL_DIR}`·포크 실행 같은 확장 여지가 생긴다. "커맨드 4개" 원칙은 사용자 호출 스킬 수로 유지한다 — 보조 스킬은 `user-invocable: false`로 슬래시 메뉴에서 숨기고, `tests/test_skills.py`가 이를 검사한다.
+
+**ADR-6. 웹 원본은 포크된 서브에이전트가 실제 HTML에서 추출한다.**
+WebFetch는 페이지를 소형 모델이 가공한 답을 돌려주므로, 그대로 쓰면 불변 원본 계층(`raw/`)에 요약·누락된 가공본이 들어간다. 반대로 결정적 추출기 하나로는 제각각인 웹 형식(문서 사이트·블로그·GitHub·SPA)을 감당하지 못한다. 그래서 역할을 나눈다 — 기계 작업(fetch, script·style·nav 제거, HTML→마크다운 변환)은 표준 라이브러리 헬퍼 `html_to_md.py`가, 본문 판단(군더더기 제거·누락 확인·폴백 선택)은 에이전트가 맡는다(원칙 3). 에이전트는 `context: fork` 스킬 `web-extract`로 격리 실행되므로 원본 HTML과 시행착오가 메인 인제스트 세션의 컨텍스트를 채우지 않고 짧은 보고만 돌아온다 — 토큰은 서브에이전트 안에서 쓰이고 메인 세션은 오히려 가벼워진다. 추출 결과가 비결정적이므로 웹 소스의 중복 확인은 sha가 아니라 URL로 한다. 비신뢰 페이지를 읽는 에이전트이므로 스킬 본문에 인젝션 방어(페이지 속 지시 불이행, 저장 경로 외 쓰기 금지)를 명시한다.

@@ -28,3 +28,8 @@ def yt_transcript():
 @pytest.fixture(scope="session")
 def pdf_chunk():
     return load_script("pdf_chunk")
+
+
+@pytest.fixture(scope="session")
+def html_to_md():
+    return load_script("html_to_md")

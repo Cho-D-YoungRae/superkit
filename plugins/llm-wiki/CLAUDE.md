@@ -10,7 +10,8 @@ skills/
   wiki-init/ wiki-ingest/ wiki-lint/ wiki-status/
                          워크플로 스킬 4개 = 슬래시 커맨드 /llm-wiki:wiki-* — 순서·게이트·출력만 담는다
   wiki-maintainer/       위키 운영 보강 (1원칙: 위키의 AGENTS.md를 따르라) — 모델 전용
-  source-extract/        소스 추출 레시피(단일 소스) + scripts/ 3개 — 모델 전용
+  source-extract/        소스 추출 레시피(단일 소스) + scripts/ 4개 — 모델 전용
+  web-extract/           웹·HTML 원본 추출 — 포크된 서브에이전트(context: fork), 모델 전용
 templates/               /wiki-init이 렌더링하는 위키 스캐폴드 원본 (AGENTS.md.tmpl이 심장)
 tests/                   pytest (결정적 로직만, 네트워크 불필요) + fixtures/
 docs/superpowers/        설계 스펙·구현 계획
@@ -31,7 +32,7 @@ README.md ARCHITECTURE.md LICENSE
 
 - **슬래시 커맨드(워크플로 스킬)는 4개를 유지한다.** 신규 기능은 커맨드 추가가 아니라 스킬 지시문 또는 AGENTS.md 스키마로 흡수를 먼저 검토한다. 보조 스킬은 `user-invocable: false`로 슬래시 메뉴에서 숨긴다(`tests/test_skills.py`가 검사).
 - 커맨드는 `commands/`가 아니라 `skills/<이름>/SKILL.md`에 둔다(공식 권장 형식, `name`은 디렉토리명과 동일). `commands/`에 같은 이름을 만들지 않는다 — 충돌 동작이 문서화돼 있지 않다.
-- 워크플로 스킬에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`, 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
+- 워크플로 스킬에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`(웹·HTML은 `web-extract/SKILL.md`), 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
 - 스크립트 출력 경계(stdout·캐시만)를 절대 넘지 않는다. 서드파티 의존은 지연 임포트(테스트가 의존 없이 순수 함수를 로드한다).
 - **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커 `schema_version`을 증가시키고, `skills/wiki-init/SKILL.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
 - 문서 동기화: 원칙·구조 변경 시 README.md와 ARCHITECTURE.md를 같은 변경에서 함께 수정한다.
@@ -54,5 +55,6 @@ uv run --with pytest --with pyyaml --with pymupdf pytest tests/ -q
 ⑦ `/llm-wiki:wiki-lint` → clean 리포트, 링크 파손 후 재실행 시 감지
 ⑧ `/llm-wiki:wiki-status` → log 10건+통계, 파일 무변경
 ⑨ 문서가 설계 스펙 §7 요구 충족
+⑩ (추가) 일반 웹 URL ingest → `web-extract`가 포크 실행되어 짧은 보고만 돌아오고, raw에 요약 없이 본문이 저장되며(`extraction: html`), 같은 URL 재-ingest는 URL로 스킵
 
 각 태스크/변경 완료 시 위 단위 테스트를 반드시 실행하고, 커밋은 단계별로 분리한다.

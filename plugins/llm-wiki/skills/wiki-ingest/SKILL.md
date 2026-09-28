@@ -20,6 +20,7 @@ argument-hint: "<url|경로> [<url|경로> ...] [--batch] [--force]"
 - **로컬 파일**: 그 파일 자체의 sha256 앞 12자리(macOS `shasum -a 256 <파일>`, Linux `sha256sum <파일>`).
 - **URL**: 이미 저장된 원본을 frontmatter `url`로 찾는다 — 유튜브는 영상 ID로(`grep -l "<영상ID>" raw/sources/*.md`), 웹은 쿼리·`#조각`을 뗀 URL로. 찾으면 그 파일의 sha12를 계산한다. URL 원본은 추출 날짜·가공 결과가 매번 달라 sha가 바뀌므로 sha로는 중복을 못 찾는다.
 - **원격 PDF**: 레시피대로 `raw/.cache/`에 내려받은 파일의 sha12.
+- **로컬 HTML**: 저장된 원본의 frontmatter `source_file`(원래 파일명)로 찾는다 — 저장되는 원본은 변환된 md라 sha가 원래 파일과 다르다. 같은 이름의 다른 파일일 수 있으니 title·url로 한 번 더 확인한다.
 
 `grep <sha12> wiki/log.md`로 판정한다:
 
