@@ -60,15 +60,15 @@ def check():
 def bump(version):
     if not SEMVER.match(version):
         fail(f'유효한 SemVer가 아닙니다: "{version}" (예: 1.2.3, 0.1.0, 1.0.0-rc.1)')
+    # 두 파일을 모두 검증한 뒤에 쓴다 — 한쪽만 바뀐 채 실패하면 저장소가 불일치 상태로 남는다.
     manifest = read_manifest()
+    source, cli_version = read_cli_version()
+    if cli_version is None:
+        fail("templates/glossary.py에서 VERSION 상수를 찾지 못했습니다.")
     previous = manifest.get("version")
     manifest["version"] = version
     with open(PLUGIN_MANIFEST, "w", encoding="utf-8") as f:
         f.write(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-
-    source, cli_version = read_cli_version()
-    if cli_version is None:
-        fail("templates/glossary.py에서 VERSION 상수를 찾지 못했습니다.")
     with open(CLI_TEMPLATE, "w", encoding="utf-8") as f:
         f.write(VERSION_CONST.sub(f'VERSION = "{version}"', source, count=1))
 

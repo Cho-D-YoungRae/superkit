@@ -11,7 +11,7 @@
 - `bin/superglossary` — 플러그인이 `PATH`에 노출하는 CLI 진입점. `templates/glossary.py`를 그대로 실행합니다.
 - `agents/` — 서브에이전트 정의 (`check-analyzer.md`, `glossary-scanner.md`).
 - `templates/glossary.py` — 사용자 프로젝트에 배포되는 CLI 원본 (Python 3 표준 라이브러리만 사용, 외부 패키지 0).
-- `tests/` — 테스트 스위트 (표준 라이브러리 `unittest`).
+- `tests/` — 테스트 스위트 (표준 라이브러리 `unittest`). `tests/fixtures/legacy-claude-md/`는 구버전 CLI의 init을 실제로 실행해 얻은 CLAUDE.md로, `LEGACY_BLOCK_SHA256` 검증에 쓰입니다.
 - `.github/workflows/ci.yml` — PR·push마다 테스트·버전 일관성·`bin/` 진입점을 검증(Python 3.9/3.13).
 - `.claude-plugin/` 안에는 매니페스트(JSON)만 넣습니다.
 

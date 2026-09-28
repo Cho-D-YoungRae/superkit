@@ -3,13 +3,16 @@
 
 사용자 프로젝트의 `.claude/superglossary/`로 복사되어 동작한다.
 """
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 # glossary.json 데이터 스키마 버전. 구조가 바뀔 때만 올린다(CLI 버전과 별개).
 #   0 → schemaVersion 필드가 없던 0.4.0 이전 파일
@@ -27,9 +30,42 @@ class GlossaryError(Exception):
     """사용자에게 그대로 보여줄 수 있는 오류."""
 
 
+class ViolationsFound(Exception):
+    """lint --strict에서 [위반]이 있을 때. 결과(output)는 그대로 출력하고 종료 코드만 1로 만든다."""
+
+    def __init__(self, output):
+        super().__init__(output)
+        self.output = output
+
+
+def write_text(path, text):
+    """임시 파일에 쓴 뒤 교체한다 — 쓰는 도중 실패해도 원본이 반쯤 잘린 채 남지 않는다."""
+    if os.path.exists(path):
+        mode = os.stat(path).st_mode & 0o7777
+    else:
+        umask = os.umask(0)
+        os.umask(umask)
+        mode = 0o666 & ~umask
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                               prefix=f".{os.path.basename(path)}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(tmp, mode)  # mkstemp는 0600으로 만든다
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def migrate(data):
     """구 스키마 데이터를 현재 스키마로 올린다(메모리 상). 변경이 있었으면 True."""
     version = data.get("schemaVersion", 0)
+    if not isinstance(version, int) or isinstance(version, bool):
+        raise GlossaryError(f"glossary.json의 schemaVersion이 정수가 아닙니다: {json.dumps(version, ensure_ascii=False)}")
     if version > SCHEMA_VERSION:
         raise GlossaryError(
             f"glossary.json이 스키마 v{version}인데 이 CLI는 v{SCHEMA_VERSION}까지 지원합니다. "
@@ -38,13 +74,49 @@ def migrate(data):
     if version == SCHEMA_VERSION:
         return False
     # v0 → v1: 0.3.0 이전 파일은 avoid 등 일부 필드가 없을 수 있다.
-    for term in data.get("terms", []):
-        term.setdefault("abbreviation", None)
-        term.setdefault("description", "")
-        term.setdefault("relatedElements", [])
-        term.setdefault("avoid", [])
+    # 구조가 틀린 항목은 건너뛰고 validate()가 보고하게 둔다.
+    terms = data.get("terms")
+    for term in terms if isinstance(terms, list) else []:
+        if isinstance(term, dict):
+            term.setdefault("abbreviation", None)
+            term.setdefault("description", "")
+            term.setdefault("relatedElements", [])
+            term.setdefault("avoid", [])
     data["schemaVersion"] = SCHEMA_VERSION
     return True
+
+
+def _is_str_list(value):
+    return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+
+def validate(data):
+    """손으로 편집한 glossary.json의 구조를 검사한다. 용어 간 충돌은 find_all_conflicts가 본다."""
+    terms = data.get("terms")
+    if not isinstance(terms, list):
+        raise GlossaryError("glossary.json의 terms는 배열이어야 합니다.")
+    for i, term in enumerate(terms):
+        if not isinstance(term, dict):
+            raise GlossaryError(f"glossary.json terms[{i}]: 용어는 객체여야 합니다.")
+        korean = term.get("korean")
+        where = f"glossary.json terms[{i}]" + (f"({korean})" if isinstance(korean, str) and korean.strip() else "")
+        for key in ("korean", "english"):
+            value = term.get(key)
+            if not isinstance(value, str) or not value.strip():
+                raise GlossaryError(f"{where}: {key}가 비어 있거나 문자열이 아닙니다.")
+        for key in ("abbreviation", "description"):
+            if term.get(key) is not None and not isinstance(term[key], str):
+                raise GlossaryError(f"{where}: {key}는 문자열 또는 null이어야 합니다.")
+        for key in ("relatedElements", "avoid"):
+            if term.get(key) is not None and not _is_str_list(term[key]):
+                raise GlossaryError(f"{where}: {key}는 문자열 배열이어야 합니다.")
+    stopwords = data.get("stopwords")
+    if stopwords is not None:
+        if not isinstance(stopwords, dict):
+            raise GlossaryError('glossary.json의 stopwords는 {"add": [...], "remove": [...]} 형태의 객체여야 합니다.')
+        for key in ("add", "remove"):
+            if stopwords.get(key) is not None and not _is_str_list(stopwords[key]):
+                raise GlossaryError(f"glossary.json의 stopwords.{key}는 문자열 배열이어야 합니다.")
 
 
 def load_glossary(directory):
@@ -54,17 +126,42 @@ def load_glossary(directory):
             data = json.load(f)
     except FileNotFoundError:
         raise GlossaryError("용어사전이 없습니다. /superglossary:init(또는 glossary.py init)을 먼저 실행하세요.")
+    except ValueError as err:  # JSONDecodeError·UnicodeDecodeError
+        raise GlossaryError(f"glossary.json을 읽을 수 없습니다({path}): {err}")
+    if not isinstance(data, dict):
+        raise GlossaryError("glossary.json의 최상위는 객체여야 합니다.")
     migrate(data)
+    validate(data)
     return data
 
 
+def find_all_conflicts(data):
+    """사전 전체의 용어 간 충돌. 각 용어를 앞선 용어들과만 비교해도 모든 쌍이 검사된다."""
+    terms = data["terms"]
+    conflicts = []
+    for i, t in enumerate(terms):
+        conflict = find_conflict(terms[:i], t["korean"], t["english"], t.get("abbreviation"), avoid_of(t))
+        if conflict:
+            conflicts.append(f"{t['korean']}: {conflict}")
+    return conflicts
+
+
+def assert_consistent(data):
+    conflicts = find_all_conflicts(data)
+    if conflicts:
+        raise GlossaryError(
+            "용어사전에 충돌이 있습니다. glossary.json을 고치거나 update/remove로 해소하세요.\n"
+            + "\n".join(f"  - {c}" for c in conflicts)
+        )
+
+
 def save_glossary(directory, data):
+    # 충돌이 남은 사전은 디스크에 쓰지 않는다(손으로 고친 파일의 충돌도 여기서 걸린다).
+    assert_consistent(data)
     # schemaVersion을 항상 첫 키로 써서 파일을 열었을 때 바로 보이게 한다.
     ordered = {"schemaVersion": data.get("schemaVersion", SCHEMA_VERSION)}
     ordered.update({k: v for k, v in data.items() if k != "schemaVersion"})
-    path = os.path.join(directory, "glossary.json")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(json.dumps(ordered, ensure_ascii=False, indent=2) + "\n")
+    write_text(os.path.join(directory, "glossary.json"), json.dumps(ordered, ensure_ascii=False, indent=2) + "\n")
 
 
 def sorted_terms(data):
@@ -114,11 +211,16 @@ def find_conflict(other_terms, korean, english, abbreviation=None, avoid=()):
     return None
 
 
-def add_term(data, korean, english, abbreviation=None, description="", related_elements=None, avoid=None):
-    if not korean or not english:
+def require_names(korean, english):
+    if not (korean or "").strip() or not (english or "").strip():
         raise GlossaryError("korean과 english는 필수입니다.")
+
+
+def add_term(data, korean, english, abbreviation=None, description="", related_elements=None, avoid=None):
+    require_names(korean, english)
     related_elements = list(related_elements or [])
     avoid = list(avoid or [])
+    check_avoid_words(avoid)
     conflict = find_conflict(data["terms"], korean, english, abbreviation, avoid)
     if conflict:
         raise GlossaryError(conflict)
@@ -148,6 +250,10 @@ def update_term(data, korean, fields):
     for key in ("english", "abbreviation", "description", "relatedElements", "avoid"):
         if key in fields:
             nxt[key] = fields[key]
+    require_names(nxt["korean"], nxt["english"])
+    if "avoid" in fields:
+        # 기존 값은 막지 않는다 — 다른 필드만 고치는 update가 옛 데이터 때문에 실패하지 않도록.
+        check_avoid_words(fields["avoid"])
     others = [t for t in data["terms"] if t["korean"] != korean]
     conflict = find_conflict(
         others, nxt["korean"], nxt["english"], nxt.get("abbreviation"), avoid_of(nxt)
@@ -239,15 +345,21 @@ def render_terms(data):
 
 def build(directory):
     data = load_glossary(directory)
+    assert_consistent(data)
     core = render_core(data)
-    with open(os.path.join(directory, "core.md"), "w", encoding="utf-8") as f:
-        f.write(core)
-    with open(os.path.join(directory, "terms.md"), "w", encoding="utf-8") as f:
-        f.write(render_terms(data))
+    write_text(os.path.join(directory, "core.md"), core)
+    write_text(os.path.join(directory, "terms.md"), render_terms(data))
+    notices = []
     lines = len(core.split("\n"))
     if lines > CORE_SPLIT_THRESHOLD:
-        return f"안내: core.md가 {lines}줄입니다. 분류(category) 도입이나 파일 분할을 검토하세요."
-    return None
+        notices.append(f"안내: core.md가 {lines}줄입니다. core.md는 매 세션 컨텍스트에 올라가므로 "
+                       "쓰지 않는 용어는 remove로 정리하세요.")
+    for t in data["terms"]:
+        for v in avoid_of(t):
+            if not is_single_word(v):
+                notices.append(f"안내: {t['korean']}의 금지 변형 '{v}'은(는) 단일어가 아니라 lint가 잡지 못합니다. "
+                               "update --avoid로 단일어로 바꾸세요.")
+    return "\n".join(notices) or None
 
 
 def is_stale(directory, data):
@@ -267,8 +379,25 @@ def warn_if_stale(directory, data):
 
 
 def tokenize(identifier):
-    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", identifier)
+    # 약어 경계(HTTPServer → HTTP Server)를 먼저 나눈다. 뒤따르는 소문자가 2자 이상일 때만
+    # 나눠야 복수형 약어(URLs·IDs)가 UR+Ls처럼 쪼개지지 않는다.
+    spaced = re.sub(r"([A-Z]+)([A-Z][a-z]{2,})", r"\1 \2", identifier)
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", spaced)
     return [part.lower() for part in re.split(r"[_\s]+", spaced) if part]
+
+
+def is_single_word(value):
+    """lint 토큰 하나로 매칭될 수 있는 값인가(영문·숫자만, 쪼개면 한 단어)."""
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", value)) and len(tokenize(value)) == 1
+
+
+def check_avoid_words(avoid):
+    for v in avoid:
+        if not is_single_word(v):
+            raise GlossaryError(
+                f"금지 변형 '{v}'은(는) 단일어여야 합니다 — lint는 식별자를 단어로 나눠 비교하므로 "
+                "여러 단어짜리 변형은 잡히지 않습니다(예: cust_no → cust)."
+            )
 
 
 # 결정 #11: 언어 키워드·표준 타입·기술 계층 어휘만 포함한다.
@@ -309,27 +438,69 @@ STOPWORDS = {
     "singleton", "ui", "vo",
 }
 
-# 탐색에서 제외할 디렉토리 — 생성물·의존성·VCS 메타데이터.
+# 탐색에서 제외할 디렉토리 — 생성물·의존성·VCS 메타데이터, Claude Code 설정(.claude — 용어사전 자신 포함).
 IGNORED_DIRS = {
-    ".git", ".hg", ".svn", ".idea", ".vscode", ".gradle", ".mypy_cache", ".pytest_cache",
+    ".claude", ".git", ".hg", ".svn", ".idea", ".vscode", ".gradle", ".mypy_cache", ".pytest_cache",
     ".ruff_cache", ".next", ".nuxt", ".venv", "venv", "__pycache__", "node_modules",
     "dist", "build", "out", "target", "vendor", "coverage",
 }
 
+# 제외할 생성 파일 — 락 파일·번들 산출물. 해시·압축 코드가 무의미한 토큰을 쏟아낸다.
+IGNORED_FILES = {
+    "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock",
+    "poetry.lock", "uv.lock", "Pipfile.lock", "Cargo.lock", "Gemfile.lock", "composer.lock",
+    "go.sum", "gradle.lockfile", "mix.lock", "pubspec.lock", "Podfile.lock", "flake.lock",
+    "packages.lock.json",
+}
+IGNORED_SUFFIXES = (".min.js", ".min.css", ".map")
 
-def collect_files(paths):
-    """파일·디렉토리 경로를 실제 파일 목록으로 펼친다(디렉토리는 재귀, 중복 제거)."""
+
+def git_listed_files(directory):
+    """git 저장소 안이면 .gitignore를 반영한 파일 목록(추적 + 미추적, directory 기준 상대 경로). 아니면 None."""
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "."],
+            cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # git 부재
+    if done.returncode != 0:
+        return None  # 저장소 밖
+    return [os.fsdecode(rel) for rel in done.stdout.split(b"\0") if rel]
+
+
+def collect_files(paths, exclude=None):
+    """파일·디렉토리 경로를 실제 파일 목록으로 펼친다(디렉토리는 재귀, 중복 제거).
+
+    git 저장소 안의 디렉토리는 .gitignore를 따른다. exclude 디렉토리 아래 파일과
+    락 파일 같은 생성 파일은 경로를 직접 지정해도 건너뛴다.
+    """
     files = []
     seen = set()
+    skip = os.path.realpath(exclude) if exclude else None
 
     def push(path):
-        key = os.path.abspath(path)
+        name = os.path.basename(path)
+        if name in IGNORED_FILES or name.endswith(IGNORED_SUFFIXES):
+            return
+        key = os.path.realpath(path)
+        if skip and (key == skip or key.startswith(skip + os.sep)):
+            return
         if key not in seen:
             seen.add(key)
             files.append(path)
 
     for path in paths:
         if os.path.isdir(path):
+            listed = git_listed_files(path)
+            # 비어 있으면(.gitignore로 통째로 무시된 디렉토리를 직접 준 경우 등) 아래의 직접 탐색으로 넘어간다.
+            if listed:
+                for rel in listed:
+                    parts = rel.split("/")
+                    full = os.path.join(path, *parts)
+                    if not any(p in IGNORED_DIRS for p in parts[:-1]) and os.path.isfile(full):
+                        push(full)
+                continue
             for root, dirnames, filenames in os.walk(path):
                 dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_DIRS)
                 for name in sorted(filenames):
@@ -357,22 +528,23 @@ def effective_stopwords(data):
     return words
 
 
-def lint_files(data, paths, all_tokens=False):
+def lint_files(data, paths, all_tokens=False, exclude=None):
+    missing = [p for p in paths if not os.path.exists(p)]
+    if paths and len(missing) == len(paths):
+        raise GlossaryError(f"존재하지 않는 경로입니다: {', '.join(missing)}")
     stopwords = effective_stopwords(data)
     known = set()
     avoid_map = {}
     for t in data["terms"]:
-        e = t["english"].lower()
-        known.add(e)
-        if " " in e:
-            known.update(e.split())
+        # 식별자와 같은 규칙으로 쪼개야 order_item·orderItem·"Stock Keeping Unit"이 부분 단어로 매칭된다.
+        known.update(tokenize(t["english"]))
         if t.get("abbreviation"):
-            known.add(t["abbreviation"].lower())
+            known.update(tokenize(t["abbreviation"]))
         for v in avoid_of(t):
             avoid_map[v.lower()] = t
 
     hits = {}
-    for file in collect_files(paths):
+    for file in collect_files(paths, exclude):
         text = read_text(file)
         if text is None:
             continue
@@ -397,7 +569,7 @@ def lint_files(data, paths, all_tokens=False):
             standard = avoid_map[entry["token"]]
             violations.append({**entry, "standard": standard["english"], "korean": standard["korean"]})
     candidates = [e for e in entries if e["token"] not in avoid_map]
-    return {"violations": violations, "candidates": candidates}
+    return {"violations": violations, "candidates": candidates, "missing": missing}
 
 
 def format_file_list(files):
@@ -428,6 +600,63 @@ CLAUDE_BLOCK = """## 용어 사전
 - 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 사전에 없는 용어만 추가 → 완료 후 check 스킬로 검토.
 """
 
+# init이 CLAUDE.md에서 관리하는 구간. 마커 안쪽은 init을 다시 실행할 때마다 최신 CLAUDE_BLOCK으로 바뀐다.
+BLOCK_BEGIN = "<!-- superglossary:begin — /superglossary:init이 관리합니다. 고친 내용은 init을 다시 실행하면 덮어써집니다. -->"
+BLOCK_END = "<!-- superglossary:end -->"
+MANAGED_BLOCK_RE = re.compile(r"<!-- superglossary:begin\b.*?-->.*?<!-- superglossary:end -->\n?", re.S)
+LEGACY_SECTION_RE = re.compile(r"^## 용어 사전\n.*?(?=^#{1,2} |\Z)", re.S | re.M)
+
+# 마커 도입 전 init이 넣던 블록의 SHA-256(앞뒤 공백 제거). 사용자가 고치지 않은 블록만 마커 블록으로 바꾼다.
+LEGACY_BLOCK_SHA256 = {
+    "932361ed00cbe1ce3130a33a1035ed6c7311779a7e7e8f76b5e423d534698516",  # v0.2.0 (node glossary.mjs)
+    "efe537cbe40a29b2159aa44e93fd0fe1e4a618218f98b000c85ad3e0b7738de7",  # v0.3.0 (node glossary.mjs)
+    "93ceb7e127b05efb3ff895971cf9dce9ddd58d41f7a03408f9e897235148c4fa",  # v0.4.0
+}
+
+
+def upsert_claude_block(existing):
+    """CLAUDE.md 내용에 최신 용어사전 블록을 넣거나 갱신한다. (새 내용, 경고 목록)을 반환한다."""
+    block = f"{BLOCK_BEGIN}\n{CLAUDE_BLOCK}{BLOCK_END}\n"
+    if MANAGED_BLOCK_RE.search(existing):
+        return MANAGED_BLOCK_RE.sub(lambda _: block, existing, count=1), []
+    legacy = LEGACY_SECTION_RE.search(existing)
+    if legacy:
+        digest = hashlib.sha256(legacy.group(0).strip().encode("utf-8")).hexdigest()
+        if digest not in LEGACY_BLOCK_SHA256:
+            return existing, [
+                "⚠ .claude/CLAUDE.md의 '## 용어 사전' 섹션이 직접 수정되어 있어 갱신하지 않았습니다. "
+                "최신 안내로 바꾸려면 그 섹션을 지우고 init을 다시 실행하세요."
+            ]
+        rest = existing[legacy.end():]
+        return existing[:legacy.start()] + block + ("\n" + rest if rest else ""), []
+    head = existing.rstrip()
+    return (head + "\n\n" if head else "") + block, []
+
+
+def parse_version(text):
+    matched = re.search(r'^VERSION = "(\d+)\.(\d+)\.(\d+)', text, re.M)
+    return tuple(int(x) for x in matched.groups()) if matched else None
+
+
+def install_cli_copy(data_dir, source=None):
+    """실행 중인 CLI를 프로젝트 복사본(glossary.py)으로 둔다 — 플러그인이 없는 팀원·CI용. 경고 목록을 반환한다."""
+    source = os.path.abspath(source or __file__)
+    dest = os.path.join(data_dir, "glossary.py")
+    if os.path.exists(dest):
+        if os.path.samefile(source, dest):
+            return []  # 복사본 자신이 init을 실행하는 중
+        try:
+            with open(dest, encoding="utf-8") as f:
+                existing = parse_version(f.read())
+        except (OSError, UnicodeDecodeError):
+            existing = None
+        current = parse_version(f'VERSION = "{VERSION}"')
+        if existing and existing > current:
+            return [f"⚠ 프로젝트의 CLI 복사본(v{'.'.join(map(str, existing))})이 이 CLI(v{VERSION})보다 새 버전이라 "
+                    "덮어쓰지 않았습니다. 플러그인을 업데이트하세요."]
+    shutil.copy(source, dest)  # 실행 권한 비트도 함께 복사
+    return []
+
 
 CLAUDE_DIR_NAME = ".claude"
 DATA_DIR_NAME = "superglossary"
@@ -437,6 +666,11 @@ def is_data_dir(path):
     normalized = os.path.normpath(path)
     return (os.path.basename(normalized) == DATA_DIR_NAME
             and os.path.basename(os.path.dirname(normalized)) == CLAUDE_DIR_NAME)
+
+
+def project_claude_dir(data_dir):
+    """표준 배치(<프로젝트>/.claude/superglossary)면 그 .claude/ 디렉토리, 비표준 위치면 None."""
+    return os.path.dirname(os.path.normpath(data_dir)) if is_data_dir(data_dir) else None
 
 
 def assert_data_dir_placement(data_dir):
@@ -507,20 +741,23 @@ def scaffold(data_dir):
         save_glossary(data_dir, load_glossary(data_dir))
     else:
         save_glossary(data_dir, INITIAL_DATA)
-    build(data_dir)
+    notice = build(data_dir)
+    warnings = notice.split("\n") if notice else []
+    warnings += install_cli_copy(data_dir)
+    if os.path.exists(os.path.join(data_dir, "glossary.mjs")):
+        warnings.append("⚠ 0.4.0 이전 CLI 복사본 glossary.mjs가 남아 있습니다. 더 이상 쓰이지 않으니 삭제하세요.")
     claude_md = os.path.join(os.path.dirname(os.path.normpath(data_dir)), "CLAUDE.md")
     existing = ""
     if os.path.exists(claude_md):
         with open(claude_md, encoding="utf-8") as f:
             existing = f.read()
-    if "## 용어 사전" not in existing:
-        head = existing.rstrip()
-        with open(claude_md, "w", encoding="utf-8") as f:
-            f.write((head + "\n\n" if head else "") + CLAUDE_BLOCK)
-    return git_ignore_warnings(data_dir)
+    updated, block_warnings = upsert_claude_block(existing)
+    if updated != existing:
+        write_text(claude_md, updated)
+    return warnings + block_warnings + git_ignore_warnings(data_dir)
 
 
-BOOLEAN_OPTIONS = {"all"}
+BOOLEAN_OPTIONS = {"all", "strict"}
 
 
 def parse_args(rest):
@@ -535,9 +772,12 @@ def parse_args(rest):
                 options[name] = inline
             elif name in BOOLEAN_OPTIONS:
                 options[name] = True
-            else:
+            elif i + 1 < len(rest) and not rest[i + 1].startswith("--"):
                 i += 1
-                options[name] = rest[i] if i < len(rest) else None
+                options[name] = rest[i]
+            else:
+                # 값 누락 — 다음 옵션을 값으로 먹지 않는다. check_args가 오류로 알린다.
+                options[name] = None
         else:
             positional.append(arg)
         i += 1
@@ -545,30 +785,70 @@ def parse_args(rest):
 
 
 def _csv_option(options, key):
-    raw = options.get(key)
-    if not raw or raw is True:
+    """쉼표 목록 옵션. 주지 않았으면 None, 빈 값("")이면 [] — update에서 목록을 비울 때 쓴다."""
+    if key not in options:
         return None
-    return [s.strip() for s in raw.split(",") if s.strip()]
+    return [s.strip() for s in options[key].split(",") if s.strip()]
 
 
 USAGE = """사용법: python3 .claude/superglossary/glossary.py <subcommand>
        (플러그인이 활성화되어 있으면 `superglossary <subcommand>`로도 실행됩니다)
-  init                                          초기화(.claude/superglossary/에 복사 후 실행)
+  init                                          초기화·업그레이드(사전·생성물·CLI 복사본·CLAUDE.md 블록)
   build                                         glossary.json → core.md·terms.md 재생성
   add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "a,b"]
+      (축약어는 --abbreviation A로도 지정 가능)
   update <korean> [--english E] [--abbreviation A] [--desc D] [--related "a,b"] [--avoid "a,b"]
+      (--related ""·--avoid ""는 목록을 비운다)
   remove <korean>
   list                                          전체 용어(간결)
   lookup <질의>                                  용어 상세 검색
-  lint [--all] <paths...>                       코드 대조([위반]/[후보], 디렉토리 재귀, --all=스톱워드 해제)
+  lint [--all] [--strict] <paths...>            코드 대조([위반]/[후보], 디렉토리 재귀·.gitignore 반영, .claude/·락 파일 제외)
+      (--all=스톱워드 해제, --strict=[위반]이 있으면 종료 코드 1)
   version | help"""
+
+# 서브커맨드별 (최소 위치 인자 수, 최대 위치 인자 수 — None은 무제한, 허용 옵션)
+COMMANDS = {
+    "init": (0, 0, set()),
+    "build": (0, 0, set()),
+    "add": (2, 3, {"abbreviation", "desc", "related", "avoid"}),
+    "update": (1, 1, {"english", "abbreviation", "desc", "related", "avoid"}),
+    "remove": (1, 1, set()),
+    "list": (0, 0, set()),
+    "lookup": (0, 1, set()),
+    "lint": (0, None, {"all", "strict"}),  # 경로 누락은 lint 전용 안내로 처리
+    "version": (0, 0, set()),
+    "help": (0, 0, set()),
+}
+
+
+def check_args(cmd, positional, options):
+    """모르는 옵션·값 누락·인자 수 오류를 조용히 버리지 않고 알린다."""
+    min_args, max_args, allowed = COMMANDS[cmd]
+    unknown = [f"--{name}" for name in options if name not in allowed]
+    if unknown:
+        hint = ", ".join(f"--{name}" for name in sorted(allowed)) or "없음"
+        raise GlossaryError(f"{cmd}에서 쓸 수 없는 옵션: {', '.join(unknown)} (사용 가능: {hint})\n{USAGE}")
+    for name, value in options.items():
+        if name in BOOLEAN_OPTIONS:
+            if value is not True:
+                raise GlossaryError(f"--{name}은(는) 값을 받지 않습니다.")
+        elif value is None:
+            raise GlossaryError(f"--{name}에 값이 없습니다. 비우려면 --{name} \"\"처럼 빈 값을 넘기세요.")
+    if len(positional) < min_args:
+        raise GlossaryError(f"{cmd}에 필요한 인자가 부족합니다.\n{USAGE}")
+    if max_args is not None and len(positional) > max_args:
+        extra = " ".join(positional[max_args:])
+        raise GlossaryError(f"{cmd}의 인자가 너무 많습니다: {extra} — 공백이 든 값은 따옴표로 감싸세요.\n{USAGE}")
 
 
 def run(argv, data_dir):
     if not argv:
         raise GlossaryError(f"커맨드를 지정하세요.\n{USAGE}")
     cmd, rest = argv[0], argv[1:]
+    if cmd not in COMMANDS:
+        raise GlossaryError(f"알 수 없는 커맨드: {cmd}\n{USAGE}")
     positional, options = parse_args(rest)
+    check_args(cmd, positional, options)
 
     def at(index):
         return positional[index] if len(positional) > index else None
@@ -583,10 +863,14 @@ def run(argv, data_dir):
 
     if cmd == "add":
         korean, english, abbreviation = at(0), at(1), at(2)
+        if "abbreviation" in options:
+            if abbreviation is not None:
+                raise GlossaryError("축약어를 위치 인자와 --abbreviation으로 두 번 지정했습니다. 하나만 쓰세요.")
+            abbreviation = options["abbreviation"] or None
         data = load_glossary(data_dir)
         add_term(
             data, korean, english, abbreviation,
-            description=options.get("desc") if isinstance(options.get("desc"), str) else "",
+            description=options.get("desc", ""),
             related_elements=_csv_option(options, "related") or [],
             avoid=_csv_option(options, "avoid") or [],
         )
@@ -598,11 +882,11 @@ def run(argv, data_dir):
         korean = at(0)
         data = load_glossary(data_dir)
         fields = {}
-        if isinstance(options.get("english"), str):
+        if "english" in options:
             fields["english"] = options["english"]
-        if isinstance(options.get("abbreviation"), str):
+        if "abbreviation" in options:
             fields["abbreviation"] = options["abbreviation"] or None
-        if isinstance(options.get("desc"), str):
+        if "desc" in options:
             fields["description"] = options["desc"]
         related = _csv_option(options, "related")
         if related is not None:
@@ -641,7 +925,10 @@ def run(argv, data_dir):
             raise GlossaryError(f"lint에는 검사할 파일이나 디렉토리를 지정하세요. 예: lint src/\n{USAGE}")
         data = load_glossary(data_dir)
         warn_if_stale(data_dir, data)
-        report = lint_files(data, positional, all_tokens=options.get("all") is True)
+        report = lint_files(data, positional, all_tokens=options.get("all") is True,
+                            exclude=project_claude_dir(data_dir))
+        for path in report["missing"]:
+            print(f"⚠ 존재하지 않는 경로를 건너뜁니다: {path}", file=sys.stderr)
         lines = []
         if report["violations"]:
             lines.append("[위반]")
@@ -651,7 +938,10 @@ def run(argv, data_dir):
             lines.append("[후보]")
             for c in report["candidates"]:
                 lines.append(f"{c['token']}\t{c['count']}\t{format_file_list(c['files'])}")
-        return "\n".join(lines) if lines else "이상 없음"
+        output = "\n".join(lines) if lines else "이상 없음"
+        if options.get("strict") and report["violations"]:
+            raise ViolationsFound(output)
+        return output
 
     if cmd == "version":
         return f"superglossary CLI v{VERSION}"
@@ -666,6 +956,9 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
     try:
         out = run(argv, resolve_data_dir(__file__))
+    except ViolationsFound as found:
+        print(found.output)
+        return 1
     except (GlossaryError, OSError, ValueError) as err:
         print(f"✗ {err}", file=sys.stderr)
         return 1

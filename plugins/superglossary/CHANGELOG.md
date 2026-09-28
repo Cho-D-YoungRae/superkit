@@ -7,6 +7,41 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-28
+
+### Added
+
+- `add --abbreviation <A>` — `update`와 같은 이름으로 축약어를 지정합니다(위치 인자와 동시 지정은 오류).
+- `lint --strict` — `[위반]`이 있으면 결과를 출력한 뒤 종료 코드 1로 끝납니다. CI·pre-commit에서 금지 변형을 차단할 수 있습니다(README에 예시).
+- `.claude/CLAUDE.md` 블록을 `<!-- superglossary:begin -->`…`<!-- superglossary:end -->` 마커로 관리 — init을 다시 실행하면 문구가 최신으로 갱신되고 마커 밖은 보존됩니다. 마커 없는 구버전 블록(v0.2.0~v0.4.0)은 손대지 않았을 때만 자동 교체하고, 직접 고친 섹션은 보존하며 경고합니다.
+- init이 남아 있는 `glossary.mjs`(0.4.0 이전 복사본)를 경고합니다(삭제는 사용자 확인 후).
+
+### Changed
+
+- `superglossary init`(bin 모드)도 프로젝트 복사본 `glossary.py`를 배치합니다. init 스킬은 복사 단계 없이 이 명령 하나로 초기화합니다. 복사본이 실행한 CLI보다 새 버전이면 덮어쓰지 않고 경고합니다(팀원 간 플러그인 버전 차이 대비).
+- `lint` 디렉토리 탐색이 git 저장소 안에서는 `.gitignore`를 따릅니다(`git ls-files`). 락 파일(`package-lock.json`·`yarn.lock`·`go.sum` 등)·`*.min.js`·`*.map`은 경로를 직접 줘도 건너뜁니다.
+- 토크나이저가 약어 경계를 나눕니다 — `HTTPServer` → `http`·`server`, `getURLForMember` → `get`·`url`·`for`·`member`. 복수형 약어(`URLs`·`IDs`)는 쪼개지 않습니다.
+- 등록 영문이 여러 단어(`order_item`·`orderItem`·`Stock Keeping Unit`)면 부분 단어로 매칭합니다.
+- 금지 변형(`avoid`)은 단일어만 등록할 수 있습니다 — 여러 단어짜리(`cust_no`)는 lint가 영원히 잡지 못하기 때문입니다. 이미 들어간 값은 막지 않고 build가 안내합니다.
+- `glossary.json`·`core.md`·`terms.md`·`CLAUDE.md`를 임시 파일에 쓴 뒤 교체합니다(기존 권한 유지) — 쓰는 도중 실패해도 원본이 잘리지 않습니다.
+- `glossary-scanner`가 혼용 빈도를 `lint` 출력에서 결정론적으로 얻습니다(Bash 도구 추가).
+- 스킬의 서브에이전트 도구 표기를 `Task` → `Agent`로 갱신하고, check 스킬에 `Read`·`Grep`을 사전 승인했습니다.
+- core.md 크기 안내가 없는 기능(분류) 대신 사용하지 않는 용어 정리를 권합니다.
+- CI 액션을 `actions/checkout@v7`·`actions/setup-python@v7`(Node 24)로 올렸습니다. PR 템플릿에 단위 테스트 항목을 추가했습니다.
+
+### Fixed
+
+- `bump_version.py`가 CLI `VERSION` 상수를 찾지 못해 실패할 때 `plugin.json`만 바뀐 채 남던 문제 — 두 파일을 모두 검증한 뒤 씁니다.
+- README의 pre-commit 예시가 공백이 든 파일명에서 깨지던 문제 — NUL 구분(`-z`/`-0`)으로 바꿨습니다.
+
+- `lint`가 용어사전 자신(`.claude/superglossary/`·`.claude/CLAUDE.md`)을 검사해 금지 변형을 `[위반]`으로, JSON 키를 `[후보]`로 올리던 문제 — 프로젝트 `.claude/`는 경로를 직접 줘도 건너뛰고, 디렉토리 탐색에서도 하위 패키지의 `.claude/`까지 제외합니다. `add` 직후 `check`를 돌리면 항상 발생했습니다.
+- `lint`가 존재하지 않는 경로를 조용히 무시하고 `이상 없음`을 출력하던 문제 — 없는 경로는 경고하고, 모든 경로가 없으면 오류로 종료합니다. `check` 스킬은 삭제된 파일을 넘기지 않으며, staged·unstaged 변경을 실제로 합쳐 검사합니다.
+- 모르는 옵션(`--description` 등)·값이 빠진 옵션·남는 인자를 조용히 버려 입력이 유실되던 문제 — 이제 오류로 알리고 아무것도 저장하지 않습니다. 값이 빠진 옵션이 다음 옵션을 값으로 삼키던 문제(`--desc --avoid x`)도 함께 고쳤습니다.
+- `update --avoid ""`·`--related ""`로 목록을 비울 수 없던 문제.
+- `update --english ""`가 영문이 빈 용어를 저장하던 문제 — `add`와 같이 공백만 있는 한글·영문도 거부합니다.
+- 손으로 고친 `glossary.json`의 필드 누락·타입 오류가 트레이스백으로 터지던 문제 — 어느 용어(`terms[i]`)의 어떤 필드가 틀렸는지 안내합니다. JSON 문법 오류 메시지에 파일 경로를 붙였습니다.
+- 손으로 고친 `glossary.json`의 용어 간 충돌(영문·축약어·금지 변형 중복)이 `build`를 그대로 통과하던 문제 — 충돌이 남은 사전은 저장·빌드하지 않고 충돌 목록을 보여 줍니다. `remove`처럼 충돌을 해소하는 명령은 그대로 동작합니다.
+
 ## [0.4.0] - 2026-08-20
 
 ### Added
@@ -77,7 +112,8 @@
 - MIT 라이선스
 - PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 
-[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.1.0...v0.2.0

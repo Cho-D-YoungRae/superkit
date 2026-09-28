@@ -9,8 +9,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CLI_SOURCE = os.path.join(ROOT, "templates", "glossary.py")
+LEGACY_CLAUDE_MD = os.path.join(ROOT, "tests", "fixtures", "legacy-claude-md")
 _spec = importlib.util.spec_from_file_location("glossary", os.path.join(ROOT, "templates", "glossary.py"))
 g = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(g)
@@ -80,6 +83,21 @@ class TermTest(unittest.TestCase):
     def test_add_term_requires_korean_and_english(self):
         with self.assertRaisesRegex(g.GlossaryError, "필수입니다"):
             g.add_term({"terms": []}, "회원", None)
+
+    def test_add_term_rejects_blank_names(self):
+        for korean, english in (("회원", "  "), ("  ", "member")):
+            with self.subTest(korean=korean, english=english):
+                with self.assertRaisesRegex(g.GlossaryError, "필수입니다"):
+                    g.add_term({"terms": []}, korean, english)
+
+    def test_update_term_rejects_blank_english(self):
+        data = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
+                           "description": "", "relatedElements": [], "avoid": []}]}
+        for blank in ("", "   "):
+            with self.subTest(blank=blank):
+                with self.assertRaisesRegex(g.GlossaryError, "필수입니다"):
+                    g.update_term(data, "회원", {"english": blank})
+                self.assertEqual(g.find_term(data, "회원")["english"], "member", "실패 시 원본 불변")
 
     def test_add_term_rejects_duplicate_korean(self):
         data = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None}]}
@@ -164,6 +182,23 @@ class ConflictTest(unittest.TestCase):
         data = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None, "avoid": ["customer"]}]}
         with self.assertRaisesRegex(g.GlossaryError, r"이미 회원\(member\)의 금지 목록에 있습니다"):
             g.add_term(data, "고객", "client", avoid=["customer"])
+
+    def test_avoid_must_be_a_single_word(self):
+        # lint는 식별자를 단어로 쪼개 비교하므로 여러 단어짜리 금지 변형은 영원히 걸리지 않는다
+        for variant in ("cust_no", "custNo", "cust no", "e-mail"):
+            with self.subTest(variant):
+                with self.assertRaisesRegex(g.GlossaryError, "단일어"):
+                    g.add_term({"terms": []}, "고객", "client", avoid=[variant])
+                data = {"terms": [{"korean": "고객", "english": "client", "abbreviation": None, "avoid": []}]}
+                with self.assertRaisesRegex(g.GlossaryError, "단일어"):
+                    g.update_term(data, "고객", {"avoid": [variant]})
+        g.add_term({"terms": []}, "고객", "client", avoid=["cust", "URLs", "v2"])
+
+    def test_legacy_multiword_avoid_does_not_block_other_updates(self):
+        data = {"terms": [{"korean": "고객", "english": "client", "abbreviation": None,
+                           "description": "", "relatedElements": [], "avoid": ["cust_no"]}]}
+        g.update_term(data, "고객", {"description": "구매자"})
+        self.assertEqual(g.find_term(data, "고객")["description"], "구매자")
 
     def test_avoid_cannot_equal_own_english_or_abbreviation(self):
         with self.assertRaisesRegex(g.GlossaryError, "자신의 영문"):
@@ -253,6 +288,14 @@ class RenderTest(TempDirCase):
         g.save_glossary(self.dir, {"terms": many[:3]})
         self.assertIsNone(g.build(self.dir))
 
+    def test_build_notes_multiword_avoid_left_in_existing_glossary(self):
+        # 이전 버전 CLI나 손 편집으로 이미 들어간 값은 막지 않고 안내만 한다
+        g.save_glossary(self.dir, {"terms": [{"korean": "고객", "english": "client", "abbreviation": None,
+                                              "description": "", "relatedElements": [], "avoid": ["cust_no"]}]})
+        notice = g.build(self.dir)
+        self.assertIn("cust_no", notice or "")
+        self.assertTrue(os.path.exists(os.path.join(self.dir, "core.md")), "빌드는 그대로 진행")
+
     def test_is_stale(self):
         g.save_glossary(self.dir, {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
                                               "description": "", "relatedElements": [], "avoid": []}]})
@@ -271,6 +314,40 @@ class LintTest(TempDirCase):
         self.assertEqual(g.tokenize("memberId"), ["member", "id"])
         self.assertEqual(g.tokenize("reg_dt"), ["reg", "dt"])
         self.assertEqual(g.tokenize("ship_address"), ["ship", "address"])
+
+    def test_tokenize_splits_acronym_boundaries(self):
+        cases = {
+            "HTTPServer": ["http", "server"],
+            "getURLForMember": ["get", "url", "for", "member"],
+            "parseJSONData": ["parse", "json", "data"],
+            "XMLHttpRequest": ["xml", "http", "request"],
+            "IOError": ["io", "error"],
+            "memberID": ["member", "id"],
+            # 복수형 약어는 쪼개지 않는다(URLs → ur + ls 가 되면 안 됨)
+            "userIDs": ["user", "ids"],
+            "getURLsFor": ["get", "urls", "for"],
+        }
+        for identifier, expected in cases.items():
+            with self.subTest(identifier):
+                self.assertEqual(g.tokenize(identifier), expected)
+
+    def test_compound_english_matches_its_parts(self):
+        f = os.path.join(self.dir, "sample.js")
+        write_file(f, "const orderItem = 1; const order_item = 2;")
+        for english in ("order_item", "orderItem", "Order Item"):
+            with self.subTest(english):
+                data = {"terms": [{"korean": "주문항목", "english": english, "abbreviation": None}]}
+                self.assertEqual(g.lint_files(data, [f])["candidates"], [])
+
+    def test_lock_and_generated_files_are_skipped(self):
+        data = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None, "avoid": ["customer"]}]}
+        names = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock",
+                 "Cargo.lock", "go.sum", "app.min.js", "app.min.css", "app.js.map"]
+        for name in names:
+            write_file(os.path.join(self.dir, name), '{"customerName": "sha512-Kx9fQzPmTr8w=="}')
+        explicit = [os.path.join(self.dir, n) for n in names]
+        self.assertEqual(g.lint_files(data, explicit), {"violations": [], "candidates": [], "missing": []})
+        self.assertEqual(g.lint_files(data, [self.dir])["violations"], [], "디렉토리 탐색에서도 제외")
 
     def test_unregistered_tokens_become_candidates(self):
         f = os.path.join(self.dir, "sample.js")
@@ -360,6 +437,132 @@ class LintTest(TempDirCase):
         self.assertEqual(g.format_file_list(["a", "b", "c", "d", "e"]), "a, b, c 외 2")
 
 
+class LintScopeTest(TempDirCase):
+    """lint는 용어사전 자신이 든 프로젝트 .claude/를 검사하지 않는다."""
+
+    def setUp(self):
+        super().setUp()
+        self.data_dir = os.path.join(self.dir, ".claude", "superglossary")
+        g.scaffold(self.data_dir)
+        g.run(["add", "회원", "member", "--avoid", "customer,user"], self.data_dir)
+
+    def test_explicit_glossary_files_are_skipped(self):
+        # check 스킬은 git diff 파일을 그대로 넘기므로 add 직후엔 사전 파일이 대상에 섞인다
+        paths = [os.path.join(self.data_dir, "glossary.json"),
+                 os.path.join(self.data_dir, "core.md"),
+                 os.path.join(self.dir, ".claude", "CLAUDE.md")]
+        self.assertEqual(g.run(["lint", *paths], self.data_dir), "이상 없음")
+
+    def test_directory_walk_skips_claude_dir(self):
+        write_file(os.path.join(self.dir, "app.js"), "const memberId = 1;")
+        self.assertEqual(g.run(["lint", self.dir], self.data_dir), "이상 없음")
+
+    def test_directory_walk_skips_nested_claude_dirs(self):
+        # 모노레포 하위 패키지도 자기 .claude/를 가질 수 있다
+        nested = os.path.join(self.dir, "packages", "web", ".claude")
+        os.makedirs(nested)
+        write_file(os.path.join(nested, "CLAUDE.md"), "customer 대신 member를 쓴다")
+        self.assertEqual(g.run(["lint", self.dir], self.data_dir), "이상 없음")
+
+    def test_nonstandard_data_dir_does_not_hide_its_parent(self):
+        # SUPERGLOSSARY_DIR로 비표준 위치를 쓸 때 부모(=프로젝트 루트)까지 제외하면 안 된다
+        data_dir = os.path.join(self.dir, "glossary")
+        os.makedirs(data_dir)
+        g.save_glossary(data_dir, {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
+                                              "description": "", "relatedElements": [], "avoid": ["customer"]}]})
+        g.build(data_dir)
+        app = os.path.join(self.dir, "app.js")
+        write_file(app, "const customerName = 1;")
+        self.assertIn("customer\tmember(회원)", g.run(["lint", app], data_dir))
+
+
+@unittest.skipIf(shutil.which("git") is None, "git 없는 환경")
+class LintGitTest(TempDirCase):
+    """git 저장소 안에서는 디렉토리 탐색이 .gitignore를 따른다."""
+
+    AVOID = {"terms": [{"korean": "회원", "english": "member", "abbreviation": None, "avoid": ["customer"]}]}
+
+    def setUp(self):
+        super().setUp()
+        subprocess.run(["git", "init", "-q"], cwd=self.dir, check=True)
+
+    def violations(self, paths):
+        return [v["token"] for v in g.lint_files(self.AVOID, paths)["violations"]]
+
+    def test_directory_walk_respects_gitignore(self):
+        write_file(os.path.join(self.dir, ".gitignore"), "generated/\n")
+        os.makedirs(os.path.join(self.dir, "generated"))
+        write_file(os.path.join(self.dir, "generated", "api.js"), "const customerName = 1;")
+        write_file(os.path.join(self.dir, "app.js"), "const memberName = 1;")
+        self.assertEqual(self.violations([self.dir]), [])
+
+    def test_ignored_directory_given_explicitly_is_still_checked(self):
+        write_file(os.path.join(self.dir, ".gitignore"), "generated/\n")
+        os.makedirs(os.path.join(self.dir, "generated"))
+        write_file(os.path.join(self.dir, "generated", "api.js"), "const customerName = 1;")
+        self.assertEqual(self.violations([os.path.join(self.dir, "generated")]), ["customer"])
+
+    def test_git_listing_still_skips_ignored_dirs(self):
+        # .gitignore에 없어도 의존성·.claude 디렉토리는 건너뛴다
+        for rel in ("node_modules/dep.js", "packages/web/.claude/CLAUDE.md"):
+            path = os.path.join(self.dir, *rel.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            write_file(path, "const customerName = 1;")
+        self.assertEqual(self.violations([self.dir]), [])
+
+
+class StrictLintTest(TempDirCase):
+    """--strict는 [위반]이 있으면 결과를 그대로 보여 주고 종료 코드 1로 끝난다(CI·pre-commit 차단용)."""
+
+    def setUp(self):
+        super().setUp()
+        g.save_glossary(self.dir, {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
+                                              "description": "", "relatedElements": [], "avoid": ["customer"]}]})
+        g.build(self.dir)
+        self.bad = os.path.join(self.dir, "bad.js")
+        write_file(self.bad, "const customerName = 1;")
+        self.new = os.path.join(self.dir, "new.js")
+        write_file(self.new, "const deliveryFee = 1;")
+
+    def test_strict_fails_on_violations_and_still_reports(self):
+        with self.assertRaises(g.ViolationsFound) as ctx:
+            g.run(["lint", "--strict", self.bad], self.dir)
+        self.assertIn("customer\tmember(회원)", ctx.exception.output)
+
+    def test_strict_passes_when_only_candidates(self):
+        self.assertIn("[후보]", g.run(["lint", "--strict", self.new], self.dir))
+
+    def test_main_exit_code(self):
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"SUPERGLOSSARY_DIR": self.dir}), contextlib.redirect_stdout(out):
+            self.assertEqual(g.main(["lint", "--strict", self.bad]), 1)
+            self.assertEqual(g.main(["lint", self.bad]), 0, "--strict 없이는 경고만")
+        self.assertEqual(out.getvalue().count("[위반]"), 2, "실패해도 결과는 출력한다")
+
+
+class LintPathTest(TempDirCase):
+    """존재하지 않는 경로를 '이상 없음'으로 삼키지 않는다."""
+
+    def setUp(self):
+        super().setUp()
+        g.save_glossary(self.dir, {"terms": [{"korean": "회원", "english": "member", "abbreviation": None,
+                                              "description": "", "relatedElements": [], "avoid": ["customer"]}]})
+        g.build(self.dir)
+
+    def test_only_missing_paths_is_an_error(self):
+        with self.assertRaisesRegex(g.GlossaryError, "존재하지 않는 경로"):
+            g.run(["lint", os.path.join(self.dir, "srcc")], self.dir)
+
+    def test_missing_path_is_warned_and_the_rest_are_checked(self):
+        present = os.path.join(self.dir, "a.js")
+        write_file(present, "const customerName = 1;")
+        missing = os.path.join(self.dir, "gone.js")
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            out = g.run(["lint", present, missing], self.dir)
+        self.assertIn(missing, err.getvalue())
+        self.assertIn("customer\tmember(회원)", out)
+
+
 class ArgsTest(unittest.TestCase):
     def test_positional_and_options(self):
         positional, options = g.parse_args(["청구", "claim", "--desc", "요금", "--related=a,b"])
@@ -375,6 +578,64 @@ class ArgsTest(unittest.TestCase):
     def test_trailing_option_without_value(self):
         _, options = g.parse_args(["--desc"])
         self.assertIsNone(options["desc"])
+
+    def test_option_does_not_swallow_the_next_option(self):
+        # 값이 빠진 --desc가 --avoid를 값으로 먹으면 'x'가 위치 인자(축약어)로 밀려난다
+        positional, options = g.parse_args(["--desc", "--avoid", "x"])
+        self.assertIsNone(options["desc"])
+        self.assertEqual(options["avoid"], "x")
+        self.assertEqual(positional, [])
+
+
+class ArgValidationTest(TempDirCase):
+    """CLI 입력을 조용히 버리지 않는다 — 호출자(주로 Claude)가 추측한 옵션도 오류로 알려야 한다."""
+
+    def setUp(self):
+        super().setUp()
+        g.save_glossary(self.dir, {"terms": []})
+        g.build(self.dir)
+
+    def terms(self):
+        return g.load_glossary(self.dir)["terms"]
+
+    def test_unknown_option_is_rejected_without_saving(self):
+        # 'description'은 JSON 필드명이라 --desc 대신 추측해 쓰기 쉽다
+        with self.assertRaisesRegex(g.GlossaryError, "--description"):
+            g.run(["add", "주문", "order", "--description", "주문서"], self.dir)
+        self.assertEqual(self.terms(), [])
+
+    def test_option_without_value_is_rejected(self):
+        with self.assertRaisesRegex(g.GlossaryError, "--desc"):
+            g.run(["add", "주문", "order", "--desc"], self.dir)
+        self.assertEqual(self.terms(), [])
+
+    def test_extra_positional_is_rejected(self):
+        g.run(["add", "회원", "member"], self.dir)
+        g.run(["add", "주문", "order"], self.dir)
+        with self.assertRaisesRegex(g.GlossaryError, "인자가 너무 많습니다"):
+            g.run(["remove", "회원", "주문"], self.dir)
+        self.assertEqual(len(self.terms()), 2, "아무것도 지우지 않는다")
+
+    def test_boolean_option_rejects_value(self):
+        # --all=yes가 조용히 무시되면 스톱워드 필터가 그대로 켜진 채 돈다
+        f = os.path.join(self.dir, "a.js")
+        write_file(f, "const x = 1;")
+        with self.assertRaisesRegex(g.GlossaryError, "--all"):
+            g.run(["lint", "--all=yes", f], self.dir)
+
+    def test_missing_required_argument(self):
+        with self.assertRaisesRegex(g.GlossaryError, "인자가 부족합니다"):
+            g.run(["update", "--english", "billing"], self.dir)
+
+    def test_add_accepts_abbreviation_option(self):
+        # update와 같은 이름의 옵션을 add에서도 받는다
+        g.run(["add", "주문", "order", "--abbreviation", "ord"], self.dir)
+        self.assertEqual(self.terms()[0]["abbreviation"], "ord")
+
+    def test_abbreviation_given_twice_is_rejected(self):
+        with self.assertRaisesRegex(g.GlossaryError, "축약어"):
+            g.run(["add", "주문", "order", "ord", "--abbreviation", "odr"], self.dir)
+        self.assertEqual(self.terms(), [])
 
 
 class RunTest(TempDirCase):
@@ -404,6 +665,14 @@ class RunTest(TempDirCase):
                                               "description": "", "relatedElements": [], "avoid": []}]})
         g.run(["update", "회원", "--avoid", "customer"], self.dir)
         self.assertEqual(g.load_glossary(self.dir)["terms"][0]["avoid"], ["customer"])
+
+    def test_update_can_clear_avoid_and_related(self):
+        g.save_glossary(self.dir, {"terms": []})
+        g.run(["add", "회원", "member", "--avoid", "customer", "--related", "member_id"], self.dir)
+        g.run(["update", "회원", "--avoid", "", "--related", ""], self.dir)
+        term = g.load_glossary(self.dir)["terms"][0]
+        self.assertEqual((term["avoid"], term["relatedElements"]), ([], []))
+        self.assertNotIn("customer", load_file(os.path.join(self.dir, "core.md")), "재빌드에도 반영")
 
     def test_lint_sections_and_clean_output(self):
         # 식별자(id)를 등록해 두어 clean.js의 memberId가 전부 등록어로 매칭되게 한다
@@ -501,6 +770,126 @@ class ScaffoldTest(TempDirCase):
         self.assertTrue(any("무시되어" in w for w in warnings), "무시 경고 포함")
         self.assertTrue(any("!.claude/superglossary/" in w for w in warnings), "해법 안내 포함")
 
+    def copy_path(self):
+        return os.path.join(self.data_dir(), "glossary.py")
+
+    def test_init_places_a_runnable_cli_copy(self):
+        # bin 모드(superglossary init)로 초기화해도 CLAUDE.md가 안내하는 복사본이 생겨야 한다
+        g.scaffold(self.data_dir())
+        env = {k: v for k, v in os.environ.items() if k != "SUPERGLOSSARY_DIR"}
+        done = subprocess.run([sys.executable, self.copy_path(), "list"], cwd=os.path.dirname(self.dir),
+                              env=env, capture_output=True, text=True)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("identifier", done.stdout, "복사본은 자기 위치의 사전을 읽는다")
+        rerun = subprocess.run([sys.executable, self.copy_path(), "init"], cwd=os.path.dirname(self.dir),
+                               env=env, capture_output=True, text=True)
+        self.assertEqual(rerun.returncode, 0, "복사본으로 init을 다시 돌려도 자기 자신을 덮어쓰다 실패하지 않는다")
+
+    def test_init_reports_build_notices(self):
+        os.makedirs(self.data_dir())
+        g.save_glossary(self.data_dir(), {"terms": [{"korean": "고객", "english": "client", "abbreviation": None,
+                                                     "description": "", "relatedElements": [], "avoid": ["cust_no"]}]})
+        self.assertTrue(any("cust_no" in w for w in g.scaffold(self.data_dir())))
+
+    def test_init_replaces_an_older_copy(self):
+        os.makedirs(self.data_dir())
+        write_file(self.copy_path(), 'VERSION = "0.0.1"\n')
+        g.scaffold(self.data_dir())
+        self.assertEqual(load_file(self.copy_path()), load_file(CLI_SOURCE))
+
+    def test_init_does_not_downgrade_a_newer_copy(self):
+        # 팀원마다 플러그인 버전이 다를 수 있다 — 오래된 플러그인이 최신 복사본을 덮으면 안 된다
+        os.makedirs(self.data_dir())
+        write_file(self.copy_path(), 'VERSION = "99.0.0"\n')
+        warnings = g.scaffold(self.data_dir())
+        self.assertEqual(load_file(self.copy_path()), 'VERSION = "99.0.0"\n')
+        self.assertTrue(any("99.0.0" in w for w in warnings), warnings)
+
+    def test_init_warns_about_leftover_mjs_without_deleting_it(self):
+        os.makedirs(self.data_dir())
+        mjs = os.path.join(self.data_dir(), "glossary.mjs")
+        write_file(mjs, "// 0.3.0 CLI")
+        warnings = g.scaffold(self.data_dir())
+        self.assertTrue(any("glossary.mjs" in w for w in warnings), warnings)
+        self.assertTrue(os.path.exists(mjs))
+
+
+class ClaudeBlockTest(TempDirCase):
+    """init이 .claude/CLAUDE.md의 용어사전 블록을 마커로 관리한다."""
+
+    def setUp(self):
+        super().setUp()
+        self.data_dir = os.path.join(self.dir, ".claude", "superglossary")
+        self.claude_md = os.path.join(self.dir, ".claude", "CLAUDE.md")
+        os.makedirs(os.path.dirname(self.claude_md))
+
+    def test_rerun_does_not_duplicate_block(self):
+        g.scaffold(self.data_dir)
+        g.scaffold(self.data_dir)
+        text = load_file(self.claude_md)
+        self.assertEqual((text.count("## 용어 사전"), text.count("superglossary:begin")), (1, 1))
+
+    def test_rerun_refreshes_managed_block_and_keeps_the_rest(self):
+        write_file(self.claude_md, "# 팀 규칙\n\n<!-- superglossary:begin -->\n## 용어 사전\n"
+                                   "옛 문구: node .claude/superglossary/glossary.mjs\n"
+                                   "<!-- superglossary:end -->\n\n## 기타\n유지\n")
+        g.scaffold(self.data_dir)
+        text = load_file(self.claude_md)
+        self.assertNotIn("glossary.mjs", text)
+        self.assertIn("python3 .claude/superglossary/glossary.py lookup", text, "최신 블록으로 교체")
+        self.assertTrue(text.startswith("# 팀 규칙\n\n"))
+        self.assertTrue(text.endswith("## 기타\n유지\n"))
+        self.assertEqual(text.count("## 용어 사전"), 1)
+
+    def test_untouched_legacy_blocks_are_migrated(self):
+        # 픽스처는 v0.2.0·v0.3.0(Node)·v0.4.0 CLI의 init을 실제로 실행해 얻은 CLAUDE.md다
+        for name in ("v0.2.0.md", "v0.3.0.md", "v0.4.0.md"):
+            with self.subTest(name):
+                legacy = load_file(os.path.join(LEGACY_CLAUDE_MD, name))
+                write_file(self.claude_md, "# 팀 규칙\n\n" + legacy + "\n## 기타\n유지\n")
+                warnings = g.scaffold(self.data_dir)
+                text = load_file(self.claude_md)
+                self.assertEqual(warnings, [])
+                self.assertIn("<!-- superglossary:end -->", text)
+                self.assertNotIn("glossary.mjs", text)
+                self.assertTrue(text.startswith("# 팀 규칙\n\n"))
+                self.assertTrue(text.endswith("\n\n## 기타\n유지\n"), repr(text[-40:]))
+                self.assertEqual(text.count("## 용어 사전"), 1)
+
+    def test_customized_legacy_block_is_left_alone_with_a_warning(self):
+        custom = load_file(os.path.join(LEGACY_CLAUDE_MD, "v0.4.0.md")) + "- 우리 팀 추가 규칙\n"
+        write_file(self.claude_md, custom)
+        warnings = g.scaffold(self.data_dir)
+        self.assertEqual(load_file(self.claude_md), custom)
+        self.assertTrue(any("용어 사전" in w for w in warnings), warnings)
+
+
+class AtomicWriteTest(TempDirCase):
+    def test_failed_save_keeps_original_and_leaves_no_temp_file(self):
+        g.save_glossary(self.dir, {"terms": []})
+        path = os.path.join(self.dir, "glossary.json")
+        before = load_file(path)
+        with mock.patch.object(g.os, "replace", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                g.save_glossary(self.dir, {"terms": [{"korean": "회원", "english": "member"}]})
+        self.assertEqual(load_file(path), before)
+        self.assertEqual(os.listdir(self.dir), ["glossary.json"], "임시 파일을 남기지 않는다")
+
+    @unittest.skipIf(os.name == "nt", "POSIX 권한 비트")
+    def test_save_keeps_existing_file_mode(self):
+        g.save_glossary(self.dir, {"terms": []})
+        path = os.path.join(self.dir, "glossary.json")
+        os.chmod(path, 0o640)
+        g.save_glossary(self.dir, {"terms": []})
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o640)
+
+    @unittest.skipIf(os.name == "nt", "POSIX 권한 비트")
+    def test_new_file_follows_umask(self):
+        old = os.umask(0o022)
+        self.addCleanup(os.umask, old)
+        g.save_glossary(self.dir, {"terms": []})
+        self.assertEqual(os.stat(os.path.join(self.dir, "glossary.json")).st_mode & 0o777, 0o644)
+
 
 class SchemaMigrationTest(TempDirCase):
     def test_v0_file_is_migrated_on_load(self):
@@ -533,6 +922,78 @@ class SchemaMigrationTest(TempDirCase):
         raw = json.loads(load_file(os.path.join(data_dir, "glossary.json")))
         self.assertEqual(raw["schemaVersion"], g.SCHEMA_VERSION, "init 재실행이 스키마를 올린다")
         self.assertEqual(raw["terms"][0]["korean"], "회원", "기존 용어는 보존된다")
+
+
+class GlossaryFileValidationTest(TempDirCase):
+    """사람이 직접 고친 glossary.json을 트레이스백 대신 안내로 거른다."""
+
+    CONFLICTING = {"schemaVersion": 1, "terms": [
+        {"korean": "회원", "english": "member"},
+        {"korean": "고객", "english": "member"},
+    ]}
+
+    def write_json(self, raw):
+        text = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
+        write_file(os.path.join(self.dir, "glossary.json"), text)
+
+    def test_malformed_json_names_the_file(self):
+        self.write_json('{"terms": [],}')
+        with self.assertRaisesRegex(g.GlossaryError, "glossary.json"):
+            g.load_glossary(self.dir)
+
+    def test_structural_errors_are_reported(self):
+        term = {"korean": "회원", "english": "member"}
+        cases = {
+            "최상위가 객체가 아님": [],
+            "schemaVersion이 정수가 아님": {"schemaVersion": "1", "terms": []},
+            "terms가 배열이 아님": {"schemaVersion": 1, "terms": {}},
+            "용어가 객체가 아님": {"schemaVersion": 1, "terms": ["회원"]},
+            "v0 파일의 용어가 객체가 아님": {"terms": ["회원"]},
+            "english 누락": {"schemaVersion": 1, "terms": [{"korean": "회원"}]},
+            "빈 korean": {"schemaVersion": 1, "terms": [{"korean": " ", "english": "member"}]},
+            "축약어가 문자열이 아님": {"schemaVersion": 1, "terms": [{**term, "abbreviation": 1}]},
+            "설명이 문자열이 아님": {"schemaVersion": 1, "terms": [{**term, "description": ["a"]}]},
+            "avoid가 배열이 아님": {"schemaVersion": 1, "terms": [{**term, "avoid": "customer"}]},
+            "relatedElements 원소가 문자열이 아님": {"schemaVersion": 1, "terms": [{**term, "relatedElements": [1]}]},
+            "stopwords가 객체가 아님": {"schemaVersion": 1, "terms": [], "stopwords": ["acme"]},
+            "stopwords.add가 배열이 아님": {"schemaVersion": 1, "terms": [], "stopwords": {"add": "acme"}},
+        }
+        for name, raw in cases.items():
+            with self.subTest(name):
+                self.write_json(raw)
+                with self.assertRaises(g.GlossaryError):
+                    g.load_glossary(self.dir)
+
+    def test_term_error_points_to_the_term(self):
+        self.write_json({"schemaVersion": 1, "terms": [{"korean": "주문", "english": "order"}, {"korean": "회원"}]})
+        with self.assertRaisesRegex(g.GlossaryError, r"terms\[1\].*english"):
+            g.load_glossary(self.dir)
+
+    def test_build_rejects_conflicting_terms_without_writing(self):
+        self.write_json(self.CONFLICTING)
+        with self.assertRaisesRegex(g.GlossaryError, "이미 등록된 영문"):
+            g.build(self.dir)
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "core.md")))
+
+    def test_conflicts_are_found_in_either_order(self):
+        member = {"korean": "회원", "english": "member"}
+        client = {"korean": "고객", "english": "client", "avoid": ["member"]}
+        for terms in ([member, client], [client, member]):
+            with self.subTest(order=[t["korean"] for t in terms]):
+                self.write_json({"schemaVersion": 1, "terms": terms})
+                with self.assertRaisesRegex(g.GlossaryError, "member"):
+                    g.build(self.dir)
+
+    def test_commands_do_not_save_over_an_inconsistent_glossary(self):
+        self.write_json(self.CONFLICTING)
+        path = os.path.join(self.dir, "glossary.json")
+        before = load_file(path)
+        with self.assertRaisesRegex(g.GlossaryError, "이미 등록된 영문"):
+            g.run(["add", "주문", "order"], self.dir)
+        self.assertEqual(load_file(path), before, "충돌이 남은 사전은 저장하지 않는다")
+        # 충돌을 해소하는 경로(remove)는 막히지 않는다
+        g.run(["remove", "고객"], self.dir)
+        self.assertEqual([t["korean"] for t in g.load_glossary(self.dir)["terms"]], ["회원"])
 
 
 class StopwordsConfigTest(TempDirCase):
