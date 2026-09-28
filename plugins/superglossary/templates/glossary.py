@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 # glossary.json 데이터 스키마 버전. 구조가 바뀔 때만 올린다(CLI 버전과 별개).
 #   0 → schemaVersion 필드가 없던 0.4.0 이전 파일

@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-28
+
 ### Added
 
 - `add --abbreviation <A>` — `update`와 같은 이름으로 축약어를 지정합니다(위치 인자와 동시 지정은 오류).
@@ -110,7 +112,8 @@
 - MIT 라이선스
 - PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 
-[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Cho-D-YoungRae/superglossary/compare/v0.1.0...v0.2.0
