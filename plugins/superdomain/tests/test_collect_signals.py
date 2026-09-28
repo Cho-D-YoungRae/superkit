@@ -4,7 +4,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from collect_signals import (HOTSPOT_TOP, INTERPRETATION_NOTE, LIMITATION_NOTE, PATH_SAMPLES,
-                             CollectError, collect, payload, render)
+                             CollectError, _git, collect, payload, render)
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -779,6 +779,17 @@ class CliTest(SignalsTestCase):
         for marker in ("수집 ①", "수집 ②", "수집 ③", "수집 ④", "수집 ⑤"):
             self.assertIn(marker, text)
         self.assertIn("evolution-signals.md", text)
+
+
+class GitInvocationTest(unittest.TestCase):
+    def test_git_output_is_decoded_as_utf8_regardless_of_locale(self):
+        # text=True만 주면 로케일 인코딩(예: Windows cp949)으로 디코딩해 한글 경로에서
+        # UnicodeDecodeError 트레이스백이 난다 — 산출 불가 계약(exit 1 + 사유 줄)이 깨진다.
+        with mock.patch("collect_signals.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess([], 0, "", "")
+            _git(".", "status")
+        kwargs = run.call_args.kwargs
+        self.assertEqual((kwargs.get("encoding"), kwargs.get("errors")), ("utf-8", "replace"))
 
 
 if __name__ == "__main__":

@@ -644,6 +644,10 @@ class TestTagScan(InvariantTestCase):
         path.write_text("﻿" + path.read_text(encoding="utf-8"), encoding="utf-8")
         self.assert_clean(self.check())
 
+    def test_limitation_note_admits_tags_in_comments(self):
+        # 주석 처리된 테스트의 태그도 존재로 센다 — 그 사실을 한계 고지가 말해야 한다.
+        self.assertIn("주석", LIMITATION_NOTE)
+
 
 # ---------------------------------------------------------------------------
 # 검사 불능 — 테스트 소스 0건 (P3-D3)

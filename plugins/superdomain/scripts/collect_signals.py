@@ -12,7 +12,7 @@ DOMAIN.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때만 쓴
 정본은 `references/governance/evolution-signals.md`이고 그 문서를 읽어 적용하는 것은 `evolve`
 스킬이다. 여기서 한 번 더 판정하면 정본이 둘이 되고, 둘은 반드시 갈라진다.
 
-수집 항목 5종(계획 P5-D3):
+수집 항목 5종(해석 규칙과의 대응은 evolution-signals.md §1):
 
 | # | 항목 | 출처 |
 |---|---|---|
@@ -218,11 +218,15 @@ class Signals:
 # ---------------------------------------------------------------------------
 
 def _git(cwd, *args) -> tuple:
-    """(성공 여부, stdout, stderr). `core.quotePath=false`로 비 ASCII 경로가 깨지지 않게 한다."""
+    """(성공 여부, stdout, stderr). `core.quotePath=false`로 비 ASCII 경로가 깨지지 않게 한다.
+
+    인코딩을 명시한다 — 로케일 인코딩으로 디코딩하면 UTF-8이 아닌 로케일에서 한글 경로가
+    `UnicodeDecodeError`로 터지고, 그 예외는 산출 불가(exit 1)가 아니라 트레이스백으로 샌다.
+    """
     try:
         result = subprocess.run(
             ["git", "-c", "core.quotePath=false", "-C", str(cwd), *args],
-            capture_output=True, text=True)
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
     except OSError:
         raise CollectError("git을 실행하지 못했습니다 — 이 수집기는 git 이력을 읽습니다.")
     return result.returncode == 0, result.stdout, result.stderr

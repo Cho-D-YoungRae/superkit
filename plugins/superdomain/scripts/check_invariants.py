@@ -40,7 +40,7 @@ from pathlib import Path
 # 다른 파일 집합을 걸으면 한쪽이 본 생성물 사본의 태그가 다른 쪽 판정을 뒤집는다.
 from check_imports import SKIP_DIRS, SOURCE_SUFFIXES, SRC_DIR
 # 컨텍스트·프로젝트 경로의 정본 파서. 패키지 패턴을 쓰지 않으므로 context_packages()는 부르지
-# 않는다 — 태그 스캔의 범위는 패키지가 아니라 프로젝트 경로 아래 테스트 디렉터리다(P3-D4).
+# 않는다 — 태그 스캔의 범위는 패키지가 아니라 프로젝트 경로 아래 테스트 디렉터리다(domain-doc-template.md §4.4).
 # 오류 줄(`경로:라인: 메시지`)의 조립도 이 모듈이 정본이다 — 저장소에 한 벌만 둔다.
 from parse_domain import LocatedError, format_error, parse_domain
 
@@ -68,7 +68,8 @@ RE_TAG = re.compile(r'@Tag\s*\(\s*(?:value\s*=\s*)?"(INV-[^"\s]+)"\s*\)')
 LIMITATION_NOTE = (
     "한계: 이 검사는 테스트 소스의 리터럴 @Tag(\"INV-...\")만 봅니다 — 상수 간접 참조"
     "(@Tag(INV_CLAIM_001))와 완전 수식 애너테이션(@org.junit.jupiter.api.Tag)은 보이지 "
-    "않고, 태그가 달렸다는 것이 그 테스트가 불변식을 실제로 검증한다는 뜻도 아닙니다"
+    "않고, 반대로 주석·비활성 코드 안의 리터럴은 존재로 셉니다. 태그가 달렸다는 것이 그 "
+    "테스트가 불변식을 실제로 검증한다는 뜻도 아닙니다"
     "(서술과 검증의 대조는 domain-reviewer의 불변식 정합 판정입니다)."
 )
 BLOCKED_HEAD = "검사 불능: 테스트 소스가 없습니다"
@@ -336,11 +337,11 @@ def _collect(doc, contexts, report) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 태그 스캔 — P3-D4
+# 태그 스캔 — domain-doc-template.md §4.4
 # ---------------------------------------------------------------------------
 
 def _is_test_path(parts) -> bool:
-    """디렉터리 세그먼트만 보고 테스트 소스인지 판정한다(P3-D4의 `src/test/`·`test/`).
+    """디렉터리 세그먼트만 보고 테스트 소스인지 판정한다(`src/test/`·`test/` 관례).
 
     `src/<소스셋>`이 나오면 **그 소스셋이 판정을 끝낸다.** `src/main/kotlin/com/acme/test/`처럼
     프로덕션 아래 `test` 패키지가 있어도 테스트 소스가 아니다 — 여기서 끊지 않으면 프로덕션
