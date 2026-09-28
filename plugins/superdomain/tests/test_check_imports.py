@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from check_imports import (BASELINE_MATCH_NOTE, BASELINE_RELATIVE, LIMITATION_NOTE, RULE_ID,
                            SKIP_DIRS, SOURCE_SUFFIXES, SRC_DIR, ZERO_MATCH_REASON,
                            _owning_context, check, render)
+from layout import LayoutError
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -80,9 +81,10 @@ class CheckTestCase(unittest.TestCase):
         # 저장소 안(tests/)에 두면 정리에 실패한 디렉터리가 작업 트리에 쌓인다.
         self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
         self.addCleanup(shutil.rmtree, self.tmpdir, True)
-        self.domain_path = self.tmpdir / "DOMAIN.md"
+        self.domain_path = self.tmpdir / "docs/superdomain/DOMAIN.md"
 
     def domain(self, text):
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
         self.domain_path.write_text(text, encoding="utf-8")
         return self.domain_path
 
@@ -106,7 +108,7 @@ class CheckTestCase(unittest.TestCase):
         return self.src(relpath, "\n".join(lines) + "\n")
 
     def baseline(self, *lines):
-        """`docs/domain/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리."""
+        """`docs/superdomain/state/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리."""
         path = self.tmpdir / BASELINE_RELATIVE
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
@@ -777,7 +779,9 @@ class TestCli(CheckTestCase):
         self.assertIn("분류 값 'bogus'", result.stderr)
 
     def test_exit_two_when_file_missing(self):
-        result = self.run_cli(str(self.tmpdir / "없는파일.md"))
+        # 배치는 맞지만(docs/superdomain/DOMAIN.md) 파일 자체를 쓰지 않는다 — LayoutError가
+        # 아니라 parse_domain의 "읽을 수 없습니다" 채널을 그대로 겨냥한다.
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 2)
         self.assertIn("읽을 수 없습니다", result.stderr)
 
@@ -863,6 +867,31 @@ class TestCli(CheckTestCase):
         self.assertEqual(len(lines), 2, lines)
         self.assertIn("AAA.kt", lines[0])
         self.assertIn("BBB.kt", lines[1])
+
+
+class TestLayout(CheckTestCase):
+    """옛 배치는 읽지 않고 멈춘다 — 옛 자리의 baseline을 조용히 무시하면 동결분이 신규로 올라온다."""
+
+    def test_legacy_root_declaration_exits_two_with_commands(self):
+        legacy = self.tmpdir / "DOMAIN.md"
+        legacy.write_text(HEAD + CLAIM, encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPT), str(legacy)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("git mv DOMAIN.md docs/superdomain/DOMAIN.md", result.stderr)
+
+    def test_baseline_left_at_the_old_place_is_refused(self):
+        self.leaky_tree()
+        legacy = self.tmpdir / "docs/domain/baseline.jsonl"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(self.entry(RULE_ID, LEAKY) + "\n", encoding="utf-8")
+        with self.assertRaises(LayoutError) as caught:
+            self.check()
+        self.assertIn("docs/domain/baseline.jsonl", str(caught.exception))
+
+    def test_baseline_constant_points_at_the_state_directory(self):
+        self.assertEqual(BASELINE_RELATIVE, "docs/superdomain/state/baseline.jsonl")
 
 
 if __name__ == "__main__":
