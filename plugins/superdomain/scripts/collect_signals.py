@@ -431,7 +431,7 @@ def _tally(counts, key) -> list:
 def _read_lines(root, relpath, broken) -> list:
     """파일의 줄 목록. 읽지 못하면 그 사실을 `broken`에 담고 빈 목록을 준다 — 침묵하지 않는다."""
     try:
-        return (root / relpath).read_text(encoding="utf-8", errors="replace").splitlines()
+        return (root / relpath).read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError as error:
         broken.append(f"{relpath}:0: 파일을 읽지 못했습니다({error.strerror or error}) — "
                       f"집계에서 제외합니다.")

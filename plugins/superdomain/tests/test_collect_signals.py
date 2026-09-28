@@ -503,6 +503,14 @@ class ReviewLogTest(SignalsTestCase):
         self.assertFalse(signals.review_log.present)
         self.assertTrue(any("review-log.jsonl이 없습니다" in note for note in signals.notices))
 
+    def test_bom_on_first_line_is_not_a_broken_line(self):
+        self.base()
+        self.log("﻿" + review_line("a.one", CLAIM_KT))
+        self.commit("log")
+        log = self.collect().review_log
+        self.assertEqual(log.broken, [])
+        self.assertEqual([(entry.rule, entry.count) for entry in log.rules], [("a.one", 1)])
+
 
 # ---------------------------------------------------------------------------
 # 신호 ⑤ baseline 추이

@@ -236,8 +236,9 @@ def _line_of(text, position) -> int:
 
 
 def _read_source(path, display):
+    # utf-8-sig: 선두 BOM이 남으면 첫 줄의 `package`가 `^\s*`에 걸리지 않아 파일이 통째로 귀속을 잃는다.
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError):
         return None
 
@@ -285,7 +286,7 @@ def _load_baseline(base) -> tuple:
     if not path.is_file():
         return None, []
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError):
         return None, [LocatedError(
             0, "baseline 파일을 읽지 못했습니다 — 인코딩(UTF-8)과 권한을 확인하세요",

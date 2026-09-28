@@ -379,6 +379,36 @@ class TestSourceParsing(CheckTestCase):
         self.assert_no_violation(self.check())
 
 
+class TestEncoding(CheckTestCase):
+    """저장 인코딩의 변형(BOM·CRLF)이 귀속과 줄 번호를 바꾸지 않는다."""
+
+    def test_bom_source_is_attributed_and_judged(self):
+        # 첫 줄에 BOM이 붙으면 `^\s*package`가 매칭되지 않아 파일이 어느 컨텍스트에도 귀속되지
+        # 않았다 — 위반이 어느 채널에도 나타나지 않는 침묵이다(2026-09-26 재현).
+        self.two_contexts()
+        self.src(LEAKY, "﻿package com.acme.claim\n\nimport com.acme.admin.AdminUser\n\n"
+                        "class Leaky\n")
+        violation = self.assert_violation(self.check(), needle="AdminUser", count=1)
+        self.assertEqual((violation.path, violation.line), (LEAKY, 3))
+
+    def test_crlf_source_keeps_line_numbers(self):
+        # 회귀 방지 — 수정 전에도 통과한다(캡처 그룹이 `\r`을 담지 않는다).
+        self.two_contexts()
+        self.src(LEAKY, "package com.acme.claim\r\n\r\nimport com.acme.admin.AdminUser\r\n\r\n"
+                        "class Leaky\r\n")
+        violation = self.assert_violation(self.check(), needle="AdminUser", count=1)
+        self.assertEqual(violation.line, 3)
+        self.assertNotIn("\r", violation.message)
+
+    def test_bom_baseline_is_read(self):
+        self.leaky_tree()
+        path = self.baseline(self.entry(RULE_ID, LEAKY))
+        path.write_text("﻿" + path.read_text(encoding="utf-8"), encoding="utf-8")
+        report = self.check()
+        self.assertEqual(report.errors, [])
+        self.assertEqual([(v.rule_id, v.path) for v in report.debt], [(RULE_ID, LEAKY)])
+
+
 class TestRawTextScanning(CheckTestCase):
     """주석·문자열을 지우지 않고 원문을 읽는 선택의 **특성화 테스트**.
 

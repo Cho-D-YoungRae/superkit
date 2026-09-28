@@ -413,6 +413,16 @@ class TestRetiredLabels(DomainTextCase):
         self.assertEqual(d.errors, [])
 
 
+class TestEncoding(DomainTextCase):
+    def test_bom_before_marker_on_first_line_is_accepted(self):
+        # 제목 줄을 빼 마커가 첫 줄이 되게 한다. BOM이 `^\s*<!--`를 깨뜨리면 '형식이 올바르지
+        # 않은 마커'로 거부된다 — 윈도우 에디터로 저장한 문서가 이유 없이 막힌다.
+        text = "﻿" + MINIMAL.split("\n", 1)[1]
+        d = self._parse_text(text)
+        self.assertEqual(d.errors, [])
+        self.assertEqual([c.name for c in d.contexts], ["claim"])
+
+
 class TestTemplateMarker(DomainTextCase):
     """마커가 없으면 거부하고, 파서가 아는 것보다 높은 버전도 거부한다(침묵 금지)."""
 

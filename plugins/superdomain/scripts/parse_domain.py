@@ -681,7 +681,7 @@ def parse_domain(path) -> Domain:
     """
     path = Path(path)
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except OSError:
         return Domain(errors=[ParseError(
             0,

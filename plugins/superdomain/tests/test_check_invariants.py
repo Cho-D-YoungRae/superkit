@@ -637,6 +637,13 @@ class TestTagScan(InvariantTestCase):
         self.assertEqual(report.violations, [])
         self.assertEqual(report.test_sources, 1)
 
+    def test_bom_documents_and_sources_are_read(self):
+        self.domain()
+        self.doc("claim", "﻿" + domain_doc(row("INV-CLAIM-001", "confirmed")))
+        path = self.tagged("INV-CLAIM-001")
+        path.write_text("﻿" + path.read_text(encoding="utf-8"), encoding="utf-8")
+        self.assert_clean(self.check())
+
 
 # ---------------------------------------------------------------------------
 # 검사 불능 — 테스트 소스 0건 (P3-D3)

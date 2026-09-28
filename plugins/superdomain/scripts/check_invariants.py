@@ -286,7 +286,7 @@ def _collect(doc, contexts, report) -> None:
         report.errors.append(LocatedError(line, message, doc.display))
 
     try:
-        text = doc.path.read_text(encoding="utf-8")
+        text = doc.path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError):
         fail(0, "도메인 문서를 읽지 못했습니다 — 이 문서의 불변식은 대조하지 않았습니다.")
         return
@@ -398,7 +398,7 @@ def _scan_tags(base, projects, report) -> None:
                 display = _display(path, base)
                 report.test_sources += 1
                 try:
-                    text = path.read_text(encoding="utf-8")
+                    text = path.read_text(encoding="utf-8-sig")
                 except (OSError, UnicodeDecodeError):
                     report.unreadable.append(display)
                     continue
