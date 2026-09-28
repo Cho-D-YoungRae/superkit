@@ -1,4 +1,5 @@
 ---
+name: wiki-ingest
 description: 소스(유튜브·웹·PDF·로컬 파일)를 위키에 인제스트 — 유형 판별 → 추출 → 2단계 인제스트
 argument-hint: "<url|경로> [--batch] [--force]"
 ---

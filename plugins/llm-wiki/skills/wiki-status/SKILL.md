@@ -1,6 +1,6 @@
 ---
+name: wiki-status
 description: 위키 현황 — 최근 로그 10건 + 통계 + 핵심 질문 (읽기 전용)
-argument-hint: ""
 disallowed-tools: ["Write", "Edit", "NotebookEdit"]
 ---
 

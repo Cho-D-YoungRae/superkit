@@ -49,8 +49,8 @@ sequenceDiagram
 
 | 무엇 | 어디 사는가 | 역할 |
 |------|------------|------|
-| 커맨드 4개 (`wiki-init`·`wiki-ingest`·`wiki-lint`·`wiki-status`) | 플러그인 `commands/` | 워크플로의 순서·게이트·출력만 |
-| 스킬 2개 (`wiki-maintainer`·`source-extract`) | 플러그인 `skills/` | 운영 보강 · 추출 레시피(단일 소스) |
+| 워크플로 스킬 4개 = 슬래시 커맨드 (`wiki-init`·`wiki-ingest`·`wiki-lint`·`wiki-status`) | 플러그인 `skills/wiki-*/` | 워크플로의 순서·게이트·출력만 |
+| 보조 스킬 2개 (`wiki-maintainer`·`source-extract`, 모델 전용) | 플러그인 `skills/` | 운영 보강 · 추출 레시피(단일 소스) |
 | 스크립트 3개 (`yt_transcript`·`pdf_chunk`·`wiki_check`) | 플러그인 `skills/source-extract/scripts/` | 기계 작업. stdout·캐시만 출력 |
 | 템플릿 7종 | 플러그인 `templates/` | init이 렌더링하는 원본. `schema_version`의 기준 |
 | `AGENTS.md` (운영 규칙 전체) | **위키** 루트 | 헌법 — 플러그인 없이도 위키가 동작하는 근거 |
@@ -64,7 +64,7 @@ sequenceDiagram
 
 | 옵션 | 기본값 | 영향 범위 | 영향 없음 |
 |------|--------|----------|----------|
-| Core | 항상 | 3계층 구조, 커맨드·스크립트, AGENTS.md 규약 | — |
+| Core | 항상 | 3계층 구조, 스킬·스크립트, AGENTS.md 규약 | — |
 | Obsidian | off | `link_style`(wikilink) 렌더링, `.obsidian/` 최소 생성, Web Clipper·graph view 안내, fetch 실패 폴백 | 위키 콘텐츠 구조·스크립트 동작 |
 | qmd | off (`search: none`) | lint가 index 200 초과 시 도입 제안, config `search: qmd` 기록 | 위키 콘텐츠 **무변경** — 언제든 attach/detach |
 
@@ -81,3 +81,6 @@ Codex·Cursor 등은 `AGENTS.md` 표준을 읽지만 임포트 문법이 없고,
 
 **ADR-4. 스크립트는 wiki/를 쓰지 않는다.**
 판단은 LLM, 기계 작업은 스크립트라는 경계다. 추출 스크립트는 stdout 또는 `raw/.cache/`에만 출력하고, 그 결과를 어디에 어떻게 반영할지(페이지 생성·편집·index·log)는 항상 에이전트가 결정한다. 이 경계 덕에 스크립트는 결정적으로 테스트 가능하고, 위키 반영 품질은 스키마(AGENTS.md) 개선으로만 다룬다.
+
+**ADR-5. 슬래시 커맨드는 `commands/`가 아니라 스킬로 둔다.**
+공식 문서는 `commands/`를 "여전히 지원되는 이전 형식"으로, 새 플러그인엔 `skills/`를 권장한다. 스킬 형식이어도 호출명(`/llm-wiki:<디렉토리명>`)·인자(`$ARGUMENTS`)·모델 호출 가능성은 같고, 보조 파일·`${CLAUDE_SKILL_DIR}`·포크 실행 같은 확장 여지가 생긴다. "커맨드 4개" 원칙은 사용자 호출 스킬 수로 유지한다 — 보조 스킬은 `user-invocable: false`로 슬래시 메뉴에서 숨기고, `tests/test_skills.py`가 이를 검사한다.

@@ -47,6 +47,8 @@ mkdir my-wiki && cd my-wiki && claude
 
 ## 커맨드 레퍼런스
 
+슬래시 커맨드는 공식 권장 형식인 스킬(`skills/wiki-*/SKILL.md`)로 구현되어 있다. 보조 스킬(`wiki-maintainer`·`source-extract`)은 슬래시 메뉴에 나오지 않고 에이전트가 필요할 때 스스로 불러 쓴다.
+
 | 커맨드 | 용도 | 인자·플래그 |
 |--------|------|------------|
 | `/llm-wiki:wiki-init` | 위키 스캐폴드 생성, 기존 위키 스키마 업그레이드 | `[대상 디렉토리]` |
@@ -88,7 +90,7 @@ mkdir my-wiki && cd my-wiki && claude
 
 ## 아키텍처 (요약)
 
-3계층 — 불변 원본(`raw/`) / LLM 생성 위키(`wiki/`) / 스키마(`AGENTS.md`) — 위에서 3연산(Ingest·Query·Lint)이 돈다. 플러그인은 커맨드 4개(워크플로 골격)·스킬 2개(추출 레시피·운영 보강)·결정적 스크립트 3개(stdout/캐시만 출력, `wiki/`는 절대 직접 쓰지 않음)로 구성되고, 위키 운영 규칙 전체는 init이 생성하는 위키 내부 `AGENTS.md`가 단일 소스다. 상세: [ARCHITECTURE.md](ARCHITECTURE.md)
+3계층 — 불변 원본(`raw/`) / LLM 생성 위키(`wiki/`) / 스키마(`AGENTS.md`) — 위에서 3연산(Ingest·Query·Lint)이 돈다. 플러그인은 워크플로 스킬 4개(슬래시 커맨드 — 워크플로 골격)·보조 스킬 2개(추출 레시피·운영 보강)·결정적 스크립트 3개(stdout/캐시만 출력, `wiki/`는 절대 직접 쓰지 않음)로 구성되고, 위키 운영 규칙 전체는 init이 생성하는 위키 내부 `AGENTS.md`가 단일 소스다. 상세: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## FAQ
 

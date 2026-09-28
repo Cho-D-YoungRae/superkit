@@ -1,6 +1,7 @@
 ---
 name: source-extract
 description: 소스를 LLM 위키의 raw/ 원본으로 변환할 때 반드시 사용 — 유튜브 URL 자막 추출, 장문 PDF 분할, 웹 페이지 본문 저장, 로컬 md·txt 복사. /llm-wiki:wiki-ingest 실행 중이거나 사용자가 위키에 영상·문서·링크·파일을 추가하려 할 때 항상 이 레시피를 따른다.
+user-invocable: false
 ---
 
 # source-extract — 소스 유형별 추출 레시피
@@ -9,7 +10,7 @@ description: 소스를 LLM 위키의 raw/ 원본으로 변환할 때 반드시 �
 
 - 결과 원본은 `raw/sources/YYYY-MM-DD-slug.ext` — 날짜는 오늘, slug는 내용 기반 kebab-case 영어.
 - 스크립트는 **stdout 또는 `raw/.cache/`에만** 출력한다. 원본 저장과 위키 반영은 에이전트가 한다.
-- 스크립트 경로: 이 스킬의 `scripts/` — 스킬 문맥에서는 `${CLAUDE_SKILL_DIR}/scripts/`, 커맨드 문맥에서는 `${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/`.
+- 스크립트 경로: 이 스킬의 `scripts/` — 이 스킬 본문에서는 `${CLAUDE_SKILL_DIR}/scripts/`, 다른 스킬(wiki-lint·wiki-status 등)에서는 `${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/`.
 - exit code: 0 성공 / 1 일반 오류(stderr 확인) / 2 도메인 특수 상황(유형별 폴백 참조).
 - uv가 없으면: 설치 안내(macOS `brew install uv`, 기타 https://docs.astral.sh/uv/getting-started/installation/) 후 중단.
 

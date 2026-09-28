@@ -1,4 +1,5 @@
 ---
+name: wiki-init
 description: 새 LLM 위키 스캐폴드 생성 또는 기존 위키 업그레이드 (인터뷰 → 렌더링 → 사전요건 체크)
 argument-hint: "[대상 디렉토리]"
 ---

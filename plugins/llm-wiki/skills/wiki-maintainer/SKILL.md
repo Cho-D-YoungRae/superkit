@@ -1,6 +1,7 @@
 ---
 name: wiki-maintainer
 description: llm-wiki로 생성된 위키(.llm-wiki/ 디렉토리 존재)에서 작업할 때 반드시 사용. 페이지 생성·편집·질의·정리·소스 제거(retire), 사용자가 위키 내용을 묻거나 자료를 추가·정리하거나 위키를 인용해 답할 때 모두 해당. 위키 저장소 안에서의 모든 운영 판단에 필요.
+user-invocable: false
 ---
 
 # wiki-maintainer — 위키 운영
@@ -23,7 +24,7 @@ description: llm-wiki로 생성된 위키(.llm-wiki/ 디렉토리 존재)에서 
 
 - 통계: 같은 스크립트에 `--stats` (타입별 페이지 수·소스 수·마지막 lint 날짜).
 - 소스 추출(유튜브 자막·장문 PDF 분할·웹 저장·로컬 복사): `llm-wiki:source-extract` 스킬의 레시피를 따른다.
-- 정형 워크플로는 커맨드로: 인제스트 `/llm-wiki:wiki-ingest`, 정합성 점검 `/llm-wiki:wiki-lint`, 현황 `/llm-wiki:wiki-status`, 스키마 업그레이드 `/llm-wiki:wiki-init`.
+- 정형 워크플로는 슬래시 커맨드(워크플로 스킬)로: 인제스트 `/llm-wiki:wiki-ingest`, 정합성 점검 `/llm-wiki:wiki-lint`, 현황 `/llm-wiki:wiki-status`, 스키마 업그레이드 `/llm-wiki:wiki-init`.
 
 ## 주의
 

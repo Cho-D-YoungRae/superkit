@@ -1,6 +1,6 @@
 ---
+name: wiki-lint
 description: 위키 정합성 점검 — 기계 검사(wiki_check) + LLM 판단 검사 → 리포트
-argument-hint: ""
 ---
 
 # /llm-wiki:wiki-lint

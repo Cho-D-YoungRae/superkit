@@ -6,10 +6,11 @@
 
 ```
 .claude-plugin/          plugin.json(매니페스트) · marketplace.json(이 저장소 = 마켓플레이스)
-commands/                커맨드 4개 — 워크플로의 순서·게이트·출력만 담는다
 skills/
-  wiki-maintainer/       위키 운영 보강 (1원칙: 위키의 AGENTS.md를 따르라)
-  source-extract/        소스 추출 레시피(단일 소스) + scripts/ 3개
+  wiki-init/ wiki-ingest/ wiki-lint/ wiki-status/
+                         워크플로 스킬 4개 = 슬래시 커맨드 /llm-wiki:wiki-* — 순서·게이트·출력만 담는다
+  wiki-maintainer/       위키 운영 보강 (1원칙: 위키의 AGENTS.md를 따르라) — 모델 전용
+  source-extract/        소스 추출 레시피(단일 소스) + scripts/ 3개 — 모델 전용
 templates/               /wiki-init이 렌더링하는 위키 스캐폴드 원본 (AGENTS.md.tmpl이 심장)
 tests/                   pytest (결정적 로직만, 네트워크 불필요) + fixtures/
 docs/superpowers/        설계 스펙·구현 계획
@@ -28,10 +29,11 @@ README.md ARCHITECTURE.md LICENSE
 
 ## 수정 규칙
 
-- **커맨드는 4개를 유지한다.** 신규 기능은 커맨드 추가가 아니라 스킬 지시문 또는 AGENTS.md 스키마로 흡수를 먼저 검토한다.
-- 커맨드에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`, 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
+- **슬래시 커맨드(워크플로 스킬)는 4개를 유지한다.** 신규 기능은 커맨드 추가가 아니라 스킬 지시문 또는 AGENTS.md 스키마로 흡수를 먼저 검토한다. 보조 스킬은 `user-invocable: false`로 슬래시 메뉴에서 숨긴다(`tests/test_skills.py`가 검사).
+- 커맨드는 `commands/`가 아니라 `skills/<이름>/SKILL.md`에 둔다(공식 권장 형식, `name`은 디렉토리명과 동일). `commands/`에 같은 이름을 만들지 않는다 — 충돌 동작이 문서화돼 있지 않다.
+- 워크플로 스킬에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`, 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
 - 스크립트 출력 경계(stdout·캐시만)를 절대 넘지 않는다. 서드파티 의존은 지연 임포트(테스트가 의존 없이 순수 함수를 로드한다).
-- **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커 `schema_version`을 증가시키고, `commands/wiki-init.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
+- **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커 `schema_version`을 증가시키고, `skills/wiki-init/SKILL.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
 - 문서 동기화: 원칙·구조 변경 시 README.md와 ARCHITECTURE.md를 같은 변경에서 함께 수정한다.
 
 ## 테스트 절차
