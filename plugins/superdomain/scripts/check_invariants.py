@@ -1,6 +1,6 @@
 """불변식 ↔ 테스트 태그 대조 검사기 — domain 문서의 confirmed 항목이 코드로 강제되는지 본다.
 
-**exit 계약: 0 = 위반 없음, 1 = 위반 발견(또는 검사 불능), 2 = 해석 불가 또는 사용법 오류.**
+**exit 계약: 0 = 위반 없음, 1 = 위반 발견(또는 검사 불능), 2 = 해석 불가·배치 오류 또는 사용법 오류.**
 `check_imports.py`와 같은 의미다 — 1은 정상 판정 결과이고, 검사 자체가 성립하지 않은 경우만
 2로 나간다. 다만 '검사 불능'(테스트 소스 0건)만은 판정을 내리지 못했는데도 1로 나가는데,
 그것이 도메인 문서 표준 §4.4가 못박은 값이다: 태그가 있을 수 없는 환경에서 '위반 없음'은
@@ -39,16 +39,12 @@ from pathlib import Path
 # 소스 트리 관례(걷지 않는 디렉터리·소스 확장자)는 check_imports가 정본이다. 두 검사기가 서로
 # 다른 파일 집합을 걸으면 한쪽이 본 생성물 사본의 태그가 다른 쪽 판정을 뒤집는다.
 from check_imports import SKIP_DIRS, SOURCE_SUFFIXES, SRC_DIR
+# 산출물 경로의 정본. 컨텍스트 문서의 자리를 여기서 다시 적지 않는다.
+from layout import CONTEXTS_RELATIVE, DOMAIN_RELATIVE, LayoutError, from_domain_path
 # 컨텍스트·프로젝트 경로의 정본 파서. 패키지 패턴을 쓰지 않으므로 context_packages()는 부르지
-# 않는다 — 태그 스캔의 범위는 패키지가 아니라 프로젝트 경로 아래 테스트 디렉터리다(domain-doc-template.md §4.4).
-# 오류 줄(`경로:라인: 메시지`)의 조립도 이 모듈이 정본이다 — 저장소에 한 벌만 둔다.
+# 않는다 — 태그 스캔의 범위는 패키지가 아니라 프로젝트 경로 아래 테스트 디렉터리다
+# (domain-doc-template.md §4.4). 오류 줄(`경로:라인: 메시지`)의 조립도 이 모듈이 정본이다.
 from parse_domain import LocatedError, format_error, parse_domain
-
-DOMAIN_SUBDIR = "docs/domain"                       # DOMAIN.md 디렉터리 기준(§2)
-# 단일 컨텍스트 전용 통합 배치(§2). **SSOT인 루트 `DOMAIN.md`와 다른 문서다** — 저쪽은 컨텍스트
-# 경계의 선언이고 이쪽은 그 컨텍스트의 불변식·애그리거트다. 이름을 나누는 규약은 "나누면
-# 디렉터리(`docs/domain/<컨텍스트>.md`), 합치면 파일 하나(`docs/domain.md`)"다.
-CONSOLIDATED_DOC = "docs/domain.md"
 
 ID_PREFIX = "INV-"
 PROPOSED = "proposed"
@@ -85,7 +81,7 @@ class Invariant:
     context: str
     description: str
     status: str
-    path: str        # 리포트에 쓰는 경로 — DOMAIN.md의 디렉터리 기준 상대경로
+    path: str        # 리포트에 쓰는 경로 — 프로젝트 루트 기준 상대경로
     line: int
 
 
@@ -133,19 +129,12 @@ class Report:
 class _Doc:
     path: Path
     display: str
-    context: str     # 파일명이 못박는 컨텍스트("" = 통합 배치 — 파일명 제약이 없다)
+    context: str     # 파일명이 못박는 컨텍스트
 
 
 # ---------------------------------------------------------------------------
 # 표 파싱 — 정본 §4.1
 # ---------------------------------------------------------------------------
-
-def _display(path, base) -> str:
-    try:
-        return path.relative_to(base).as_posix()
-    except ValueError:
-        return path.as_posix()
-
 
 def _table_rows(text) -> tuple:
     """(데이터 행, 표를 찾았는가). 행은 (1-기준 라인 번호, 원문)이다.
@@ -220,16 +209,18 @@ def _resolve_context(invariant_id, contexts) -> tuple:
 # 문서 발견 — 정본 §2 · §4.4
 # ---------------------------------------------------------------------------
 
-def _discover(base, contexts, target, report) -> list:
-    """읽을 도메인 문서 목록. 배치 오류와 드리프트 경고를 여기서 낸다.
+def _discover(layout, contexts, target, report) -> list:
+    """읽을 도메인 문서 목록. 드리프트 경고를 여기서 낸다.
 
-    `--context`는 **수집 코퍼스**만 좁힌다. 배치 오류와 미선언 문서 경고는 좁히지 않는다 —
-    찾는 문서가 안 보이는 이유가 바로 그 파일명 오타일 수 있기 때문이다.
+    컨텍스트 문서의 자리는 `docs/superdomain/contexts/<컨텍스트>.md` 하나뿐이다 — 컨텍스트가
+    하나여도 같다(0.2.x의 통합 배치 파일은 없어졌고, 남아 있으면 layout이 막는다).
+
+    `--context`는 **수집 코퍼스**만 좁힌다. 미선언 문서 경고는 좁히지 않는다 — 찾는 문서가 안
+    보이는 이유가 바로 그 파일명 오타일 수 있기 때문이다.
     """
-    domain_dir = base / DOMAIN_SUBDIR
     declared, stray = {}, []
-    if domain_dir.is_dir():
-        for path in sorted(domain_dir.glob("*.md")):
+    if layout.contexts_dir.is_dir():
+        for path in sorted(layout.contexts_dir.glob("*.md")):
             if path.stem in contexts:
                 declared[path.stem] = path
             else:
@@ -238,46 +229,19 @@ def _discover(base, contexts, target, report) -> list:
     for path in stray:
         # 표가 있든 없든 낸다. 거버넌스 밖 파일이므로 불변식은 수집하지 않는다(§4.4).
         report.warnings.append(InvariantWarning(
-            _display(path, base), 0, STRAY_DOC, "",
+            layout.display(path), 0, STRAY_DOC, "",
             f"'{path.stem}'은(는) DOMAIN.md에 선언된 컨텍스트가 아닙니다 — 이 문서의 "
             f"불변식은 수집하지 않습니다(컨텍스트를 지웠거나 파일명 오타입니다)."))
 
-    consolidated = base / CONSOLIDATED_DOC
-    present = set(declared)
-    docs = []
-    if consolidated.is_file():
-        display = _display(consolidated, base)
-        if len(contexts) >= 2:
-            report.errors.append(LocatedError(
-                0,
-                f"컨텍스트가 {len(contexts)}개 선언됐는데 통합 배치 '{CONSOLIDATED_DOC}'가 "
-                f"있습니다 — 통합 배치는 단일 컨텍스트 전용입니다(도메인 문서 표준 §2). "
-                f"컨텍스트별로 '{DOMAIN_SUBDIR}/<컨텍스트>.md'로 나눠 옮기세요.",
-                display))
-        elif contexts and contexts[0] in declared:
-            present.add(contexts[0])
-            report.errors.append(LocatedError(
-                0,
-                f"컨텍스트 '{contexts[0]}'의 도메인 문서가 "
-                f"'{DOMAIN_SUBDIR}/{contexts[0]}.md'와 '{CONSOLIDATED_DOC}' 양쪽에 있습니다 — "
-                f"중복 배치입니다(§2). 어느 쪽이 진짜인지 정하는 규칙은 없으므로 한쪽을 지우세요.",
-                display))
-            declared.pop(contexts[0])       # 어느 쪽도 코퍼스에 넣지 않는다
-        else:
-            if contexts:
-                present.add(contexts[0])
-            docs.append(_Doc(consolidated, display, contexts[0] if contexts else ""))
-
-    docs += [_Doc(path, _display(path, base), name)
-             for name, path in sorted(declared.items())]
+    docs = [_Doc(path, layout.display(path), name) for name, path in sorted(declared.items())]
     if target is not None:
-        docs = [doc for doc in docs if (doc.context or target) == target]
+        docs = [doc for doc in docs if doc.context == target]
 
     for name in contexts:
-        if (target is None or name == target) and name not in present:
+        if (target is None or name == target) and name not in declared:
             report.notices.append(
                 f"고지: 컨텍스트 '{name}'의 도메인 문서가 없습니다"
-                f"({DOMAIN_SUBDIR}/{name}.md) — 불변식 0건")
+                f"({CONTEXTS_RELATIVE}/{name}.md) — 불변식 0건")
     return docs
 
 
@@ -315,7 +279,7 @@ def _collect(doc, contexts, report) -> None:
         if context is None:
             fail(line, f"불변식 ID '{invariant_id}': {reason}.")
             continue
-        if doc.context and context != doc.context:
+        if context != doc.context:
             fail(line, f"불변식 ID '{invariant_id}'의 컨텍스트 '{context}'가 파일명 컨텍스트 "
                        f"'{doc.context}'와 다릅니다 — 문서를 잘못 찾아 들어간 항목입니다(§4.4).")
             continue
@@ -359,7 +323,7 @@ def _is_test_path(parts) -> bool:
     return False
 
 
-def _scan_tags(base, projects, report) -> None:
+def _scan_tags(layout, projects, report) -> None:
     """선언된 프로젝트 경로 아래 테스트 소스에서 `@Tag("INV-...")` 리터럴을 모은다.
 
     **범위를 정하는 것은 경로 관례뿐이다.** 구 템플릿에는 `- 아키텍처 테스트 위치:` 라벨이 있어
@@ -380,7 +344,7 @@ def _scan_tags(base, projects, report) -> None:
     # 관측 건수가 부풀고 고아 태그 경고가 중복된다.
     scanned = set()
     for project in projects:
-        root = Path(os.path.normpath(base / project.path))
+        root = Path(os.path.normpath(layout.root / project.path))
         if not root.is_dir():
             continue
 
@@ -396,7 +360,7 @@ def _scan_tags(base, projects, report) -> None:
                 if path in scanned:
                     continue
                 scanned.add(path)
-                display = _display(path, base)
+                display = layout.display(path)
                 report.test_sources += 1
                 try:
                     text = path.read_text(encoding="utf-8-sig")
@@ -461,14 +425,15 @@ def check(domain_path, context=None) -> Report:
 
     **호출자는 report.errors가 비었는지 먼저 확인해야 한다.** 오류가 있으면 코퍼스 자체가
     불완전하므로 위반 목록은 '클린'과 다른 상태다. `report.blocked`도 같은 뜻으로 먼저
-    본다 — 대조를 하지 못한 실행의 빈 위반 목록은 위반 없음이 아니다.
+    본다 — 대조를 하지 못한 실행의 빈 위반 목록은 위반 없음이 아니다. 배치가 틀리면(옛 배치
+    포함) `LayoutError`를 던진다.
     """
+    layout = from_domain_path(domain_path)
     report = Report()
-    path = Path(domain_path)
     path_text = str(domain_path)
 
     # 읽기 실패도 `parse_domain`이 오류 하나로 돌려준다 — 해석의 입구를 두 곳에 두지 않는다.
-    domain = parse_domain(path)
+    domain = parse_domain(domain_path)
     if domain.errors:
         # 컨텍스트 집합을 못 믿으면 ID의 최장 일치도 못 믿는다 — 여기서 멈춘다.
         report.errors.extend(LocatedError(e.line, e.message, path_text) for e in domain.errors)
@@ -483,10 +448,9 @@ def check(domain_path, context=None) -> Report:
             path_text))
         return report
 
-    base = path.resolve().parent
-    for doc in _discover(base, contexts, context, report):
+    for doc in _discover(layout, contexts, context, report):
         _collect(doc, contexts, report)
-    _scan_tags(base, domain.projects, report)
+    _scan_tags(layout, domain.projects, report)
 
     report.invariants.sort(key=lambda item: (item.path, item.line))
     report.tags.sort(key=lambda tag: (tag.path, tag.line, tag.id))
@@ -548,7 +512,7 @@ def _payload(report) -> dict:
 
 
 def _usage() -> int:
-    print("사용법: python3 check_invariants.py <DOMAIN.md 경로> "
+    print(f"사용법: python3 check_invariants.py <프로젝트 루트>/{DOMAIN_RELATIVE} "
           "[--context <이름>] [--json]", file=sys.stderr)
     return 2
 
@@ -569,7 +533,11 @@ def main(argv) -> int:
         return _usage()
 
     path = args[0]
-    report = check(path, context)
+    try:
+        report = check(path, context)
+    except LayoutError as error:
+        print(error, file=sys.stderr)
+        return 2
     if report.errors:
         for error in sorted(report.errors,
                             key=lambda e: (getattr(e, "path", "") or path, e.line)):
