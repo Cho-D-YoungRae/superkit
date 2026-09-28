@@ -23,6 +23,14 @@ FIXTURES = TESTS_DIR / "fixtures" / "domain"
 SCRIPT = ROOT / "scripts" / "parse_domain.py"
 
 MINIMAL = (FIXTURES / "minimal.md").read_text(encoding="utf-8")
+TEMPLATE = ROOT / "references" / "governance" / "domain-template.md"
+
+
+def canonical_skeleton():
+    """정본 §2의 스켈레톤을 그대로 떼어 온다 — 픽스처를 손으로 베끼지 않는다."""
+    lines = TEMPLATE.read_text(encoding="utf-8").split("\n")
+    start = lines.index("```markdown") + 1
+    return "\n".join(lines[start:lines.index("```", start)]) + "\n"
 
 
 class DomainTextCase(unittest.TestCase):
@@ -783,6 +791,15 @@ class TestPublicSurface(unittest.TestCase):
         # 소비자가 `except LocatedError as e: print(e)`를 써도 사용자에게 튜플이 보이면 안 된다.
         self.assertEqual(str(LocatedError(3, "메시지", "DOMAIN.md")), "DOMAIN.md:3: 메시지")
         self.assertEqual(str(LocatedError(3, "메시지")), "3: 메시지")
+
+
+class TestCanonicalSkeleton(DomainTextCase):
+    """domain-template §2는 "그대로 복사해 파서를 통과하는 블록"이라고 약속한다."""
+
+    def test_skeleton_parses_without_errors(self):
+        d = self._parse_text(canonical_skeleton())
+        self.assertEqual(self._messages(d), [])
+        self.assertEqual((len(d.projects), len(d.contexts)), (2, 3))
 
 
 class TestCli(DomainTextCase):
