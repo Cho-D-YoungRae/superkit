@@ -96,7 +96,7 @@ mkdir my-wiki && cd my-wiki && claude
 
 **왜 MCP 서버가 없나?** 상태가 전부 파일시스템(마크다운·YAML)에 있고, 규약은 `AGENTS.md`로 에이전트 컨텍스트에 직접 로드된다. 프로토콜 서버·상주 프로세스가 낄 자리가 없으며, 이는 위키의 이식성(어느 에이전트에서든 동작)을 위한 의도된 설계다.
 
-**Codex(다른 에이전트)에서 쓰려면?** 위키는 그대로 동작한다 — Codex는 `AGENTS.md` 표준을 읽는다. 플러그인 커맨드 대신 스크립트를 직접 실행하면 된다: `uv run skills/source-extract/scripts/yt_transcript.py <URL>` 등(PEP 723 단독 실행).
+**Codex(다른 에이전트)에서 쓰려면?** 위키는 그대로 동작한다 — Codex는 `AGENTS.md` 표준을 읽는다. 플러그인 커맨드 대신, 이 플러그인 저장소를 클론해 둔 경로의 스크립트를 직접 실행하면 된다(위키 저장소 안에는 스크립트가 없다): `uv run <클론 경로>/skills/source-extract/scripts/yt_transcript.py <URL>` 등(PEP 723 단독 실행).
 
 **자막 없는 유튜브 영상은?** 지원 범위 외다(exit 2로 안내). Whisper 같은 음성 인식은 넣지 않았다 — 영상 설명란·발표 자료·관련 글을 대신 인제스트하라.
 

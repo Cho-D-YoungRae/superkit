@@ -8,7 +8,7 @@ disallowed-tools: ["Write", "Edit", "NotebookEdit"]
 
 **어떤 파일도 만들거나 수정하지 않는다. log 기록도 하지 않는다.**
 
-1. 현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다.
+1. 현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 이후 모든 Bash 명령은 `cd "<위키 루트>" && …` 형태로 실행한다.
 2. 최근 활동: `grep '^## \[' wiki/log.md | tail -n 10`
 3. 통계:
 

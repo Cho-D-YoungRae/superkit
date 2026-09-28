@@ -7,7 +7,7 @@ description: 위키 정합성 점검 — 기계 검사(wiki_check) + LLM 판단 
 
 ## 1. 위키 루트
 
-현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다.
+현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다. 이후 모든 Bash 명령은 `cd "<위키 루트>" && …` 형태로 실행하고 파일 경로는 위키 루트 기준으로 쓴다.
 
 ## 2. 기계 검사
 
