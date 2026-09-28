@@ -123,6 +123,51 @@ summary: 레벨3 헤딩 위장 문서
         docs, errors = scan_knowledge(d)
         self.assertEqual(errors, [])
 
+    def _doc(self, body, read_when="[review]"):
+        return f"---\nsummary: 요약\nread_when: {read_when}\n---\n{body}"
+
+    def test_empty_mature_sections_stay_draft(self):
+        # 템플릿의 빈 절을 그대로 남긴 문서가 성숙으로 등재되면 draft 장치가 우회된다.
+        d = self._make({"tactical/x.md": self._doc("\n## 적용 기준\n\n## 규칙\n")})
+        docs, errors = scan_knowledge(d)
+        self.assertEqual(errors, [])
+        self.assertTrue(docs[0].draft)
+
+    def test_subheading_only_section_stays_draft(self):
+        body = "\n## 적용 기준\n### 세부\n\n## 규칙\n- r\n"
+        docs, _ = scan_knowledge(self._make({"tactical/x.md": self._doc(body)}))
+        self.assertTrue(docs[0].draft)
+
+    def test_comment_only_section_stays_draft(self):
+        # knowledge-doc-template §8의 자리표시는 HTML 주석이다 — 그대로 복사한 문서는 draft여야 한다.
+        body = "\n## 적용 기준\n<!-- 언제 쓰는가 -->\n\n## 규칙\n<!-- 체크리스트 -->\n"
+        docs, _ = scan_knowledge(self._make({"tactical/x.md": self._doc(body)}))
+        self.assertTrue(docs[0].draft)
+
+    def test_body_under_a_subsection_counts(self):
+        body = "\n## 적용 기준\n### 세부\n- 항목\n\n## 규칙\n- r\n"
+        docs, _ = scan_knowledge(self._make({"tactical/x.md": self._doc(body)}))
+        self.assertFalse(docs[0].draft)
+
+    def test_scalar_read_when_is_error(self):
+        # 스칼라는 문자열로 저장되어 INDEX에 'r, e, v, i, e, w'로 등재됐다(2026-09-26 재현).
+        d = self._make({"tactical/x.md": self._doc("\n## 규칙\n- r\n", read_when="review")})
+        docs, errors = scan_knowledge(d)
+        self.assertTrue(any("x.md" in e and "read_when" in e for e in errors), errors)
+        self.assertEqual(docs, [])
+
+    def test_unknown_read_when_value_is_error(self):
+        d = self._make({"tactical/x.md": self._doc("\n## 규칙\n- r\n",
+                                                   read_when="[review, deploy]")})
+        docs, errors = scan_knowledge(d)
+        self.assertTrue(any("deploy" in e for e in errors), errors)
+
+    def test_empty_read_when_is_allowed(self):
+        d = self._make({"tactical/x.md": "---\nsummary: 요약\nread_when:\n---\n본문\n"})
+        docs, errors = scan_knowledge(d)
+        self.assertEqual(errors, [])
+        self.assertEqual(docs[0].read_when, [])
+
 
 class TestRenderIndex(unittest.TestCase):
     def test_header_present_and_empty_body_valid(self):
