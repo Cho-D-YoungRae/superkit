@@ -11,17 +11,29 @@ usage: uv run wiki_check.py [--format md|json] [--stats]
 frontmatter / source-missing / collision / log-format
 --stats: 타입별 페이지 수·소스 수·log 항목 수·마지막 lint 날짜만 출력(검사 생략).
 
-exit: 0 clean / 1 findings 또는 오류
+링크 판정:
+- 코드(``` · ~~~ 펜스 블록, 인라인 코드) 안의 링크와 외부 타깃(URI 스킴 https:·obsidian: 등, //, #앵커)은
+  검사하지 않는다.
+- 위키링크는 옵시디언처럼 볼트(위키 루트) 전체 파일에서 대소문자 무시로 찾는다 — [[name]]·[[name.md]]·
+  [[folder/name]](경로 접미사)·![[file.png]]·./·../ 상대 경로, #헤딩·#^블록·|별칭 허용.
+  '.'으로 시작하는 경로(.git·.obsidian·.llm-wiki·raw/.cache 등)는 옵시디언처럼 색인하지 않는다.
+- wiki/log.md(append-only)와 wiki/reports/**(lint 리포트)는 과거 시점의 기록이다. 이후 retire 등으로 링크가
+  깨져도 고칠 수 없으므로 broken-link·link-style 검사에서 빼고, 고아 판정의 인바운드로도 치지 않는다
+  (기록에 언급됐다고 페이지가 탐색 가능해지지는 않는다). index.md도 인바운드에서 빼고, overview.md는 센다.
+
+exit: 0 clean / 1 findings 또는 오류(사용법 오류 포함)
 """
 from __future__ import annotations
 
 import argparse
 import datetime as _dt
 import json
+import posixpath
 import re
 import sys
 import urllib.parse
 from pathlib import Path
+from typing import NoReturn
 
 import yaml
 
@@ -32,11 +44,17 @@ REQUIRED_FIELDS = ("type", "title", "sources", "created", "updated")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FRONTMATTER_RE = re.compile(r"^---\r?\n(.*?)\r?\n---\r?\n?", re.S)
 MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
+# [[...]] 안쪽 전체(![[임베드]] 포함) — 경로만 남기는 건 wikilink_target
+WIKILINK_RE = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 LOG_HEADING_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (init|ingest|query|lint|retire) \| .+$")
 LOG_ENTRY_RE = re.compile(r"^## \[", re.M)
 LINT_REPORT_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-lint\.md$")
-EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "#")
+# 외부 타깃: URI 스킴(https:·mailto:·obsidian: …)·프로토콜 상대(//host)·같은 페이지 앵커(#…)
+EXTERNAL_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//|#)")
+# 펜스 줄: 백틱 또는 물결 3개 이상 + 정보 문자열
+FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+# 인라인 코드 스팬: 여는 백틱 열과 길이가 같은 백틱 열이 닫는다(한 줄 안). \`는 이스케이프라 열지 않는다
+INLINE_CODE_RE = re.compile(r"(?<![`\\])(`+)(?!`).*?(?<!`)\1(?!`)")
 
 
 def find_wiki_root(start: Path) -> Path | None:
@@ -66,25 +84,41 @@ def parse_frontmatter(text: str) -> tuple[dict | None, str]:
 
 
 def strip_code_fences(text: str) -> str:
+    """펜스 코드 블록(``` · ~~~)을 지운다. 닫는 펜스는 여는 펜스와 같은 문자·같거나 긴 길이이고 뒤에 공백만
+    올 수 있다(CommonMark). 닫히지 않은 펜스는 문서 끝까지 코드다. 들여쓰기 칸 수는 제한하지 않는다 —
+    리스트 안의 펜스는 문서 기준 4칸 이상 들여써지는데, 리스트 컨테이너를 파싱하지 않기 때문이다."""
     out: list[str] = []
-    in_fence = False
+    fence = ""  # 열린 펜스 문자열(예: "````") — 빈 문자열이면 펜스 밖
     for line in text.splitlines():
-        if line.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if not in_fence:
-            out.append(line)
+        m = FENCE_RE.match(line)
+        if not fence:
+            # 백틱 펜스의 정보 문자열엔 백틱이 올 수 없다 — 한 줄짜리 ```x```는 인라인 코드
+            if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+                fence = m.group(1)
+            else:
+                out.append(line)
+        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip():
+            fence = ""
     return "\n".join(out)
 
 
+def strip_inline_code(text: str) -> str:
+    """인라인 코드 스팬(`x`, ``x`y``)을 지운다 — 코드 안의 링크 예시는 링크가 아니다."""
+    return INLINE_CODE_RE.sub(" ", text)
+
+
+def wikilink_target(inner: str) -> str:
+    """[[...]] 안쪽에서 링크 경로만 남긴다 — |별칭·#헤딩·#^블록을 떼고, 표 안의 \\| 이스케이프도 처리한다.
+    빈 문자열이면 같은 페이지 링크([[#헤딩]])다."""
+    return inner.split("|", 1)[0].split("#", 1)[0].strip().rstrip("\\").strip()
+
+
 def extract_links(body: str) -> tuple[list[str], list[str]]:
-    """본문에서 (마크다운 링크 타깃, 위키링크 stem) 목록을 뽑는다."""
-    text = strip_code_fences(body)
-    md_targets = [
-        t for _, t in MD_LINK_RE.findall(text) if not t.startswith(EXTERNAL_PREFIXES)
-    ]
-    wiki_stems = [s.strip() for s in WIKILINK_RE.findall(text) if s.strip()]
-    return md_targets, wiki_stems
+    """본문에서 (내부 마크다운 링크 타깃, 위키링크 경로) 목록을 뽑는다. 코드 안의 링크·외부 타깃은 뺀다."""
+    text = strip_inline_code(strip_code_fences(body))
+    md_targets = [t for _, t in MD_LINK_RE.findall(text) if not EXTERNAL_RE.match(t)]
+    wiki_targets = [t for inner in WIKILINK_RE.findall(text) if (t := wikilink_target(inner))]
+    return md_targets, wiki_targets
 
 
 def resolve_md_target(page: Path, target: str, root: Path) -> Path:
@@ -92,6 +126,36 @@ def resolve_md_target(page: Path, target: str, root: Path) -> Path:
     if target.startswith("/"):
         return (root / target.lstrip("/")).resolve()
     return (page.parent / target).resolve()
+
+
+def build_vault_index(root: Path) -> dict[str, list[tuple[str, Path]]]:
+    """볼트(위키 루트) 파일을 소문자 파일명 → [(소문자 상대 경로, 경로)]로 색인한다.
+    옵시디언처럼 '.'으로 시작하는 경로 구성요소(.git·.obsidian·.llm-wiki·raw/.cache 등)는 건너뛴다."""
+    vault: dict[str, list[tuple[str, Path]]] = {}
+    for dirpath, dirnames, filenames in root.walk():
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        for name in sorted(filenames):
+            if not name.startswith("."):
+                path = dirpath / name
+                vault.setdefault(name.lower(), []).append((path.relative_to(root).as_posix().lower(), path))
+    return vault
+
+
+def resolve_wikilink(page: Path, target: str, root: Path, vault: dict[str, list[tuple[str, Path]]]) -> list[Path]:
+    """위키링크 경로(wikilink_target 결과)를 옵시디언처럼 볼트 파일로 해석한다. 대소문자 무시, 못 찾으면 [].
+    - [[name]]·[[name.md]]는 파일명, [[folder/name]]·[[wiki/entities/name]]은 '/' 경계의 경로 접미사로 찾는다.
+    - 확장자 없이 쓰면 .md 노트도 찾는다. 비-md 파일(![[diagram.png]])은 확장자까지 써야 한다.
+    - ./ · ../로 시작하면 링크한 페이지 기준 상대 경로다(옵시디언 '상대 경로' 링크 형식)."""
+    t = target.lower()
+    relative = t.startswith(("./", "../"))
+    if relative:
+        t = posixpath.normpath(posixpath.join(page.parent.relative_to(root).as_posix().lower(), t))
+    found: list[Path] = []
+    for cand in (t, f"{t}.md"):
+        for rel, path in vault.get(cand.rsplit("/", 1)[-1], []):
+            if rel == cand or (not relative and rel.endswith(f"/{cand}")):
+                found.append(path)
+    return found
 
 
 def _rel(path: Path, root: Path) -> str:
@@ -114,11 +178,10 @@ class Checker:
             dir_path = self.wiki_dir / d
             if dir_path.is_dir():
                 self.pages.extend(sorted(dir_path.glob("*.md")))
-        # wiki/ 전체 md (인바운드·stem 계산용)
+        # wiki/ 전체 md (링크 검사·인바운드 계산용)
         self.all_wiki_md: list[Path] = sorted(self.wiki_dir.rglob("*.md")) if self.wiki_dir.is_dir() else []
-        self.stems: dict[str, list[Path]] = {}
-        for p in self.all_wiki_md:
-            self.stems.setdefault(p.stem, []).append(p)
+        # 볼트 전체 파일 색인 (위키링크 해석용)
+        self.vault = build_vault_index(root)
         # 페이지별 frontmatter·본문 캐시
         self.parsed: dict[Path, tuple[dict | None, str]] = {}
         for p in self.all_wiki_md:
@@ -128,6 +191,10 @@ class Checker:
         self.findings.append(
             {"check": check, "severity": severity, "file": _rel(file, self.root), "message": message}
         )
+
+    def is_record(self, p: Path) -> bool:
+        """log.md·reports/**는 과거 시점의 기록 — 링크 검사와 고아 인바운드 계산에서 뺀다."""
+        return p == self.wiki_dir / "log.md" or p.is_relative_to(self.wiki_dir / "reports")
 
     def run(self) -> list[dict]:
         self.check_links_and_style()
@@ -139,45 +206,47 @@ class Checker:
         self.check_log()
         return self.findings
 
-    # ① 깨진 링크 + config.link_style 불일치
+    # ① 깨진 링크 + config.link_style 불일치 (log·reports 기록은 당시 상태 그대로 두므로 제외)
     def check_links_and_style(self) -> None:
         index_path = self.wiki_dir / "index.md"
         for p in self.all_wiki_md:
+            if self.is_record(p):
+                continue
             _, body = self.parsed[p]
-            md_targets, wiki_stems = extract_links(body)
-            if p != index_path:  # index의 md 링크는 index-ghost가 담당
+            md_targets, wiki_targets = extract_links(body)
+            if p != index_path:  # index의 링크는 index-ghost가 담당(중복 보고 방지)
                 for t in md_targets:
                     resolved = resolve_md_target(p, t, self.root)
                     if not resolved.exists():
                         self.add("broken-link", "error", p, f"깨진 마크다운 링크: {t}")
-            for s in wiki_stems:
-                if s not in self.stems:
-                    self.add("broken-link", "error", p, f"깨진 위키링크: [[{s}]]")
-            if self.link_style == "markdown" and wiki_stems:
+                for t in wiki_targets:
+                    if not resolve_wikilink(p, t, self.root, self.vault):
+                        self.add("broken-link", "error", p, f"깨진 위키링크: [[{t}]]")
+            if self.link_style == "markdown" and wiki_targets:
                 self.add("link-style", "warning", p, "config.link_style=markdown인데 위키링크 사용")
             elif self.link_style == "wikilink" and md_targets:
                 internal = [t for t in md_targets if t.endswith(".md")]
                 if internal:
                     self.add("link-style", "warning", p, "config.link_style=wikilink인데 마크다운 내부 링크 사용")
 
-    # ② 고아 페이지 (index 제외 인바운드 0)
+    # ② 고아 페이지 (index·log·reports 제외 인바운드 0)
     def check_orphans(self) -> None:
         index_path = self.wiki_dir / "index.md"
         inbound: set[Path] = set()
         for p in self.all_wiki_md:
-            if p == index_path:
+            if p == index_path or self.is_record(p):
                 continue
             _, body = self.parsed[p]
-            md_targets, wiki_stems = extract_links(body)
+            md_targets, wiki_targets = extract_links(body)
             for t in md_targets:
                 inbound.add(resolve_md_target(p, t, self.root))
-            for s in wiki_stems:
-                for target in self.stems.get(s, []):
+            for t in wiki_targets:
+                for target in resolve_wikilink(p, t, self.root, self.vault):
                     if target != p:
                         inbound.add(target.resolve())
         for page in self.pages:
             if page.resolve() not in inbound:
-                self.add("orphan", "warning", page, "다른 페이지로부터의 인바운드 링크 없음(index 제외 기준)")
+                self.add("orphan", "warning", page, "다른 페이지로부터의 인바운드 링크 없음(index·log·reports 제외 기준)")
 
     # ③ index ↔ 실제 파일 정합
     def check_index(self) -> None:
@@ -186,19 +255,19 @@ class Checker:
             self.add("index-missing", "error", index_path, "wiki/index.md가 없음")
             return
         _, body = self.parsed[index_path]
-        md_targets, wiki_stems = extract_links(body)
+        md_targets, wiki_targets = extract_links(body)
         listed: set[Path] = set()
         for t in md_targets:
             resolved = resolve_md_target(index_path, t, self.root)
             listed.add(resolved)
             if not resolved.exists():
                 self.add("index-ghost", "error", index_path, f"index가 없는 파일을 가리킴: {t}")
-        for s in wiki_stems:
-            targets = self.stems.get(s, [])
+        for t in wiki_targets:
+            targets = resolve_wikilink(index_path, t, self.root, self.vault)
             if targets:
-                listed.update(t.resolve() for t in targets)
+                listed.update(x.resolve() for x in targets)
             else:
-                self.add("index-ghost", "error", index_path, f"index가 없는 파일을 가리킴: [[{s}]]")
+                self.add("index-ghost", "error", index_path, f"index가 없는 파일을 가리킴: [[{t}]]")
         for page in self.pages:
             if page.resolve() not in listed:
                 self.add("index-missing", "warning", index_path, f"index에 누락된 페이지: {_rel(page, self.root)}")
@@ -342,8 +411,16 @@ def format_stats_md(stats: dict) -> str:
     )
 
 
+class _Parser(argparse.ArgumentParser):
+    """사용법 오류는 exit 1 — argparse 기본값(2)은 플러그인 스크립트의 exit 2(도메인 특수상황) 규약과 충돌한다."""
+
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        self.exit(1, f"{self.prog}: 오류: {message}\n")
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="llm-wiki 결정적 lint (읽기 전용)")
+    parser = _Parser(description="llm-wiki 결정적 lint (읽기 전용)")
     parser.add_argument("--format", choices=("md", "json"), default="md")
     parser.add_argument("--stats", action="store_true", help="검사 없이 통계만 출력")
     args = parser.parse_args(argv)
