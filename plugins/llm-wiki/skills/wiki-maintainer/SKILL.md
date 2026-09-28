@@ -23,6 +23,7 @@ user-invocable: false
   ```
 
 - 통계: 같은 스크립트에 `--stats` (타입별 페이지 수·소스 수·마지막 lint 날짜).
+- 미인제스트 원본: 같은 스크립트에 `--pending` (log에 sha가 없는 `raw/sources/` 파일 — 인자 없는 `/llm-wiki:wiki-ingest`가 처리한다).
 - 소스 추출(유튜브 자막·장문 PDF 분할·웹 저장·로컬 복사): `llm-wiki:source-extract` 스킬의 레시피를 따른다.
 - 정형 워크플로는 슬래시 커맨드(워크플로 스킬)로: 인제스트 `/llm-wiki:wiki-ingest`, 정합성 점검 `/llm-wiki:wiki-lint`, 현황 `/llm-wiki:wiki-status`, 스키마 업그레이드 `/llm-wiki:wiki-init`.
 

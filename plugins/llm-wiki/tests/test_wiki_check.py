@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -381,3 +383,121 @@ def test_usage_error_exits_one(wiki_check):
     with pytest.raises(SystemExit) as exc:
         wiki_check.main(["--bogus"])
     assert exc.value.code == 1
+
+
+def test_markdown_self_link_is_not_inbound(wiki_check, wiki):
+    _add_lonely_page(wiki)
+    _append(wiki / "wiki" / "concepts" / "lonely.md", "[나 자신](lonely.md), [섹션](./lonely.md#본문)\n")
+    code, findings = findings_of(wiki_check, wiki)
+    assert any(f["check"] == "orphan" and "lonely.md" in f["file"] for f in findings)
+
+
+# --- raw/sources 원본 드리프트: raw-unreferenced · log-sha · --pending ---
+
+# `printf '# note\n' | shasum -a 256 | cut -c1-12` — 픽스처 원본의 실제 sha12(픽스처 log엔 abc123def456)
+NOTE_SHA12 = "4874464a2b14"
+NEW_SHA12 = "a9e3182e383f"  # `printf '# new\n' | shasum -a 256 | cut -c1-12`
+
+
+def _sha12(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+def test_raw_unreferenced_not_ingested(wiki_check, wiki):
+    (wiki / "raw" / "sources" / "2026-07-28-new.md").write_text("# new\n", encoding="utf-8")
+    code, findings = findings_of(wiki_check, wiki)
+    assert code == 1
+    assert findings == [
+        {
+            "check": "raw-unreferenced",
+            "severity": "warning",
+            "file": "raw/sources/2026-07-28-new.md",
+            "message": "미인제스트 원본(log에 sha 기록 없음) — /llm-wiki:wiki-ingest 대상",
+        }
+    ]
+
+
+def test_raw_unreferenced_ingested_but_not_in_any_sources(wiki_check, wiki):
+    (wiki / "raw" / "sources" / "2026-07-28-new.md").write_text("# new\n", encoding="utf-8")
+    _append(wiki / "wiki" / "log.md", f"\n## [2026-07-28] ingest | 새 노트\n\nsha: {NEW_SHA12}\n")
+    code, findings = findings_of(wiki_check, wiki)
+    assert code == 1
+    assert findings == [
+        {
+            "check": "raw-unreferenced",
+            "severity": "warning",
+            "file": "raw/sources/2026-07-28-new.md",
+            "message": f"인제스트 기록(sha: {NEW_SHA12})은 있으나 어느 페이지 sources[]에도 없음",
+        }
+    ]
+
+
+def test_raw_sources_scope_and_path_normalization(wiki_check, wiki):
+    src = wiki / "raw" / "sources"
+    (src / "2026-07-28-extra.md").write_text("# extra\n", encoding="utf-8")
+    (src / ".gitkeep").write_text("", encoding="utf-8")  # 점 파일은 대상 아님
+    (src / ".DS_Store").write_bytes(b"\x00")
+    (src / "nested").mkdir()  # raw/sources 바로 아래 파일만 대상
+    (src / "nested" / "2026-07-28-deep.md").write_text("# deep\n", encoding="utf-8")
+    p = wiki / "wiki" / "entities" / "karpathy.md"
+    p.write_text(
+        p.read_text(encoding="utf-8").replace(
+            "  - raw/sources/2026-07-27-note.md\n",
+            "  - raw/sources/2026-07-27-note.md\n  - ./raw/sources/2026-07-28-extra.md\n",  # ./ 접두 정규화
+        ),
+        encoding="utf-8",
+    )
+    code, findings = findings_of(wiki_check, wiki)
+    assert findings == []
+    assert code == 0
+
+
+def test_log_sha_missing_on_ingest_entry(wiki_check, wiki):
+    _append(
+        wiki / "wiki" / "log.md",
+        "\n## [2026-07-28] ingest | sha 없음\n\n갱신: x\n"  # 11행 — sha 누락
+        "\n## [2026-07-28] query | 질의\n\n답변 회수\n"  # query 항목은 sha 불필요
+        "\n## [2026-07-28] ingest | 짧은 sha\n\nsha: abc123def45\n"  # 19행 — 11자리는 부족
+        "\n## [2026-07-28] ingest | 백틱 sha\n\n- sha: `0123456789ab`\n",
+    )
+    code, findings = findings_of(wiki_check, wiki)
+    assert code == 1
+    sha = [f for f in findings if f["check"] == "log-sha"]
+    assert [(f["severity"], f["file"]) for f in sha] == [("warning", "wiki/log.md")] * 2
+    assert "11행" in sha[0]["message"] and "19행" in sha[1]["message"]
+    assert "grep" in sha[0]["message"] and "sha12" in sha[0]["message"]  # 왜 필요한지(재인제스트 중복 확인) 설명
+    assert len(findings) == 2
+
+
+def test_pending_lists_uningested_sources(wiki_check, wiki):
+    src = wiki / "raw" / "sources"
+    (src / "2026-07-28-new.md").write_text("# new\n", encoding="utf-8")
+    (src / "2026-07-28-done.md").write_text("# done\n", encoding="utf-8")
+    (src / ".gitkeep").write_text("", encoding="utf-8")
+    _append(wiki / "wiki" / "log.md", f"\n## [2026-07-28] ingest | 완료\n\nsha: {_sha12(src / '2026-07-28-done.md')}\n")
+    code, out = run(wiki_check, wiki, ["--pending", "--format", "json"])
+    assert code == 0
+    assert json.loads(out) == {
+        "pending": [
+            {"file": "raw/sources/2026-07-27-note.md", "sha12": NOTE_SHA12},  # log의 abc123def456과 불일치
+            {"file": "raw/sources/2026-07-28-new.md", "sha12": NEW_SHA12},
+        ]
+    }
+
+
+def test_pending_md_runs_no_checks_and_exits_zero(wiki_check, wiki):
+    _append(wiki / "wiki" / "concepts" / "llm-wiki-pattern.md", "\n[없음](../entities/nope.md)\n")
+    code, out = run(wiki_check, wiki, ["--pending"])
+    assert code == 0
+    assert out == f"- raw/sources/2026-07-27-note.md (sha: {NOTE_SHA12})\n"
+    _append(wiki / "wiki" / "log.md", f"\n## [2026-07-28] ingest | 재인제스트\n\nsha: {NOTE_SHA12}\n")
+    code, out = run(wiki_check, wiki, ["--pending"])
+    assert code == 0
+    assert out == "미인제스트 원본 없음\n"
+
+
+def test_pending_and_stats_are_mutually_exclusive(wiki_check, capsys):
+    with pytest.raises(SystemExit) as exc:
+        wiki_check.main(["--stats", "--pending"])
+    assert exc.value.code == 1
+    assert "not allowed with" in capsys.readouterr().err  # 인식 못 한 인자 오류가 아니라 상호배타 오류

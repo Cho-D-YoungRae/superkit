@@ -17,5 +17,6 @@ disallowed-tools: ["Write", "Edit", "NotebookEdit"]
    ```
 
    (uv가 없으면 `ls wiki/entities wiki/concepts wiki/sources wiki/synthesis raw/sources` 수준의 디렉토리 나열로 대체한다.)
+   같은 스크립트를 `--pending --format json`으로 한 번 더 돌려 미인제스트 원본 수를 센다(uv가 없으면 생략).
 4. `purpose.md`의 핵심 질문을 다시 보여준다.
-5. 한 화면으로 요약 출력: 최근 활동 / 타입별 페이지 수·소스 수 표 / 핵심 질문. 통계의 `last_lint`가 7일 이상 지났거나 없으면 마지막 줄에 `/llm-wiki:wiki-lint` 실행을 권장한다.
+5. 한 화면으로 요약 출력: 최근 활동 / 타입별 페이지 수·소스 수 표 / 핵심 질문. 미인제스트 원본이 있으면 그 수와 함께 인자 없는 `/llm-wiki:wiki-ingest`를 권장하고, 통계의 `last_lint`가 7일 이상 지났거나 없으면 마지막 줄에 `/llm-wiki:wiki-lint` 실행을 권장한다.

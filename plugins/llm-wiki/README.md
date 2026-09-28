@@ -52,8 +52,8 @@ mkdir my-wiki && cd my-wiki && claude
 | 커맨드 | 용도 | 인자·플래그 |
 |--------|------|------------|
 | `/llm-wiki:wiki-init` | 위키 스캐폴드 생성, 기존 위키 스키마 업그레이드 | `[대상 디렉토리]` |
-| `/llm-wiki:wiki-ingest` | 소스 인제스트(유튜브·웹·PDF·로컬 파일) | `<url\|경로>` `--batch`(확인 생략) `--force`(sha 중복 무시) |
-| `/llm-wiki:wiki-lint` | 기계 검사(wiki_check.py) + LLM 판단 검사 → 리포트 | — |
+| `/llm-wiki:wiki-ingest` | 소스 인제스트(유튜브·웹·PDF·로컬 파일) | `[<url\|경로> ...]`(인자 없으면 `raw/sources/`의 미인제스트 원본 목록) `--batch`(확인 생략) `--force`(중복 무시) |
+| `/llm-wiki:wiki-lint` | 기계 검사(wiki_check.py — 링크·고아·index·frontmatter·미참조 원본 등) + LLM 판단 검사 → 리포트 | — |
 | `/llm-wiki:wiki-status` | 최근 로그 10건 + 통계 + 핵심 질문 (읽기 전용) | — |
 
 ## 유즈케이스

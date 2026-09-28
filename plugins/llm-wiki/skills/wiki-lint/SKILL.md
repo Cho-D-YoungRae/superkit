@@ -18,6 +18,7 @@ uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --for
 ```
 
 - exit 0 = clean, exit 1 = findings(JSON의 `findings` 배열). 결과를 검사 항목별로 요약한다.
+- `raw-unreferenced` 중 "미인제스트 원본"은 인자 없는 `/llm-wiki:wiki-ingest`로 처리하도록 권고하고, "인제스트 기록은 있으나 참조 없음"은 페이지 `sources[]` 누락(드리프트)이나 retire 미완료로 보고 수정 후보에 넣는다. `log-sha`(sha 없는 ingest 항목)는 재인제스트 중복 검사가 그 소스를 못 찾는다는 뜻이다 — log는 append-only이므로 고치지 말고 리포트에 알린다.
 - uv가 없으면 설치 안내(`brew install uv` 등)를 출력하고, 기계 검사 없이 §3만으로 진행하되 리포트에 그 사실을 명시한다.
 
 ## 3. LLM 판단 검사 — 전수 조사 금지

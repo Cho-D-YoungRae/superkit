@@ -1,7 +1,7 @@
 ---
 name: wiki-ingest
 description: 소스(유튜브·웹·PDF·로컬 파일)를 위키에 인제스트 — 유형 판별 → 중복 확인 → 추출 → 2단계 인제스트
-argument-hint: "<url|경로> [<url|경로> ...] [--batch] [--force]"
+argument-hint: "[<url|경로> ...] [--batch] [--force]  (인자 없으면 미인제스트 원본 목록)"
 ---
 
 # /llm-wiki:wiki-ingest
@@ -11,7 +11,14 @@ argument-hint: "<url|경로> [<url|경로> ...] [--batch] [--force]"
 - 현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 **종료**한다.
 - 이후 모든 Bash 명령은 `cd "<위키 루트>" && …` 형태로 실행하고 파일 경로는 위키 루트 기준으로 쓴다 — 하위 폴더에서 호출돼도 `wiki/log.md`·`raw/.cache` 같은 상대 경로가 깨지지 않게.
 - 세션 시작 절차: config → `purpose.md` → `wiki/log.md` 최근 항목(`grep '^## \[' wiki/log.md | tail -n 10`) 순으로 읽는다. 위키의 `AGENTS.md`도 읽는다.
-- `$ARGUMENTS`에서 소스 인자와 플래그(`--batch`, `--force`)를 해석한다. 소스가 여러 개면 **하나씩 차례로** §2~§4 전체를 수행한다. 소스 인자가 없으면 사용법을 안내하고 종료한다.
+- `$ARGUMENTS`에서 소스 인자와 플래그(`--batch`, `--force`)를 해석한다. 소스가 여러 개면 **하나씩 차례로** §2~§4 전체를 수행한다.
+- **소스 인자가 없으면 — 인제스트 대기 목록**: `raw/sources/`에 있지만 log에 sha가 없는 원본(Web Clipper로 저장한 파일 등)을 찾는다:
+
+  ```bash
+  uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --pending --format json
+  ```
+
+  목록이 비었으면 사용법을 안내하고 종료한다. 있으면 목록을 보여주고 인제스트할 것을 고르게 한다(`--batch`면 전부). 고른 파일은 이미 `raw/sources/` 안에 있으므로 §2의 중복 확인과 §3의 저장은 건너뛰고 §4부터 한 파일씩 수행한다(log에는 그 파일의 sha12를 남긴다).
 
 ## 2. 유형 판별과 중복 확인 — 원본을 저장하기 **전에**
 

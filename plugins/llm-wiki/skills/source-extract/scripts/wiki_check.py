@@ -5,11 +5,19 @@
 # ///
 """위키 결정적 lint — llm-wiki 플러그인. 읽기 전용(어떤 파일도 쓰지 않는다).
 
-usage: uv run wiki_check.py [--format md|json] [--stats]
+usage: uv run wiki_check.py [--format md|json] [--stats | --pending]
 
 검사: broken-link / link-style / orphan / index-missing / index-ghost /
-frontmatter / source-missing / collision / log-format
+frontmatter / source-missing / collision / log-format / log-sha / raw-unreferenced
 --stats: 타입별 페이지 수·소스 수·log 항목 수·마지막 lint 날짜만 출력(검사 생략).
+--pending: raw/sources/ 바로 아래 원본 중 sha12(sha256 앞 12자리)가 wiki/log.md 어디에도 없는 것 —
+  인제스트 대기 목록만 출력(검사 생략, 항상 exit 0). --stats와 함께 쓸 수 없다.
+
+원본 드리프트:
+- log-sha: ingest 항목 본문(다음 '## ' 헤딩 전까지)에 `sha: <12자리 이상 hex>` 줄이 없음. 재인제스트 중복
+  확인이 `grep <sha12> wiki/log.md`이므로 기록이 빠지면 같은 원본이 다시 인제스트된다.
+- raw-unreferenced: raw/sources/ 바로 아래 원본(점 파일 제외)이 어느 페이지 frontmatter sources[]에도 없음.
+  log에 sha12가 없으면 미인제스트, 있으면 인제스트 후 페이지 참조가 끊긴 드리프트다.
 
 링크 판정:
 - 코드(``` · ~~~ 펜스 블록, 인라인 코드) 안의 링크와 외부 타깃(URI 스킴 https:·obsidian: 등, //, #앵커)은
@@ -27,10 +35,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import hashlib
 import json
 import posixpath
 import re
 import sys
+import unicodedata
 import urllib.parse
 from pathlib import Path
 from typing import NoReturn
@@ -48,6 +58,8 @@ MD_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 WIKILINK_RE = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 LOG_HEADING_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (init|ingest|query|lint|retire) \| .+$")
 LOG_ENTRY_RE = re.compile(r"^## \[", re.M)
+# ingest 항목의 sha 기록: `sha: <hex 12+>`(백틱 감싸기 허용). hex는 소문자만 — shasum 출력과 grep이 맞아야 한다
+SHA_LINE_RE = re.compile(r"\b(?i:sha):\s*`?[0-9a-f]{12,}")
 LINT_REPORT_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-lint\.md$")
 # 외부 타깃: URI 스킴(https:·mailto:·obsidian: …)·프로토콜 상대(//host)·같은 페이지 앵커(#…)
 EXTERNAL_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//|#)")
@@ -158,6 +170,37 @@ def resolve_wikilink(page: Path, target: str, root: Path, vault: dict[str, list[
     return found
 
 
+def raw_files(d: Path) -> list[Path]:
+    """디렉토리 바로 아래 일반 파일(점 파일·.gitkeep 제외), 이름순."""
+    if not d.is_dir():
+        return []
+    return sorted(f for f in d.iterdir() if f.is_file() and not f.name.startswith("."))
+
+
+def sha12(path: Path) -> str:
+    """sha256 앞 12자리 — `shasum -a 256`·`sha256sum`과 같은 값. 인제스트가 log에 `sha: `로 남기는 키."""
+    with path.open("rb") as f:
+        return hashlib.file_digest(f, "sha256").hexdigest()[:12]
+
+
+def norm_source(path: str) -> str:
+    """sources[] 경로 비교용 정규화 — ./·중복 /·.. 정리, 유니코드 NFC(macOS의 NFD 파일명 대비)."""
+    return unicodedata.normalize("NFC", posixpath.normpath(path.strip()))
+
+
+def parse_log_entries(text: str) -> list[tuple[int, str, list[str]]]:
+    """log.md를 (헤딩 행 번호, op, 본문 줄들) 항목으로 나눈다. 본문 = 다음 '## ' 헤딩 전까지.
+    규약 위반 헤딩도 경계로는 쓰되 항목에서는 뺀다(형식 위반은 log-format이 보고)."""
+    entries: list[tuple[int, str, list[str]]] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if line.startswith("## "):
+            m = LOG_HEADING_RE.match(line)
+            entries.append((lineno, m.group(1) if m else "", []))
+        elif entries:
+            entries[-1][2].append(line)
+    return [e for e in entries if e[1]]
+
+
 def _rel(path: Path, root: Path) -> str:
     try:
         return str(path.relative_to(root))
@@ -186,6 +229,9 @@ class Checker:
         self.parsed: dict[Path, tuple[dict | None, str]] = {}
         for p in self.all_wiki_md:
             self.parsed[p] = parse_frontmatter(p.read_text(encoding="utf-8"))
+        # log.md 원문 (없으면 None — log-format이 보고)
+        log_path = self.wiki_dir / "log.md"
+        self.log_text: str | None = log_path.read_text(encoding="utf-8") if log_path.is_file() else None
 
     def add(self, check: str, severity: str, file: Path, message: str) -> None:
         self.findings.append(
@@ -204,6 +250,8 @@ class Checker:
         self.check_sources_exist()
         self.check_collisions()
         self.check_log()
+        self.check_log_sha()
+        self.check_raw_sources()
         return self.findings
 
     # ① 깨진 링크 + config.link_style 불일치 (log·reports 기록은 당시 상태 그대로 두므로 제외)
@@ -238,12 +286,11 @@ class Checker:
                 continue
             _, body = self.parsed[p]
             md_targets, wiki_targets = extract_links(body)
-            for t in md_targets:
-                inbound.add(resolve_md_target(p, t, self.root))
+            targets = {resolve_md_target(p, t, self.root) for t in md_targets}
             for t in wiki_targets:
-                for target in resolve_wikilink(p, t, self.root, self.vault):
-                    if target != p:
-                        inbound.add(target.resolve())
+                targets.update(x.resolve() for x in resolve_wikilink(p, t, self.root, self.vault))
+            targets.discard(p.resolve())  # 자기 링크는 인바운드가 아니다
+            inbound |= targets
         for page in self.pages:
             if page.resolve() not in inbound:
                 self.add("orphan", "warning", page, "다른 페이지로부터의 인바운드 링크 없음(index·log·reports 제외 기준)")
@@ -339,15 +386,44 @@ class Checker:
     # ⑦ log 규약
     def check_log(self) -> None:
         log_path = self.wiki_dir / "log.md"
-        if not log_path.is_file():
+        if self.log_text is None:
             self.add("log-format", "error", log_path, "wiki/log.md가 없음")
             return
-        for lineno, line in enumerate(log_path.read_text(encoding="utf-8").splitlines(), start=1):
+        for lineno, line in enumerate(self.log_text.splitlines(), start=1):
             if line.startswith("## ") and not LOG_HEADING_RE.match(line):
                 self.add(
                     "log-format", "error", log_path,
                     f"{lineno}행이 log 규약 위반: {line!r} — '## [YYYY-MM-DD] <op> | <제목>' (op ∈ init·ingest·query·lint·retire)",
                 )
+
+    # ⑧ ingest 항목의 sha 기록 — 재인제스트 중복 확인(grep <sha12> wiki/log.md)의 근거
+    def check_log_sha(self) -> None:
+        if self.log_text is None:
+            return  # log 부재는 log-format이 보고
+        for lineno, op, body in parse_log_entries(self.log_text):
+            if op == "ingest" and not any(SHA_LINE_RE.search(line) for line in body):
+                self.add(
+                    "log-sha", "warning", self.wiki_dir / "log.md",
+                    f"{lineno}행 ingest 항목에 'sha: <sha12>' 기록 없음 — 재인제스트 중복 확인이 log를 sha12로 "
+                    "grep하므로, 기록이 없으면 같은 원본을 중복 인제스트하게 된다",
+                )
+
+    # ⑨ raw/sources 원본 ↔ 페이지 sources[] — 미인제스트 원본·인제스트 후 참조가 끊긴 원본
+    def check_raw_sources(self) -> None:
+        referenced: set[str] = set()
+        for page in self.pages:
+            fm, _ = self.parsed[page]
+            if fm and isinstance(fm.get("sources"), list):
+                referenced.update(norm_source(s) for s in fm["sources"] if isinstance(s, str))
+        for f in raw_files(self.root / "raw" / "sources"):
+            if norm_source(f.relative_to(self.root).as_posix()) in referenced:
+                continue
+            digest = sha12(f)
+            if digest in (self.log_text or ""):
+                message = f"인제스트 기록(sha: {digest})은 있으나 어느 페이지 sources[]에도 없음"
+            else:
+                message = "미인제스트 원본(log에 sha 기록 없음) — /llm-wiki:wiki-ingest 대상"
+            self.add("raw-unreferenced", "warning", f, message)
 
 
 def run_checks(root: Path) -> list[dict]:
@@ -361,11 +437,6 @@ def collect_stats(root: Path) -> dict:
         dir_path = wiki_dir / d
         pages[DIR_TO_TYPE[d]] = len(list(dir_path.glob("*.md"))) if dir_path.is_dir() else 0
 
-    def count_files(p: Path) -> int:
-        if not p.is_dir():
-            return 0
-        return len([f for f in p.iterdir() if f.is_file() and f.name != ".gitkeep" and not f.name.startswith(".")])
-
     log_path = wiki_dir / "log.md"
     log_entries = (
         len(LOG_ENTRY_RE.findall(log_path.read_text(encoding="utf-8"))) if log_path.is_file() else 0
@@ -378,11 +449,23 @@ def collect_stats(root: Path) -> dict:
     return {
         "pages": pages,
         "total_pages": sum(pages.values()),
-        "raw_sources": count_files(root / "raw" / "sources"),
-        "raw_archive": count_files(root / "raw" / "archive"),
+        "raw_sources": len(raw_files(root / "raw" / "sources")),
+        "raw_archive": len(raw_files(root / "raw" / "archive")),
         "log_entries": log_entries,
         "last_lint": last_lint,
     }
+
+
+def collect_pending(root: Path) -> list[dict]:
+    """raw/sources/ 바로 아래 원본 중 sha12가 wiki/log.md 어디에도 없는 것(인제스트 대기), 파일 경로순."""
+    log_path = root / "wiki" / "log.md"
+    log_text = log_path.read_text(encoding="utf-8") if log_path.is_file() else ""
+    pending: list[dict] = []
+    for f in raw_files(root / "raw" / "sources"):
+        digest = sha12(f)
+        if digest not in log_text:
+            pending.append({"file": f.relative_to(root).as_posix(), "sha12": digest})
+    return pending
 
 
 def format_findings_md(findings: list[dict]) -> str:
@@ -411,6 +494,12 @@ def format_stats_md(stats: dict) -> str:
     )
 
 
+def format_pending_md(pending: list[dict]) -> str:
+    if not pending:
+        return "미인제스트 원본 없음\n"
+    return "".join(f"- {p['file']} (sha: {p['sha12']})\n" for p in pending)
+
+
 class _Parser(argparse.ArgumentParser):
     """사용법 오류는 exit 1 — argparse 기본값(2)은 플러그인 스크립트의 exit 2(도메인 특수상황) 규약과 충돌한다."""
 
@@ -422,7 +511,11 @@ class _Parser(argparse.ArgumentParser):
 def main(argv: list[str] | None = None) -> int:
     parser = _Parser(description="llm-wiki 결정적 lint (읽기 전용)")
     parser.add_argument("--format", choices=("md", "json"), default="md")
-    parser.add_argument("--stats", action="store_true", help="검사 없이 통계만 출력")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--stats", action="store_true", help="검사 없이 통계만 출력")
+    mode.add_argument(
+        "--pending", action="store_true", help="검사 없이 미인제스트 원본(log에 sha 없는 raw/sources 파일)만 출력"
+    )
     args = parser.parse_args(argv)
 
     root = find_wiki_root(Path.cwd())
@@ -439,6 +532,14 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(stats, ensure_ascii=False, indent=2))
         else:
             print(format_stats_md(stats), end="")
+        return 0
+
+    if args.pending:
+        pending = collect_pending(root)
+        if args.format == "json":
+            print(json.dumps({"pending": pending}, ensure_ascii=False, indent=2))
+        else:
+            print(format_pending_md(pending), end="")
         return 0
 
     findings = run_checks(root)

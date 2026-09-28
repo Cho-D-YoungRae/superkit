@@ -84,7 +84,7 @@ aliases: []         # 선택 — 검색·링크용 별칭
 
 ## 9. Lint 워크플로
 
-- 기계 검사: 플러그인 환경이면 `wiki_check.py`를 실행한다(깨진 링크·고아 페이지·index 정합·frontmatter·sources 실존·제목/별칭 충돌·log 규약). 플러그인이 없으면 같은 항목을 표본 수동 점검한다.
+- 기계 검사: 플러그인 환경이면 `wiki_check.py`를 실행한다(깨진 링크·고아 페이지·index 정합·frontmatter·sources 실존·제목/별칭 충돌·log 규약·ingest 항목의 sha 기록·어느 페이지도 참조하지 않는 원본). 플러그인이 없으면 같은 항목을 표본 수동 점검한다.
 - LLM 판단 검사: 페이지 간 모순, 낡은 주장(stale), 언급은 잦은데 존재하지 않는 페이지. 전수 조사 금지 — 최근 변경분 + 표본.
 - 리포트: `wiki/reports/YYYY-MM-DD-lint.md` 작성 후 log에 lint 항목 기록.
 - 규모: index 항목이 200개를 넘으면 qmd 같은 검색 CLI 도입을 사용자에게 제안한다.

@@ -82,7 +82,7 @@ argument-hint: "[대상 디렉토리]"
 
 - 생성된 구조 요약과, A3에서 보존·병합한 파일 목록을 보여준다.
 - 대상이 현재 디렉토리가 아니면: 위키 규약(`CLAUDE.md` → `AGENTS.md`)은 그 디렉토리에서 연 세션에만 로드되므로 `cd <대상> && claude`로 새 세션을 열라고 안내한다.
-- obsidian yes였으면: 이 디렉토리를 옵시디언 vault로 열 수 있고, **Web Clipper** 브라우저 확장으로 웹 문서를 저장한 뒤(저장 위치를 `raw/sources/`로 지정 권장) 그 파일을 인제스트할 수 있으며, **graph view**로 위키 연결망을 볼 수 있다고 안내한다.
+- obsidian yes였으면: 이 디렉토리를 옵시디언 vault로 열 수 있고, **Web Clipper** 브라우저 확장으로 웹 문서를 저장한 뒤(저장 위치를 `raw/sources/`로 지정 권장) 인자 없는 `/llm-wiki:wiki-ingest`로 쌓인 파일을 한꺼번에 인제스트할 수 있으며, **graph view**로 위키 연결망을 볼 수 있다고 안내한다.
 - 다음 단계 예시를 제시한다: `/llm-wiki:wiki-ingest https://youtu.be/<영상ID>` 또는 `/llm-wiki:wiki-ingest ~/notes/some-note.md`.
 
 ## B. 업그레이드 모드
