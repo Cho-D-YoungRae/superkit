@@ -66,7 +66,7 @@ from parse_domain import (LocatedError, context_packages, format_error, isolatio
                           parse_domain)
 # 산출물 경로의 정본. baseline 경로를 여기서 다시 적지 않는다 — 동결하는 쪽(init)·줄이는 쪽
 # (migrate)·읽는 쪽(여기)이 같은 한 곳을 봐야 래칫이 성립한다.
-from layout import BASELINE_RELATIVE, LayoutError, from_domain_path
+from layout import BASELINE_RELATIVE, DOMAIN_RELATIVE, LayoutError, from_domain_path
 
 SOURCE_SUFFIXES = (".kt", ".java")
 
@@ -542,7 +542,7 @@ def main(argv) -> int:
     as_json = "--json" in argv
     args = [arg for arg in argv if arg != "--json"]
     if len(args) != 1 or any(arg.startswith("--") for arg in args):
-        print("사용법: python3 check_imports.py <프로젝트 루트>/docs/superdomain/DOMAIN.md [--json]",
+        print(f"사용법: python3 check_imports.py <프로젝트 루트>/{DOMAIN_RELATIVE} [--json]",
               file=sys.stderr)
         return 2
 
