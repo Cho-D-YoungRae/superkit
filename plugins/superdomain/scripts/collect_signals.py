@@ -2,11 +2,12 @@
 
     사용법: python3 collect_signals.py <DOMAIN.md 경로> [--since <rev|날짜>] [--json]
 
-**exit 계약: 0 = 산출, 1 = 산출 불가, 2 = 사용법 오류.**
+**exit 계약: 0 = 산출, 1 = 산출 불가, 2 = 사용법·배치 오류.**
 `check_imports.py`(1 = 위반 발견)와도 `parse_domain.py`(1 = 해석 오류)와도 뜻이 다르다. 이
 스크립트는 아무것도 판정하지 않으므로 1은 언제나 "신호를 만들지 못했다"이고, 그 사유는
 `경로:라인: ` 형식으로 stderr에 나간다 — git 부재·비 저장소·관측 창에 커밋 0건·
-DOMAIN.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때만 쓴다.
+DOMAIN.md 해석 실패가 전부다. 2는 인자 형태가 틀렸거나 배치가 틀렸을 때(옛 배치 포함 —
+layout.py)만 쓴다.
 
 **이 스크립트에는 임계값도 해석도 없다.** "몇 건부터 신호인가", "무엇을 의심할 것인가"의
 정본은 `references/governance/evolution-signals.md`이고 그 문서를 읽어 적용하는 것은 `evolve`
@@ -19,8 +20,8 @@ DOMAIN.md 해석 실패가 전부다. 2는 인자 형태가 틀렸을 때만 쓴
 | ① | 컨텍스트별 변경 빈도(커밋 수·파일 수) | `git log --numstat` |
 | ② | 핫스팟 파일 상위 20 | 같은 로그 |
 | ③ | 컨텍스트 쌍 동시 변경(한 커밋이 두 컨텍스트를 건드림) | 같은 로그 |
-| ④ | review-log 반복 위반(rule id별 건수) | `docs/domain/review-log.jsonl` |
-| ⑤ | baseline 추이(줄 수 변화) | `docs/domain/baseline.jsonl`의 git 이력 |
+| ④ | review-log 반복 위반(rule id별 건수) | `docs/superdomain/state/review-log.jsonl` |
+| ⑤ | baseline 추이(줄 수 변화) | `docs/superdomain/state/baseline.jsonl`의 git 이력(0.2.x의 `docs/domain/baseline.jsonl` 이력을 이어 붙인다) |
 
 **파일 → 컨텍스트 귀속.** `parse_domain.context_packages()`가 준 컨텍스트 패키지를 **경로형**
 (`com.acme.claim..` → `com/acme/claim/`)으로 바꿔, 변경 파일의 패키지 경로가 그 접두로 시작하면
@@ -77,13 +78,16 @@ from dataclasses import asdict, dataclass, field
 from itertools import combinations
 from pathlib import Path
 
-# 동결된 기존 부채 파일의 경로는 check_imports가 정본이다 — 그 파일을 쓰는 쪽과 읽는 쪽이
-# 경로를 따로 적으면 반드시 갈라지고, 갈라진 순간 항목 ⑤가 조용히 '없음'이 된다.
-from check_imports import BASELINE_RELATIVE as BASELINE
+# 산출물 경로의 정본. 쓰는 쪽(review·init·migrate)과 읽는 쪽이 경로를 따로 적으면 반드시
+# 갈라지고, 갈라진 순간 항목 ④·⑤가 조용히 '없음'이 된다.
+from layout import (BASELINE_RELATIVE, DOMAIN_RELATIVE, LEGACY_BASELINE, REVIEW_LOG_RELATIVE,
+                    LayoutError, from_domain_path)
 # parse_domain.py가 해석의 정본이다. 패키지 패턴을 다시 만들지 않고 그 산출만 읽는다.
 from parse_domain import LocatedError, context_packages, format_error, parse_domain
 
-REVIEW_LOG = "docs/domain/review-log.jsonl"
+# 프로젝트 루트 기준 경로. git 루트가 프로젝트 루트와 다르면 collect()가 저장소 기준으로 바꾼다.
+REVIEW_LOG = REVIEW_LOG_RELATIVE
+BASELINE = BASELINE_RELATIVE
 
 INPUT_SENTINEL = "(input)"   # review-log의 "파일을 지목할 수 없음" 표식(review SKILL 5-b)
 
@@ -238,6 +242,12 @@ def _git_root(arch_dir) -> Path:
         raise CollectError(f"'{arch_dir}'가 git 저장소 안에 있지 않습니다 — 이력이 없으면 "
                            f"변경 신호를 수집할 수 없습니다.")
     return Path(out.strip())
+
+
+def _repo_relative(root, project_root, relative) -> str:
+    """프로젝트 루트 기준 경로를 git 루트 기준으로. 둘이 같으면(보통) 그대로다."""
+    prefix = Path(os.path.relpath(project_root, root)).as_posix()
+    return relative if prefix == "." else f"{prefix}/{relative}"
 
 
 def _since_spec(root, since) -> tuple:
@@ -465,19 +475,19 @@ def _jsonl(relpath, lines, broken) -> list:
     return entries
 
 
-def _review_log(root, attributor, window) -> ReviewLog:
-    log = ReviewLog(window=window)
-    if not (root / REVIEW_LOG).is_file():
+def _review_log(root, relpath, attributor, window) -> ReviewLog:
+    log = ReviewLog(path=relpath, window=window)
+    if not (root / relpath).is_file():
         return log
     log.present = True
-    entries = _jsonl(REVIEW_LOG, _read_lines(root, REVIEW_LOG, log.broken), log.broken)
+    entries = _jsonl(relpath, _read_lines(root, relpath, log.broken), log.broken)
 
     grouped = {}
     for number, entry in entries:
         date = str(entry.get("date", ""))
         if window:
             if not date:
-                log.broken.append(f"{REVIEW_LOG}:{number}: 'date'가 없어 관측 창을 적용할 수 "
+                log.broken.append(f"{relpath}:{number}: 'date'가 없어 관측 창을 적용할 수 "
                                   f"없습니다 — 집계에서 건너뜁니다.")
                 continue
             if date < window:
@@ -518,23 +528,27 @@ def _review_log(root, attributor, window) -> ReviewLog:
 # 항목 ⑤ — baseline.jsonl 추이
 # ---------------------------------------------------------------------------
 
-def _baseline(root) -> Baseline:
-    """줄 수 추이는 관측 창과 무관하게 전체 이력이다 — 누적 재구성에 시작점이 필요하다."""
-    baseline = Baseline()
+def _baseline(root, relpath, legacy_relpath) -> Baseline:
+    """줄 수 추이는 관측 창과 무관하게 전체 이력이다 — 누적 재구성에 시작점이 필요하다.
+
+    0.2.x 자리(`legacy_relpath`)의 이력도 함께 센다. `--no-renames`라 이동 커밋은 옛 경로 −N·새
+    경로 +N으로 보이고, 둘을 한 커밋 안에서 합치면 delta 0이 되어 누적이 끊기지 않는다.
+    """
+    baseline = Baseline(path=relpath)
     ok, out, _ = _git(root, "log", "--no-merges", "--no-renames", "--numstat",
-                      f"--format={LOG_FORMAT}", "--", BASELINE)
+                      f"--format={LOG_FORMAT}", "--", relpath, legacy_relpath)
     running = 0
     if ok:
         for sha, date, delta in reversed(_parse_log_numbers(out)):
             running += delta
             baseline.history.append(BaselinePoint(sha, date, running, delta))
 
-    path = root / BASELINE
+    path = root / relpath
     if not path.is_file():
         return baseline
     baseline.present = True
-    lines = _read_lines(root, BASELINE, baseline.broken)
-    entries = _jsonl(BASELINE, lines, baseline.broken)
+    lines = _read_lines(root, relpath, baseline.broken)
+    entries = _jsonl(relpath, lines, baseline.broken)
     baseline.lines = sum(1 for line in lines if line.strip())
     counts = {}
     for _, entry in entries:
@@ -580,7 +594,8 @@ def _window(since, commits, notices) -> str:
 
 
 def collect(domain_path, since=None) -> Signals:
-    """DOMAIN.md 한 건을 기준으로 수집 항목 5종을 만든다. 실패는 CollectError다."""
+    """DOMAIN.md 한 건을 기준으로 수집 항목 5종을 만든다. 실패는 CollectError, 배치 오류는 LayoutError다."""
+    layout = from_domain_path(domain_path)
     domain_path = Path(domain_path)
     path_text = str(domain_path)
     domain = parse_domain(domain_path)
@@ -590,8 +605,10 @@ def collect(domain_path, since=None) -> Signals:
             [format_error(error, path_text) for error in
              sorted(domain.errors, key=lambda e: (getattr(e, "path", "") or path_text, e.line))])
 
-    domain_dir = domain_path.resolve().parent
-    root = _git_root(domain_dir)
+    root = _git_root(layout.root)
+    review_log_path = _repo_relative(root, layout.root, REVIEW_LOG)
+    baseline_path = _repo_relative(root, layout.root, BASELINE)
+    legacy_baseline_path = _repo_relative(root, layout.root, LEGACY_BASELINE)
     since_info, extra = _since_spec(root, since)
     commits = _log(root, extra)                 # git 로그 순서: 최신 우선
     if not commits:
@@ -600,7 +617,7 @@ def collect(domain_path, since=None) -> Signals:
 
     notices = []
     try:
-        attributor = _Attributor(domain, domain_dir, root, notices)
+        attributor = _Attributor(domain, layout.root, root, notices)
     except LocatedError as error:
         # `domain.errors`가 비었으면 여기까지 오지 않는다(필수 라벨 검증이 이미 막는다).
         # 파서의 보장이 흔들려도 조용히 0건을 내지 않도록 산출 불가로 말한다.
@@ -610,21 +627,21 @@ def collect(domain_path, since=None) -> Signals:
     contexts, unattributed, hotspots, cochanges, files = _change_signals(commits, attributor)
 
     window = _window(since_info, commits, notices)
-    review_log = _review_log(root, attributor, window)
-    baseline = _baseline(root)
+    review_log = _review_log(root, review_log_path, attributor, window)
+    baseline = _baseline(root, baseline_path, legacy_baseline_path)
 
     if not review_log.present:
-        notices.append(f"{REVIEW_LOG}이 없습니다 — 항목 ④를 산출하지 못했습니다(review 스킬이 "
-                       f"아직 기록하지 않았거나 경로가 다릅니다).")
+        notices.append(f"{review_log_path}이 없습니다 — 항목 ④를 산출하지 못했습니다(review "
+                       f"스킬이 아직 기록하지 않았거나 경로가 다릅니다).")
     if not baseline.present:
-        notices.append(f"baseline 없음 — {BASELINE}이 없습니다. 아직 동결하지 않았습니다 — 이 "
-                       f"파일의 존재 자체가 부채를 안고 상환 중이라는 선언이고 별도 라벨은 "
+        notices.append(f"baseline 없음 — {baseline_path}이 없습니다. 아직 동결하지 않았습니다 — "
+                       f"이 파일의 존재 자체가 부채를 안고 상환 중이라는 선언이고 별도 라벨은 "
                        f"없습니다(항목 ⑤ 미산출).")
     elif baseline.history and baseline.history[-1].lines != baseline.lines:
-        notices.append(f"{BASELINE}: 이력 누적 {baseline.history[-1].lines}줄과 현재 파일 "
+        notices.append(f"{baseline_path}: 이력 누적 {baseline.history[-1].lines}줄과 현재 파일 "
                        f"{baseline.lines}줄이 다릅니다 — 추이는 근사입니다.")
     elif not baseline.history:
-        notices.append(f"{BASELINE}: git 이력이 없습니다 — 아직 커밋되지 않았다면 추이는 "
+        notices.append(f"{baseline_path}: git 이력이 없습니다 — 아직 커밋되지 않았다면 추이는 "
                        f"다음 커밋부터 관측됩니다.")
     notices.extend(review_log.broken)
     notices.extend(baseline.broken)
@@ -686,7 +703,7 @@ def render(signals) -> list:
     lines += ["", f"[수집 ④] review-log 반복 위반"
                   f"{f' (창: {log.window} 이후)' if log.window else ''}"]
     if not log.present:
-        lines.append(f"- {REVIEW_LOG}이 없습니다.")
+        lines.append(f"- {log.path}이 없습니다.")
     elif not log.rules:
         lines.append("- 창 안에 기록이 없습니다.")
     else:
@@ -701,7 +718,7 @@ def render(signals) -> list:
     baseline = signals.baseline
     lines += ["", "[수집 ⑤] baseline 추이 (관측 창과 무관한 전체 이력 — 누적에 시작점이 필요합니다)"]
     if not baseline.present:
-        lines.append(f"- baseline 없음 — {BASELINE}이 없습니다.")
+        lines.append(f"- baseline 없음 — {baseline.path}이 없습니다.")
     else:
         distribution = ", ".join(f"{item['rule']} {item['count']}" for item in baseline.rules)
         lines.append(f"- 현재 {baseline.lines}줄" + (f" — {distribution}" if distribution else ""))
@@ -731,6 +748,9 @@ def main(argv) -> int:
 
     try:
         signals = collect(args[0], since=since)
+    except LayoutError as error:
+        print(error, file=sys.stderr)
+        return 2
     except CollectError as error:
         for line in error.lines or [f"{args[0]}:0: 산출 불가 — {error}"]:
             print(line, file=sys.stderr)
@@ -745,8 +765,8 @@ def main(argv) -> int:
 
 
 def _usage() -> int:
-    print("사용법: python3 collect_signals.py <DOMAIN.md 경로> [--since <rev|날짜>] "
-          "[--json]", file=sys.stderr)
+    print(f"사용법: python3 collect_signals.py <프로젝트 루트>/{DOMAIN_RELATIVE} "
+          f"[--since <rev|날짜>] [--json]", file=sys.stderr)
     return 2
 
 
