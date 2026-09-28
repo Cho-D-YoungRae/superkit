@@ -2,7 +2,7 @@
 
 선언된 도메인 경계와 실제 코드가 어긋나기 시작했다는 신호를 정의하고, 그 해석 규칙과 제안 문구를 고정한다. `collect_signals.py`가 신호를 기계적으로 수집하고 `evolve` 스킬이 이 문서를 판정 기준으로 읽는다.
 
-이 문서가 전제하는 넷은 전부 실재한다: 수집기 `scripts/collect_signals.py`, 유일한 소비자 `evolve` 스킬, 신호 4의 입력 `docs/domain/baseline.jsonl`(init이 실측한 뒤 사용자 확인을 받아 동결한다), 신호 4의 관측이 가리키는 조치 `migrate` 스킬. 신호 2·5의 입력 `docs/domain/review-log.jsonl`은 `review`가 append하고, 신호 3의 입력은 `check_imports.py`다. **그러므로 본문의 현재형 서술은 그대로 현재형으로 읽는다.**
+이 문서가 전제하는 넷은 전부 실재한다: 수집기 `scripts/collect_signals.py`, 유일한 소비자 `evolve` 스킬, 신호 4의 입력 `docs/superdomain/state/baseline.jsonl`(init이 실측한 뒤 사용자 확인을 받아 동결한다), 신호 4의 관측이 가리키는 조치 `migrate` 스킬. 신호 2·5의 입력 `docs/superdomain/state/review-log.jsonl`은 `review`가 append하고, 신호 3의 입력은 `check_imports.py`다. **그러므로 본문의 현재형 서술은 그대로 현재형으로 읽는다.**
 
 **`evolve`가 처분하는 제안은 셋뿐이다** — 경계 재획정 · 분류 변경 · 관계 추가/삭제. 신호 1~3이 이 셋에 착지하고, 신호 4·5는 착지점이 이 스킬 밖이라 **제안이 아니라 「넘긴 관측」**으로 리포트에 실린다(각각 §5·§6).
 
@@ -162,9 +162,9 @@
 
 **정의** — 동결된 격리 위반(baseline)이 오랫동안 줄지 않는다.
 
-**측정** — `docs/domain/baseline.jsonl`의 줄 수를 시점별로 비교한다(git 이력으로 과거 시점의 크기를 얻는다).
+**측정** — `docs/superdomain/state/baseline.jsonl`의 줄 수를 시점별로 비교한다(git 이력으로 과거 시점의 크기를 얻는다).
 
-**기본 임계값** — **4주(28일) 동안 10% 미만 감소**. 최소 조건: `docs/domain/baseline.jsonl`이 있고 비어 있지 않을 것 — 파일의 존재 자체가 그 저장소가 부채를 안고 상환 중이라는 선언이다(별도 라벨이 없다).
+**기본 임계값** — **4주(28일) 동안 10% 미만 감소**. 최소 조건: `docs/superdomain/state/baseline.jsonl`이 있고 비어 있지 않을 것 — 파일의 존재 자체가 그 저장소가 부채를 안고 상환 중이라는 선언이다(별도 라벨이 없다).
 
 > 근거: 4주는 2스프린트다. 상환이 실제로 진행 중이라면 그 사이에 클러스터 하나는 정리된다. 10%는 "우연히 몇 줄 사라진 것"과 "의도적으로 줄인 것"을 가르는 선이다.
 
@@ -190,11 +190,11 @@
 
 ## 6. 신호 5 — 반복되는 의미론 지적 (넘긴 관측)
 
-**`evolve`가 처분하지 않는다.** 의미론 축은 제안 셋 밖이고, `docs/conventions/` 승격 여부는 사용자와 `/superdomain:review`가 정한다. 이 절이 남아 있는 이유는 신호 4와 같다 — 수집기의 `semantic.*` 집계가 소비자를 잃지 않게 하기 위해서다.
+**`evolve`가 처분하지 않는다.** 의미론 축은 제안 셋 밖이고, `docs/superdomain/conventions/` 승격 여부는 사용자와 `/superdomain:review`가 정한다. 이 절이 남아 있는 이유는 신호 4와 같다 — 수집기의 `semantic.*` 집계가 소비자를 잃지 않게 하기 위해서다.
 
 **정의** — 리뷰의 의미론 판단(기계 검증이 아닌 지적)에서 같은 주제가 반복된다.
 
-**측정** — 최근 90일 `docs/domain/review-log.jsonl`에서 `semantic.*` 범주 태그가 붙은 지적을 주제별로 묶는다. 주제 분류는 기계적으로 완전하지 않으므로 `evolve`가 후보를 제시하고 사용자가 확인한다. `semantic.unspecified`는 **범주 태그 없이 온 항목**이라는 뜻이므로 주제를 지어내지 않는다.
+**측정** — 최근 90일 `docs/superdomain/state/review-log.jsonl`에서 `semantic.*` 범주 태그가 붙은 지적을 주제별로 묶는다. 주제 분류는 기계적으로 완전하지 않으므로 `evolve`가 후보를 제시하고 사용자가 확인한다. `semantic.unspecified`는 **범주 태그 없이 온 항목**이라는 뜻이므로 주제를 지어내지 않는다.
 
 **기본 임계값** — 같은 주제 **3회 이상**, 그리고 **서로 다른 파일 2개 이상**에서 발생.
 
@@ -205,7 +205,7 @@
 **분기** — 승격 대상이 어느 쪽인지 먼저 가른다.
 
 - **선언으로 표현되는 것이다** → 문서가 아니라 `DOMAIN.md`의 선언(관계 표·분류·패키지) 문제다. 신호 2·3의 축으로 보낸다. **새 규칙 어휘를 만드는 길은 이 플러그인에 없다** — 기계 강제 규칙은 선언에서 파생되는 `derived.context-isolation` 하나뿐이다(`domain-template.md` §5.1).
-- **사람의 해석이 필요하다** → `docs/conventions/<key>.md`로 승격한다. `knowledge-doc-template.md` 표준을 따르고, 최소한 "적용 기준"과 "규칙"(체크리스트) 섹션을 갖춰야 판정 근거로 쓰인다.
+- **사람의 해석이 필요하다** → `docs/superdomain/conventions/<key>.md`로 승격한다. `knowledge-doc-template.md` 표준을 따르고, 최소한 "적용 기준"과 "규칙"(체크리스트) 섹션을 갖춰야 판정 근거로 쓰인다.
 
 **관측 문구** — 제안이 아니므로 선택지를 달지 않는다. 「넘긴 관측」으로 싣는다.
 
@@ -214,7 +214,7 @@
 관측: 최근 90일 의미론 지적 {N}회 — 파일 {F}개, 컨텍스트 {C}개.
 반복된 지적: {대표 지적 문구 2~3개}
 해석: 판단 기준이 프로젝트에 기록되어 있지 않습니다.
-넘기는 곳: `docs/conventions/{제안 key}.md` 승격 여부는 사용자와 `/superdomain:review`가 정합니다. 선언으로 표현되는 주제라면 신호 2·3의 축으로 보냅니다.
+넘기는 곳: `docs/superdomain/conventions/{제안 key}.md` 승격 여부는 사용자와 `/superdomain:review`가 정합니다. 선언으로 표현되는 주제라면 신호 2·3의 축으로 보냅니다.
 ```
 
 ---

@@ -2,7 +2,7 @@
 name: sync
 description: >
   선언과 현실의 드리프트를 대조해 보고한다 — `DOMAIN.md`의 컨텍스트·패키지·관계 선언과 ADR
-  참조, 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역)을 디스크의 실제 패키지와 다섯
+  참조, 파생물(`docs/superdomain/summary.md`·컨텍스트 맵 생성 구역)을 디스크의 실제 패키지와 다섯
   축으로 대조하고(선언된 컨텍스트의 패키지가 디스크에 없다, 선언 밖 패키지가 컨텍스트 후보로
   보인다, 깨진 ADR 참조, 낡은 파생물, 해석 오류 자체), 각 드리프트에 [패키지 생성 / 코드 수정 /
   문서 수정 / 무시] 선택지를 제시한 뒤 사용자가 고른 것만 반영하고 파생물을 재생성한다.
@@ -35,7 +35,7 @@ description: >
    못한 축은 **생략이 아니라 고지**다. "드리프트 없음"과 "대조하지 않음"은 다른 상태이고, 그 둘을
    구별해 주는 것이 이 리포트의 값이다.
 3. **기존 코드를 고치지 않는다.** 이 스킬이 쓰는 파일은 셋뿐이다 — 확정받은 `DOMAIN.md` 편집,
-   파생물(`docs/domain-summary.md`·생성 구역), 그리고 3-a의 처분으로 확정받은 **새 패키지
+   파생물(`docs/superdomain/summary.md`·생성 구역), 그리고 3-a의 처분으로 확정받은 **새 패키지
    디렉터리와 최소 스텁**(5-b). 있는 파일을 옮기거나 지우거나 내용을 바꾸지 않는다 — 동결된 격리
    위반을 갚는 것은 migrate, 지우는 것은 사용자, 결정을 기록하는 것은 adr이다. **SSOT를 고쳤으면**
    마지막 편집 뒤 받은 `OK:` 출력이 완료 조건이다.
@@ -61,8 +61,8 @@ git rev-parse --show-toplevel
 ## 1. 선언을 읽는다 — 두 실행과 문서 직접 읽기
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
 ```
 
 **앞은 게이트다.** exit **0**이면 `OK: 프로젝트 N, 컨텍스트 M` 한 줄이 나온다 — 이 스크립트는
@@ -84,7 +84,7 @@ JSON을 내지 않으므로 값은 전부 `DOMAIN.md`에서 직접 읽는다. ex
 | `ambiguous_package[]` | `package` 선언이 2건 이상이라 귀속을 믿을 수 없는 소스 | 그 파일이 만든 패키지 관측은 근거가 약하다. 3-b 후보에 그 사실을 붙인다 |
 
 exit **2**면 격리 검사가 통째로 없는 상태다. stderr의 `경로:라인: 메시지`를 **그대로** 보여준다.
-`DOMAIN.md` 해석 실패가 원인이면 이미 3-e에 올라 있고, `docs/domain/baseline.jsonl`의 깨진 줄이
+`DOMAIN.md` 해석 실패가 원인이면 이미 3-e에 올라 있고, `docs/superdomain/state/baseline.jsonl`의 깨진 줄이
 원인이면 **처분이 다르다** — 그 파일을 고칠 권한은 migrate에 있으므로 여기서 손대지 않고 넘긴다.
 어느 쪽이든 3-a·3-b는 2단계의 직접 관측만으로 진행하되, **침묵 층위 넷을 얻지 못했다는 사실을
 고지**한다.
@@ -193,8 +193,8 @@ Maven의 `target/generated-sources/`와 Android의 `src/androidTest`가 전형�
 
 ```bash
 grep -rnE "[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+" DOMAIN.md docs/
-grep -rn "^- 관련:" docs/decisions/
-ls docs/decisions/
+grep -rn "^- 관련:" docs/superdomain/adr/
+ls docs/superdomain/adr/
 ```
 
 **첫 명령 하나가 세 표기를 전부 덮는다.** 머리의 링크도 `- 관련:`도 자유 서술도 같은 파일명을
@@ -207,12 +207,12 @@ ls docs/decisions/
 있는지 아래 표로 판정한다. 자유 서술의 slug-only 표기는 이 축이 놓칠 수 있고, **그 한계는 0건
 보고에 함께 적는다.**
 
-**`docs/decisions/`가 없으면** 뒤의 두 명령이 `No such file or directory`로 끝난다. 그것은 이 축의
+**`docs/superdomain/adr/`가 없으면** 뒤의 두 명령이 `No such file or directory`로 끝난다. 그것은 이 축의
 결과가 0건이라는 뜻이 아니라 **결정 기록이 하나도 없다**는 관측이다 — 참조가 있는데 디렉터리가
 없으면 그 전부가 깨진 참조다. 디렉터리도 참조도 없으면 "0건(대조할 대상 없음)"으로 적는다. 오류
 문면을 삼키지 않는다.
 
-참조마다 대응 파일이 `docs/decisions/`에 있는지 보고, 있으면 그 문서의 `- 상태:`를 읽는다.
+참조마다 대응 파일이 `docs/superdomain/adr/`에 있는지 보고, 있으면 그 문서의 `- 상태:`를 읽는다.
 
 | 관측 | 뜻 |
 |---|---|
@@ -244,18 +244,18 @@ mtime이 최신이어도 내용이 틀리다. 판정 근거는 언제나 **내�
 
 | 파생물 | 대조하는 것 |
 |---|---|
-| `docs/domain-summary.md` | 첫 줄의 생성물 헤더, 컨텍스트 표의 행 집합(이름·분류·소속 프로젝트)이 선언과 같은가, 30줄 이하인가 |
+| `docs/superdomain/summary.md` | 첫 줄의 생성물 헤더, 컨텍스트 표의 행 집합(이름·분류·소속 프로젝트)이 선언과 같은가, 30줄 이하인가 |
 | 컨텍스트 맵 생성 구역 | 노드 집합 == 선언된 컨텍스트, 엣지 == `### 관계` 표가 연 쌍 |
 
 - **마커 문자열의 정본은 정본 문서의 「생성 구역 마커」이고, 그 구역을 다루는 규정의 정본은
   `skills/init/SKILL.md` 7-b다.** 두 줄 모두 줄 전체가 정확히 일치해야 하며, 짝 없는 마커의 처분도
   거기가 정한다. 구역 자체가 없으면 그것도 항목이다(생성된 적이 없다).
-- **`docs/domain-summary.md`의 「전역 핵심 규칙」은 자유 서술이라 기계 대조가 성립하지 않는다.**
+- **`docs/superdomain/summary.md`의 「전역 핵심 규칙」은 자유 서술이라 기계 대조가 성립하지 않는다.**
   대조하지 않았다고 적는다. 이 파일은 SessionStart 훅이 통째로 주입하는 유일한 산출물이라, 여기
   남은 낡은 문장은 매 세션 사실로 읽힌다 — 사용자에게 직접 확인을 권한다. **동결 건수를 문장에 박아
   둔 경우가 그 전형이다**: migrate가 부채를 줄이면 그 숫자는 즉시 거짓이 되지만 기계는 그것을
   판정하지 못한다.
-- **`docs/domain/baseline.jsonl`은 파생물이 아니다.** 그 파일이 있다는 것은 그 프로젝트가 부채를
+- **`docs/superdomain/state/baseline.jsonl`은 파생물이 아니다.** 그 파일이 있다는 것은 그 프로젝트가 부채를
   동결했다는 선언이고, 축소하는 권한은 migrate에만 있다(동결은 init). **이 스킬은 그 파일을 읽지도
   쓰지도 않는다.**
 
@@ -279,7 +279,7 @@ mtime이 최신이어도 내용이 틀리다. 판정 근거는 언제나 **내�
 | 선택지 | 뜻 | 누가 하는가 |
 |---|---|---|
 | **패키지 생성** | 선언이 맞다 — 없는 자리를 만든다 | **이 스킬**(5-b) |
-| **코드 수정** | 선언이 맞다 — 있는 것을 옮기거나 지운다 | **사용자.** `/superdomain:migrate`는 **`docs/domain/baseline.jsonl`에 동결된 격리 위반일 때만** 갈 곳이다 — 그 파일이 없으면 그 스킬은 입장 즉시 "동결된 부채가 없습니다"로 끝난다. **이 스킬은 기존 코드를 옮기거나 지우지 않는다** |
+| **코드 수정** | 선언이 맞다 — 있는 것을 옮기거나 지운다 | **사용자.** `/superdomain:migrate`는 **`docs/superdomain/state/baseline.jsonl`에 동결된 격리 위반일 때만** 갈 곳이다 — 그 파일이 없으면 그 스킬은 입장 즉시 "동결된 부채가 없습니다"로 끝난다. **이 스킬은 기존 코드를 옮기거나 지우지 않는다** |
 | **문서 수정** | 현실이 맞다 — 선언을 고친다 | 이 스킬(5-a). 인터뷰가 필요하면 init, 관계 표는 adr |
 | **무시** | 지금 판단할 재료가 없거나 의도된 상태다 | 아무도. 리포트에만 남는다 |
 
@@ -362,15 +362,15 @@ mtime이 최신이어도 내용이 틀리다. 판정 근거는 언제나 **내�
 `DOMAIN.md`를 한 글자라도 고쳤으면 돌린다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 - 앞은 선언이 여전히 해석되는지, 뒤는 **그 편집으로 위반이 의도한 만큼만 변했는지**다. `- 패키지:`
   를 고치면 컨텍스트의 귀속 범위가 통째로 바뀌어 위반 목록이 뒤집힌다 — 1단계의 수치와 나란히
   놓고 본다. 의도한 적 없는 변화가 보이면 라벨이나 표 구조를 잘못 건드린 것이다.
 - 이어서 파생물을 재생성한다. 관례는 `skills/init/SKILL.md` 7-a·7-b가 정본이고 여기서 다시 정하지
-  않는다 — `docs/domain-summary.md`는 30줄 이하, 생성 구역은 **여는 마커가 이미 있으면 새로 쓰지
+  않는다 — `docs/superdomain/summary.md`는 30줄 이하, 생성 구역은 **여는 마커가 이미 있으면 새로 쓰지
   않고 그 쌍 사이만 교체**, 짝이 없는 마커는 갱신하지 않고 오류로 보고.
 - **재생성은 파생물의 손 편집을 지운다.** 3-d가 낡음으로 판정한 것이 사실은 누군가 손으로 넣은
   내용일 수 있으므로, 쓰기 전에 diff를 보여주고 확정을 받는다.
@@ -386,10 +386,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
    다른 언어 소스 미대조).
 2. **축별 집계** — 다섯 축 각각의 항목 수. **0건도 적는다.**
 3. **대조하지 못한 것** — 해석 실패로 건너뛴 축, 1단계가 준 `skipped`·`unreadable`·
-   `ambiguous_package` 고지, 기계 대조가 성립하지 않는 것(`docs/domain-summary.md`의 전역 핵심
+   `ambiguous_package` 고지, 기계 대조가 성립하지 않는 것(`docs/superdomain/summary.md`의 전역 핵심
    규칙). **이 절을 비우지 않는다.**
 4. **처분** — 항목별로 사용자가 고른 것과 그 결과. 무시한 항목도 남긴다.
-5. **쓴 파일** — `DOMAIN.md`의 어느 줄·표, `docs/domain-summary.md`, 생성 구역, **만든 패키지
+5. **쓴 파일** — `DOMAIN.md`의 어느 줄·표, `docs/superdomain/summary.md`, 생성 구역, **만든 패키지
    디렉터리와 스텁 파일**. 게이트의 `OK:` 줄을 1단계 수치와 나란히 인용한다. 아무것도 쓰지
    않았으면 그렇게 적는다.
 6. **넘긴 것** — init(경계 등재·새 컨텍스트)·adr(관계 표를 여닫는 결정)·migrate(동결 부채)·
@@ -397,7 +397,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
 7. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
 
    ```bash
-   git add DOMAIN.md docs/domain-summary.md
+   git add DOMAIN.md docs/superdomain/summary.md
    git commit -m "docs: 선언과 코드의 드리프트 정정"
    ```
 
@@ -426,7 +426,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
   결정으로 데려간다.
 - **파생물을 SSOT 대신 고치도록 유도하는 것**, 짝 없는 마커에 닫는 마커를 끼워 넣어 남의 서술을
   생성 구역 안에 가두는 것.
-- **`docs/domain/baseline.jsonl`을 읽거나 쓰는 것.** 동결은 init, 축소는 migrate다.
+- **`docs/superdomain/state/baseline.jsonl`을 읽거나 쓰는 것.** 동결은 init, 축소는 migrate다.
 - **게이트를 통과시키려고 사용자가 결정한 값을 바꾸는 것.** 고쳐도 되는 것은 형식뿐이다.
 - **들어올 때 깨져 있던 선언을 사용자 확인 없이 고쳐 놓고 통과했다고 보고하는 것.**
 - **무시한 항목을 파일로 억제하는 것.** 캐시를 만들지 않는다 — 다음 실행에 다시 올라오는 것이

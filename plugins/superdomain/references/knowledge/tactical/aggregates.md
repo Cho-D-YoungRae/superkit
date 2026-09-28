@@ -102,7 +102,7 @@ read_when: [model, apply, review]
 - [ ] 상태를 바꾸는 public setter가 있는가? setter는 불변식을 우회하는 가장 흔한 경로다.
 - [ ] `proposed` 상태의 불변식을 이미 구현했는가? 확정 전에는 구현하지 않는다.
 
-`scripts/check_invariants.py`가 이 체크리스트를 두 지점에서 거든다 — `docs/domain/<컨텍스트>.md`의
+`scripts/check_invariants.py`가 이 체크리스트를 두 지점에서 거든다 — `docs/superdomain/contexts/<컨텍스트>.md`의
 `INV-<CONTEXT>-NNN`과 테스트의 `@Tag("INV-...")`를 대조해 **confirmed인데 태그가 없으면 위반**,
 **`proposed`인데 태그가 있으면 경고**(넷째 항목)를 낸다. 문서에 그 항목을 채우는 것은
 `/superdomain:model`이고 구현·태깅은 `/superdomain:apply`다.

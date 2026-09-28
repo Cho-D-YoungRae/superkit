@@ -6,7 +6,7 @@ description: >
   돌리고 남은 의미론(경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 정합·관계 유형
   위반)만 domain-reviewer 서브에이전트에 위임해, 항목마다 규칙 id 또는 semantic 태그,
   분류(위반|누락|드리프트|추가 논의), 심각도, 근거, 수정 제안을 담은 리포트를 내고
-  `docs/domain/review-log.jsonl`에 append한다. 코드는 고치지 않는다 — 제안까지다. 사용자가
+  `docs/superdomain/state/review-log.jsonl`에 append한다. 코드는 고치지 않는다 — 제안까지다. 사용자가
   "도메인 리뷰", "이 변경 검토해줘", "도메인 관점에서 봐줘", "리뷰해줘"(도메인 맥락),
   "domain review", "review this change", "/superdomain:review"를 요청할 때, PR·커밋 전
   점검을 원할 때, 작업 트리나 브랜치·커밋 범위의 변경이 선언을 어겼는지 확인하고 싶을 때
@@ -105,7 +105,7 @@ git ls-files --others --exclude-standard     # 아직 추적되지 않는 새 �
 ### 2-a. check_imports — 컨텍스트 격리
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 - exit **0** 클린 / **1** 위반 있음 / **2** 해석 불가·사용법 오류.
@@ -120,7 +120,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
   원하면 리포트 맨 위에 "컨텍스트 격리는 이번에 검사되지 않았다"를 박고 진행하되,
   **2-b는 그대로 돌린다.** 2-a가 exit 2를 내는 사유는 사용법 오류를 빼면 셋이다(사용법 오류는
   위 명령을 그대로 적으면 나지 않고, 나더라도 2-b와 무관하다) — `DOMAIN.md` 해석 실패,
-  `docs/domain/baseline.jsonl`의 깨진 줄, 그리고 `- 패키지:`도 귀속 프로젝트의 `기본 패키지`도
+  `docs/superdomain/state/baseline.jsonl`의 깨진 줄, 그리고 `- 패키지:`도 귀속 프로젝트의 `기본 패키지`도
   없어 컨텍스트의 패키지 패턴을 정하지 못하는 것. **뒤의 둘은 2-b를 조금도 막지 않는다** —
   2-b는 baseline을 읽지 않고 패키지 패턴도 쓰지 않는다(태그를 찾는 범위는 프로젝트 경로 아래
   테스트 디렉터리다). 앞의 하나는 2-b도 같은 이유로 멈추므로 2-b 자신의 exit 2 갈래가 받는다.
@@ -131,7 +131,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
 | 갈래 | 모양 | 5단계에서의 처리 |
 |---|---|---|
 | 위반 | `경로:라인: [derived.context-isolation] 메시지` | diff 소속 / 변경 밖으로 나눈다 |
-| 기존 부채 | `[기존 부채] 경로:라인: [rule id] 메시지` (`docs/domain/baseline.jsonl`의 동결분) | **구역 2에 `warn`으로.** 대상 파일 안이어도 올리지 않는다 |
+| 기존 부채 | `[기존 부채] 경로:라인: [rule id] 메시지` (`docs/superdomain/state/baseline.jsonl`의 동결분) | **구역 2에 `warn`으로.** 대상 파일 안이어도 올리지 않는다 |
 | 0건 경고 | `[0건 경고] <rule id>: …` | 그대로 승계 |
 | 귀속 불신 | `package 선언이 여러 건인 소스 N건 — 첫 선언으로 귀속했으므로 이 파일들의 판정은 믿을 수 없습니다…: <경로>(N건 → '<패키지>'로 귀속)` | **그대로 승계**(위반이 아니고 exit 코드도 바꾸지 않는다) + 목록의 경로가 대상에 있으면 그 파일 항목에 표시 |
 | 푸터 | 검사·생략 건수, `생략: …` 사유, 읽지 못한 소스, `한계: …` | 그대로 승계 |
@@ -143,7 +143,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
 ### 2-b. check_invariants — confirmed 불변식에 대응 테스트 태그가 있는가
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" docs/superdomain/DOMAIN.md
 ```
 
 - exit **0** 클린 / **1** 위반 있음 / **2** 해석 불가·사용법 오류 — check_imports와 같은 의미다.
@@ -181,7 +181,7 @@ domain-reviewer의 C4 (2)뿐이다** — 위임을 돌리지 못한 실행에서
 
 ### 2-c. 필수 domain 문서가 없는 컨텍스트 — 가르는 것은 `- 분류:`다
 
-2-b의 `고지: 컨텍스트 '<이름>'의 도메인 문서가 없습니다(docs/domain/<이름>.md) — 불변식 0건`은
+2-b의 `고지: 컨텍스트 '<이름>'의 도메인 문서가 없습니다(docs/superdomain/contexts/<이름>.md) — 불변식 0건`은
 `core`에서도 `generic`에서도 **같은 문면이다** — 그 검사는 분류를 읽지 않는다. 가를 재료는 이미 둘
 다 있다: §0에서 읽은 `- 분류:`와 방금 받은 고지의 컨텍스트 이름이다. 셀 하나를 대조한다.
 **새 스크립트가 아니라 2-b 출력과 선언의 대조이므로 「결정적 검사는 이 둘뿐」(§2 머리)은 그대로다.**
@@ -220,7 +220,7 @@ domain-reviewer의 C4 (2)뿐이다** — 위임을 돌리지 못한 실행에서
 |---|---|
 | (a) | 대상 컨텍스트가 `- 패턴:`으로 선언한 문서(`cqrs`·`outbox`·`event-sourcing`) |
 | (b) | INDEX의 `read_when`에 `review`가 있는 문서 |
-| (c) | 대상 프로젝트의 `docs/conventions/` 문서 |
+| (c) | 대상 프로젝트의 `docs/superdomain/conventions/` 문서 |
 | (d) | 선언이 없어도 **diff에 패턴 징후가 보이는** patterns 문서 |
 
 (d)의 징후 — 선언(`- 패턴:`)은 코드보다 늦게 따라오는 일이 흔하고, `cqrs.md`는 R1·R2를 "선언
@@ -262,11 +262,11 @@ domain-reviewer의 C4 (2)뿐이다** — 위임을 돌리지 못한 실행에서
 
 | 입력 | 형태 |
 |---|---|
-| `docs/domain-summary.md` | 경로가 아니라 **파일 내용**을 넣는다 |
+| `docs/superdomain/summary.md` | 경로가 아니라 **파일 내용**을 넣는다 |
 | 대상 컨텍스트의 `### 관계` 표 | 행을 그대로(상대·유형·계약). C1·C5의 유일한 근거다. 행이 없으면 **"관계 0건 — 이 컨텍스트에 대해 모든 쌍이 닫혀 있다"**로 적어 보낸다. "표를 못 찾았다"와 다른 사실이고, C1은 그 상태에서 오히려 더 세게 돈다 |
 | 검토 대상 파일·diff 목록 | 저장소 루트 기준 상대 경로 목록. 컨텍스트 귀속과 "미귀속" 표시를 함께 |
 | 선별 지식 문서 | **경로 목록**. 절대 경로여야 한다 |
-| domain 문서 | `docs/domain/<컨텍스트>.md`(단일 컨텍스트면 `docs/domain.md`)가 있으면 경로 |
+| domain 문서 | `docs/superdomain/contexts/<컨텍스트>.md`(단일 컨텍스트면 `docs/domain.md`)가 있으면 경로 |
 
 선택 입력 둘 — **2단계의 결정적 검사 결과**(2-a 위반의 `rule id`와 `path` 목록, 2-b가 낸 불변식
 위반의 `INV-` id 목록)와 **2-a의 `귀속 불신` 경로 목록**. 앞의 것은 에이전트가 중복 제거에 쓰고,
@@ -392,7 +392,7 @@ rule id와 심각도만 남기면 왜 그것이 문제인지가 통째로 사라
 
 ## 6. "추가 논의"는 domain 문서로 간다
 
-`docs/domain/<컨텍스트>.md`(단일 컨텍스트면 `docs/domain.md`)가 있으면 그 문서의 `## 열린 질문`
+`docs/superdomain/contexts/<컨텍스트>.md`(단일 컨텍스트면 `docs/domain.md`)가 있으면 그 문서의 `## 열린 질문`
 섹션 **끝에 append**한다.
 
 - **이 문서는 파생물이 아니라 SSOT다.** 생성물 헤더를 붙이지 않고, 통째로 재생성하지 않으며,
@@ -414,7 +414,7 @@ rule id와 심각도만 남기면 왜 그것이 문제인지가 통째로 사라
 
 ## 7. `review-log.jsonl`에 append
 
-경로는 git 루트의 `docs/domain/review-log.jsonl`이다. **append only** — 기존 줄을 고치거나
+경로는 git 루트의 `docs/superdomain/state/review-log.jsonl`이다. **append only** — 기존 줄을 고치거나
 지우거나 정렬하지 않는다. 파일이 없으면 새로 만들고, 마지막 줄에 개행이 없으면 개행부터 넣는다.
 
 한 항목당 **한 줄 JSON**, 키는 다섯이다.
@@ -442,7 +442,7 @@ rule id와 심각도만 남기면 왜 그것이 문제인지가 통째로 사라
 - 항목이 0건이면 아무것도 쓰지 않는다. 빈 리뷰 기록을 남기지 않는다.
 - 쓴 뒤 전 줄이 파싱되는지 확인한다.
   ```bash
-  python3 -c "import json,sys;[json.loads(l) for l in open('docs/domain/review-log.jsonl') if l.strip()]" && echo OK
+  python3 -c "import json,sys;[json.loads(l) for l in open('docs/superdomain/state/review-log.jsonl') if l.strip()]" && echo OK
   ```
 
 ## 8. 마무리 보고
@@ -463,7 +463,7 @@ rule id와 심각도만 남기면 왜 그것이 문제인지가 통째로 사라
    돌리지 못했으면 그것도 이 절로 온다.** **이 절을 비우지 않는다.**
 7. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
    ```bash
-   git add docs/domain/review-log.jsonl              # + append한 domain 문서가 있으면 함께
+   git add docs/superdomain/state/review-log.jsonl              # + append한 domain 문서가 있으면 함께
    git commit -m "chore: 도메인 리뷰 결과 기록"
    ```
 

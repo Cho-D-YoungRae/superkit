@@ -299,7 +299,7 @@ v1의 표는 하나뿐이다. 컨텍스트 섹션 안, 소제목 `### 관계` �
 ### 4.4 exit 규약
 
 ```bash
-python3 scripts/parse_domain.py DOMAIN.md
+python3 scripts/parse_domain.py docs/superdomain/DOMAIN.md
 ```
 
 | exit | 뜻 | 출력 |
@@ -379,7 +379,7 @@ python3 scripts/parse_domain.py DOMAIN.md
 ### 5.3 검사기와 exit 규약
 
 ```bash
-python3 scripts/check_imports.py DOMAIN.md [--json]
+python3 scripts/check_imports.py docs/superdomain/DOMAIN.md [--json]
 ```
 
 | exit | 뜻 |
@@ -402,7 +402,7 @@ python3 scripts/check_imports.py DOMAIN.md [--json]
 경계를 방금 그은 저장소에는 이미 그 경계를 넘는 참조가 있다. 그것을 **동결**해 부채로 강등하고, 그 뒤의
 새 위반만 막는 래칫이 `baseline.jsonl`이다.
 
-**경로는 `docs/domain/baseline.jsonl` 하나다**(`check_imports.py`의 `BASELINE_RELATIVE`). 플래그가 없다
+**경로는 `docs/superdomain/state/baseline.jsonl` 하나다**(`check_imports.py`의 `BASELINE_RELATIVE`). 플래그가 없다
 — 파일이 있다는 것 자체가 그 프로젝트가 상환 중이라는 선언이므로 자동 감지해 읽는다.
 
 **문법** — 한 줄에 위반 하나씩, 한 줄 JSON 객체다.
@@ -425,7 +425,7 @@ python3 scripts/check_imports.py DOMAIN.md [--json]
   줄어들지 않는 유령 항목이 된다.
 - **빈 줄은 건너뛴다.** 위반을 담지 않으므로 래칫이 새지 않는다.
 - **한 줄이라도 깨지면 검사 전체가 exit 2다.** 어느 위반이 동결분인지 전체를 알 수 없으므로, 래칫을
-  부분적으로 믿느니 검사를 세우지 않는다. stderr가 `docs/domain/baseline.jsonl:<줄>: ...`을 지목한다.
+  부분적으로 믿느니 검사를 세우지 않는다. stderr가 `docs/superdomain/state/baseline.jsonl:<줄>: ...`을 지목한다.
 - **표기가 어긋난 줄은 아무것도 강등하지 못한 채 항목 수만 채운다.** 경로 기준과 구분자를 지킨다.
 
 **세 경로가 서로 다른 스킬의 것이다.**

@@ -1,13 +1,13 @@
 ---
 name: migrate
 description: >
-  동결된 컨텍스트 격리 위반을 점진 상환한다 — `docs/domain/baseline.jsonl`의 항목을 **컨텍스트
+  동결된 컨텍스트 격리 위반을 점진 상환한다 — `docs/superdomain/state/baseline.jsonl`의 항목을 **컨텍스트
   쌍(A↔B) 단위**로 클러스터링하고, collect_signals의 핫스팟과 참조 fan-in을 근거로 우선순위를
   매겨 **한 번에 한 클러스터만** 계획을 제시하고, 승인받은 뒤 경계를 넘는 참조를 실제로 끊는
   코드 변경을 수행하고, `check_imports.py` 두 실행으로 해소를 실측한 뒤 baseline에서 그 항목을
   지운다. baseline이 비면 파일을 지우고 상환 완료 ADR로 닫는다. 사용자가 "부채 갚기",
   "baseline 줄이기", "격리 위반 정리", "컨텍스트 결합 끊기", "마이그레이션", "레거시 구조 정리",
-  "migrate", "/superdomain:migrate"를 요청할 때, `docs/domain/baseline.jsonl`이 있는
+  "migrate", "/superdomain:migrate"를 요청할 때, `docs/superdomain/state/baseline.jsonl`이 있는
   프로젝트에서 동결된 부채를 실제로 줄이려 할 때, 또는 `/superdomain:evolve`가 "baseline
   감소가 정체됐다"고 보고했을 때 사용한다. **baseline을 줄이는 유일한 스킬**이며(동결은
   `/superdomain:init`, `check_imports.py`는 읽기만 한다) 빅뱅 리팩터링 계획은 제시하지
@@ -15,13 +15,13 @@ description: >
   패키지 선언 자체를 세우거나 바꾸는 일은 `/superdomain:init`, 관계 표를 열 근거를 남기는
   일은 `/superdomain:adr`, 변경분을 검토하고 리포트만 내는 일은 `/superdomain:review`,
   도메인 문서의 불변식을 코드와 태그 테스트로 옮기는 일은 `/superdomain:apply`다.
-  `docs/domain/baseline.jsonl`이 없으면 이 스킬은 할 일이 없다.
+  `docs/superdomain/state/baseline.jsonl`이 없으면 이 스킬은 할 일이 없다.
 ---
 
 # 동결된 격리 위반을 점진 상환
 
 이 스킬은 **부채를 줄이는 유일한 경로**다. init이 동결하고 `check_imports.py`가 읽기만 하는
-`docs/domain/baseline.jsonl`을 실제로 축소하는 권한은 여기 하나뿐이다. 그 권한이 잘못 쓰이면
+`docs/superdomain/state/baseline.jsonl`을 실제로 축소하는 권한은 여기 하나뿐이다. 그 권한이 잘못 쓰이면
 래칫이 거꾸로 돌고, 그 순간 이 플러그인의 보장이 통째로 사라진다. 그래서 불변이 넷이다.
 
 1. **한 번에 한 클러스터.** 계획도 하나, 승인도 하나, 수행도 하나다. 빅뱅 리팩터링 계획을 제시하지
@@ -51,7 +51,7 @@ description: >
 - **이번 클러스터가 실제로 건드리는 주제** — INDEX의 `read_when`에 `migrate`가 붙은 문서가
   후보다: 영속이 얽히면 `persistence`, 포트를 도입하면 `repositories-domain-services`, 대상
   컨텍스트가 `- 패턴:`으로 선언한 문서가 있으면 그 key의 문서도.
-- 대상 프로젝트의 `docs/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
+- 대상 프로젝트의 `docs/superdomain/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 ---
 
@@ -59,14 +59,14 @@ description: >
 
 ```bash
 git rev-parse --show-toplevel
-ls -l docs/domain/baseline.jsonl
+ls -l docs/superdomain/state/baseline.jsonl
 ```
 
 git 루트가 작업 기준이다. `DOMAIN.md`가 없으면 아래를 알리고 **중단**한다.
 
 > superdomain이 초기화되지 않았습니다. `/superdomain:init`으로 도메인 경계 선언을 먼저 세우세요.
 
-**`docs/domain/baseline.jsonl`의 존재가 이 스킬의 입장 조건 전부다.** 선언에는 부채를 가리키는
+**`docs/superdomain/state/baseline.jsonl`의 존재가 이 스킬의 입장 조건 전부다.** 선언에는 부채를 가리키는
 라벨이 없다 — 파일이 있으면 동결된 부채가 있는 것이고, 없으면 없는 것이다. 세 지점(init의 동결,
 `check_imports.py`의 강등, 이 스킬의 축소)이 같은 경로 하나를 본다.
 
@@ -96,9 +96,9 @@ git 루트가 작업 기준이다. `DOMAIN.md`가 없으면 아래를 알리고 
 세 개를 함께 놓아야 "무엇이 아직 살아 있는 부채인가"가 나온다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
-cat -n docs/domain/baseline.jsonl
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
+cat -n docs/superdomain/state/baseline.jsonl
 ```
 
 - **`parse_domain.py`가 exit 1이면 멈춘다.** stderr의 `경로:라인: 메시지`를 그대로 보여준다. 깨진
@@ -106,7 +106,7 @@ cat -n docs/domain/baseline.jsonl
   (exit 2는 사용법 오류 — 인자를 고쳐 다시 돌린다). exit 0이면 `DOMAIN.md`를 직접 읽어 컨텍스트
   이름·`- 패키지:`·`### 관계` 표를 손에 쥔다. **컨텍스트 패키지가 2·5단계의 목표 자리를 정한다.**
 - **`check_imports.py`의 exit 2는 baseline이 깨졌다는 뜻일 수 있다**(1은 "위반 발견"이라는 정상
-  판정이다). stderr가 `docs/domain/baseline.jsonl:<줄>: …`을 지목하면 **그 줄을 고치는 것이 이번
+  판정이다). stderr가 `docs/superdomain/state/baseline.jsonl:<줄>: …`을 지목하면 **그 줄을 고치는 것이 이번
   세션의 첫 작업**이다(재작성 권한은 이 스킬에 있다). 적용하는 것은 6-b의 **재작성 형식 규율**
   뿐이다 — 한 줄 JSON, (rule, path) 정렬, 남길 줄은 원문 그대로. 6-b의 "지우는 것은 6-a에서 부재를
   확인한 항목뿐"은 여기 걸리지 않는다: 그 문장은 해소를 근거로 한 축소를 규율하고, 여기서 다루는
@@ -192,7 +192,7 @@ baseline 항목의 `rule` 값이 그것이 아니면 **그 항목은 어떤 실�
 두 축을 쓴다: **자주 만지는 곳 먼저**(이득이 크다), **참조가 적은 쌍부터**(안전하다).
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" docs/superdomain/DOMAIN.md --json
 ```
 
 - exit 0이면 `hotspots[]`(`path`·`commits`·`key` — 상위 20)와 `contexts[]`가 온도다. `key`는
@@ -304,7 +304,7 @@ cd "<프로젝트 경로>" && ./gradlew build -x test        # 또는 그 프로
 ### 6-a. 제거 전 — 부재 확인
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
 ```
 
 넷을 본다. 하나라도 어긋나면 **항목을 지우지 않고 5단계로 돌아간다.**
@@ -336,7 +336,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 
 ### 6-b. 축소 — 전체 재작성 (append 아님)
 
-되돌릴 수단을 먼저 확보한다(`git status --short docs/domain/baseline.jsonl`로 커밋 여부를 확인하고,
+되돌릴 수단을 먼저 확보한다(`git status --short docs/superdomain/state/baseline.jsonl`로 커밋 여부를 확인하고,
 커밋 전이면 `mktemp`로 사본을 뜬다). 그다음 파일을 **통째로 다시 쓴다.**
 
 - 형식은 한 줄에 위반 하나, `{"rule": "<id>", "path": "<git 루트 상대>", "note": "<선택>"}`.
@@ -349,17 +349,17 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 - **`path`는 git 루트 기준 상대경로이고 구분자는 `/`다.** 로더는 그 값을 위반의 표시 경로와 글자
   그대로 대조하므로, 표기가 어긋난 줄은 아무것도 강등하지 못한 채 항목 수만 채운다.
 - **남길 줄이 하나도 없으면 빈 파일을 쓰지 않는다.** 그대로 7단계로 간다.
-- **건수를 인용한 파생물이 여기서 낡는다.** `docs/domain-summary.md`의 자유 서술이 동결 시점 건수를
+- **건수를 인용한 파생물이 여기서 낡는다.** `docs/superdomain/summary.md`의 자유 서술이 동결 시점 건수를
   문장에 박아 두었으면 축소한 지금 그 문장은 거짓이고, 이 파일은 SessionStart 훅이 통째로 주입하는
   유일한 산출물이라 낡은 숫자가 매 세션 사실로 읽힌다. 불변 4에 따라 이 스킬이 고치지 않는다 —
-  **`grep -n baseline docs/domain-summary.md`로 확인해 걸리면 새 건수와 함께 8단계 4항에 고지하고
+  **`grep -n baseline docs/superdomain/summary.md`로 확인해 걸리면 새 건수와 함께 8단계 4항에 고지하고
   `/superdomain:sync`를 권한다**(자유 서술이라 sync도 기계 대조는 하지 않고 사용자 확인으로
   넘긴다: sync 3-d).
 
 ### 6-c. 제거 후 — 보호가 걷힌 상태에서 다시 본다
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 이제 그 항목들은 보호받지 않는다. **대상이 신규 위반으로 살아나면 6-a가 착시였다는 뜻이므로
@@ -386,7 +386,7 @@ baseline을 되돌리고 5단계로 간다.** exit 2가 나면 재작성이 파�
 ### 7-a. 파일을 지운다 — 빈 파일로 두지 않는다
 
 ```bash
-git rm docs/domain/baseline.jsonl     # 커밋 전이면 rm
+git rm docs/superdomain/state/baseline.jsonl     # 커밋 전이면 rm
 ```
 
 빈 baseline은 래칫이 있는 척하는 상태다. `check_imports.py`는 **파일 존재만으로** 강등 채널과
@@ -428,7 +428,7 @@ git rm docs/domain/baseline.jsonl     # 커밋 전이면 rm
 7. **커밋은 사용자가 한다.** 명령만 제안한다.
 
    ```bash
-   git add <고친 파일들>       # 6-b에서 축소만 했으면 docs/domain/baseline.jsonl도 함께
+   git add <고친 파일들>       # 6-b에서 축소만 했으면 docs/superdomain/state/baseline.jsonl도 함께
    git commit -m "refactor: <컨텍스트 A> ↔ <컨텍스트 B> 직접 참조 제거 — baseline N건 해소"
    ```
 

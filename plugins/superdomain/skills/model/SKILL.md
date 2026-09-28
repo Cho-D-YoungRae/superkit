@@ -2,7 +2,7 @@
 name: model
 description: >
   질문 주도 도메인 모델링 세션 — 대화에서 업무 규칙을 불변식으로 끌어내 `INV-<CONTEXT>-NNN`으로
-  채번해 `docs/domain/<context>.md`의 표에 적고, 모인 불변식을 근거로 애그리거트
+  채번해 `docs/superdomain/contexts/<context>.md`의 표에 적고, 모인 불변식을 근거로 애그리거트
   경계·값 객체·도메인 이벤트를 제안해 확인받는다. 세션 유형은 셋 — 인터뷰(기본), 이벤트
   스토밍(도메인이 넓거나 처음이라 경계를 못 고를 때), 미팅 정리(회의록·대화를 붙여넣으면 불변식
   후보·결정·열린 질문으로 구조화). `proposed` → `confirmed` 승격은 항목별 사용자 확정으로만
@@ -107,11 +107,11 @@ git rev-parse --show-toplevel
 
 경로 규칙의 정본은 domain 문서 표준 §2다. `DOMAIN.md`가 있는 디렉터리 기준으로:
 
-- 기본 — `docs/domain/<컨텍스트>.md` (파일명 = 선언명)
+- 기본 — `docs/superdomain/contexts/<컨텍스트>.md` (파일명 = 선언명)
 - 통합 — 컨텍스트가 **하나뿐인** 프로젝트만 `docs/domain.md`
 - **둘 다 있으면 손대지 않는다.** 중복 배치는 정본이 오류로 규정한 상태이고 어느 쪽이
   진짜인지 정하는 규칙이 없다. 사용자에게 한쪽을 비우게 하고 중단한다.
-- `docs/domain/`의 `*.md`는 **전부 컨텍스트 문서로 읽힌다.** 세션 요약(`docs/domain-summary.md`)이
+- `docs/superdomain/contexts/`의 `*.md`는 **전부 컨텍스트 문서로 읽힌다.** 세션 요약(`docs/superdomain/summary.md`)이
   그 디렉터리 밖에 있는 것도 그래서다 — 요약이나 메모를 그 안에 새로 만들지 않는다.
 
 ### 2-b. 없으면 스켈레톤으로 만든다
@@ -313,7 +313,7 @@ superglossery가 갖는다.
 git 루트에서 실행한다. `--context`는 이번 세션의 컨텍스트로 대조 범위를 좁힌다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context <컨텍스트>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" docs/superdomain/DOMAIN.md --context <컨텍스트>
 ```
 
 exit **0** 클린 / **1** 위반 있음 또는 검사 불능 / **2** 해석 불가. **1로 끝나는 두 경우를
@@ -346,7 +346,7 @@ exit **0** 클린 / **1** 위반 있음 또는 검사 불능 / **2** 해석 불�
 2. 경계·분류에 관한 결론이 남았으면 `/superdomain:init`을 안내한다(0-c).
 3. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
    ```bash
-   git add docs/domain                       # 통합 배치면 docs/domain.md
+   git add docs/superdomain/contexts                       # 통합 배치면 docs/domain.md
    git commit -m "docs: <컨텍스트> 도메인 모델링 세션"
    ```
 

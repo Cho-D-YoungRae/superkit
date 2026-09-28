@@ -48,8 +48,8 @@ description: >
 
 ## 이 스킬이 쓰는 파일
 
-**수락된 제안이 지목한 것만** 쓴다: `docs/decisions/yyyy-MM-dd-slug.md`(`proposed` ADR 초안), 그리고
-`DOMAIN.md`의 해당 라벨·표와 그 편집이 낡게 만든 파생물(`docs/domain-summary.md`·생성 구역).
+**수락된 제안이 지목한 것만** 쓴다: `docs/superdomain/adr/yyyy-MM-dd-slug.md`(`proposed` ADR 초안), 그리고
+`DOMAIN.md`의 해당 라벨·표와 그 편집이 낡게 만든 파생물(`docs/superdomain/summary.md`·생성 구역).
 선언을 고쳤으면 **파서 게이트와 파생물 재생성까지 이 스킬이 끝낸다**(9단계) — 반쯤 반영하고
 끊으면 선언과 파생물이 갈라진 상태가 산출물이 된다.
 
@@ -65,7 +65,7 @@ description: >
 **정본이 정의한 신호 중 이 셋으로 착지하지 않는 것은 판정하지 않고 관측만 넘긴다.** 수집기가
 내는 값 중 baseline 추이와 review-log의 의미론 지적이 그렇다 — 리포트에 관측으로 싣되 제안을
 만들지 않고, 처분은 각각 `/superdomain:migrate`(baseline 축소)와 `/superdomain:review`·
-`docs/conventions/`(반복되는 의미론 지적)로 넘긴다. **넘겼다는 사실을 리포트에서 빼지 않는다** —
+`docs/superdomain/conventions/`(반복되는 의미론 지적)로 넘긴다. **넘겼다는 사실을 리포트에서 빼지 않는다** —
 조용히 빠진 관측은 다음 실행이 같은 것을 다시 수집하게 만든다.
 
 ---
@@ -105,7 +105,7 @@ ${CLAUDE_PLUGIN_ROOT}/references/governance/evolution-signals.md
 
 ```bash
 python3 -c "import datetime;print((datetime.date.today()-datetime.timedelta(days=<정본이 정한 일수>)).isoformat())"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --since <위 출력> --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" docs/superdomain/DOMAIN.md --since <위 출력> --json
 ```
 
 - **`--since`는 ISO 날짜(`YYYY-MM-DD`)로 준다.** rev나 상대 표현(`4 weeks ago`)을 주면 review-log
@@ -126,9 +126,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --since <�
 
 | 고지 | 판정에 미치는 영향 |
 |---|---|
-| `docs/domain/review-log.jsonl`의 깨진 줄 / `date` 없는 줄 | 그 줄은 집계에서 빠졌다 — **모든 건수는 하한이다.** 임계값에 못 미쳤다고 "신호 없음"이라 단정하지 않는다 |
-| `docs/domain/review-log.jsonl` 부재 | 그 신호는 **미산출**이다(0건과 다르다) |
-| `docs/domain/baseline.jsonl` 부재 / 이력 누적과 현재 줄 수 불일치 | 넘길 관측이 없거나 근사다(제안 범위 밖이지만 리포트에는 그대로 싣는다) |
+| `docs/superdomain/state/review-log.jsonl`의 깨진 줄 / `date` 없는 줄 | 그 줄은 집계에서 빠졌다 — **모든 건수는 하한이다.** 임계값에 못 미쳤다고 "신호 없음"이라 단정하지 않는다 |
+| `docs/superdomain/state/review-log.jsonl` 부재 | 그 신호는 **미산출**이다(0건과 다르다) |
+| `docs/superdomain/state/baseline.jsonl` 부재 / 이력 누적과 현재 줄 수 불일치 | 넘길 관측이 없거나 근사다(제안 범위 밖이지만 리포트에는 그대로 싣는다) |
 | 관측 창 근사 | 위 항목 참조 |
 
 ## 3. 선언과 결합 — 수집기가 주지 않는 축
@@ -169,7 +169,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --since <�
   경계를 무시하고 있거나. **어느 쪽인지 이 스킬이 혼자 정하지 않는다**: 선택지에 둘을 함께 올린다.
 - **불변식 ID의 반복은 도메인 모델 쪽 안건이다.** 관측으로 싣고 다음 모델링 세션(9단계 표)으로
   넘긴다 — 불변식은 이 스킬이 제안하는 셋 중 어디에도 착지하지 않는다.
-- **`semantic.*`는 제안 범위 밖이다.** 반복 주제를 관측으로 싣고 처분(`docs/conventions/` 승격
+- **`semantic.*`는 제안 범위 밖이다.** 반복 주제를 관측으로 싣고 처분(`docs/superdomain/conventions/` 승격
   여부)은 사용자와 `/superdomain:review`에 넘긴다. `semantic.unspecified`는 **범주 태그 없이 온
   항목**이라는 뜻이므로 주제를 지어내지 말고 `notes`로 후보만 제시한다.
 
@@ -209,9 +209,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --since <�
 
 ```bash
 python3 -c "import datetime;print((datetime.date.today()-datetime.timedelta(days=<정본이 정한 비교 구간의 일수>)).isoformat())"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
 git worktree add --detach <임시 경로> "$(git rev-list -1 --before=<위 출력> HEAD)"
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" <임시 경로>/DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" <임시 경로>/docs/superdomain/DOMAIN.md --json
 git worktree remove <임시 경로>
 ```
 
@@ -229,7 +229,7 @@ git worktree remove <임시 경로>
   두 수치는 같은 것을 세지 않는다. 선언이 바뀐 것을 확인했으면 신호를 내지 않거나, 무엇이 바뀌어
   비교가 성립하지 않는지 적는다.
 - **강등 기준선도 그 시점의 것이다.** 실행 루트가 `DOMAIN.md`가 있는 디렉터리이므로 과거
-  트리 실행은 **그 트리 자신의 `docs/domain/baseline.jsonl`**을 읽는다(실측). 그 사이 동결이나
+  트리 실행은 **그 트리 자신의 `docs/superdomain/state/baseline.jsonl`**을 읽는다(실측). 그 사이 동결이나
   축소가 있었으면 두 수치의 강등 범위가 달라 차이가 부채 이동일 수 있다 — 비교의 전제로 적는다.
 - 사용자가 과거 트리 관측을 원치 않거나 실패하면 **결합 급증은 미산출**이다. 동시 변경 수치로
   대체 판정하지 않는다.
@@ -243,7 +243,7 @@ git worktree remove <임시 경로>
   없다"와 "판정 자체를 하지 않았다"는 다른 상태이고, 둘을 섞으면 리포트가 클린을 가장한다.
 - **기각 이력.** 정본은 한 번 기각된 제안을 같은 신호·같은 대상에 대해 일정 기간 다시 내지
   말라고 정한다. 이 플러그인은 그 이력을 담을 상태 파일을 두지 않으므로 두 경로로 확인한다.
-  ① `docs/decisions/`를 훑어 같은 대상에 대한 결정(유지 결정 포함)이 있는지 본다.
+  ① `docs/superdomain/adr/`를 훑어 같은 대상에 대한 결정(유지 결정 포함)이 있는지 본다.
   ② 없으면 제안을 내기 전에 **지난 실행에서 기각한 것이 있는지 묻는다.** 알 방법이 없다는 이유로
   같은 제안을 조용히 다시 내지 않는다.
 - **분류 변경 판정**은 여기서 지식 문서를 읽는다. INDEX를 열어 `read_when`에 `evolve`가
@@ -284,7 +284,7 @@ git worktree remove <임시 경로>
   날조다.
 
   ```bash
-  grep -rln "<컨텍스트 이름>" docs/decisions/
+  grep -rln "<컨텍스트 이름>" docs/superdomain/adr/
   ```
 
   히트가 없으면 "없음"이다. 히트가 있으면 그 문서를 **열어 보고** 지금 건드리려는 경계·분류·관계를
@@ -303,7 +303,7 @@ git worktree remove <임시 경로>
 - **초안은 먼저 리포트에 본문으로 보여준다.** 파일로 쓰는 것은 사용자가 "이 제안은 남기겠다"고
   한 것만이다 — 훑어보지도 않은 초안 다섯 개가 `decisions/`에 쌓이면 ADR 목록 자체가 소음이 된다.
 - **파일명은 쓰는 시점에 정한다**(`skills/adr/SKILL.md` 4단계): `date +%F`의 출력 + slug이고
-  채번하지 않는다. `ls docs/decisions/`로 **목록 전체**를 보아 같은 날짜에 같은 slug가 이미
+  채번하지 않는다. `ls docs/superdomain/adr/`로 **목록 전체**를 보아 같은 날짜에 같은 slug가 이미
   있으면 멈추고 알린다. 한 실행에서 여럿 쓰면 쓸 때마다 다시 관측한다.
 - **상태는 언제나 `proposed`다**(`adr-template.md` §3). `accepted` 전이는 이 스킬이 하지 않는다 —
   경로는 `/superdomain:adr`의 승인 단계다.
@@ -326,11 +326,11 @@ git worktree remove <임시 경로>
 
 | 수락한 제안 | 반영 | 누가 |
 |---|---|---|
-| 수락한 제안의 ADR 초안 | `docs/decisions/yyyy-MM-dd-slug.md`(`proposed`) | **이 스킬**(8단계) |
+| 수락한 제안의 ADR 초안 | `docs/superdomain/adr/yyyy-MM-dd-slug.md`(`proposed`) | **이 스킬**(8단계) |
 | `- 분류:` 라벨, `### 관계` 표 행 | `DOMAIN.md`의 그 줄·그 표 → 파생물 | **이 스킬**(9-a → 9-b) |
 | 컨텍스트 **신설·병합·분리** — 경계를 새로 긋는 것 | 경계·분류·패키지·관계를 다시 정하는 인터뷰 → 선언 등록 → 게이트 → 파생물 | **`/superdomain:init`** |
 | 선언은 섰는데 디스크에 패키지가 없다 | 드리프트 처분(패키지 생성 포함) | **`/superdomain:sync`** |
-| 도메인 모델 재편(용어·추상화·애그리거트) | `docs/domain/<context>.md` | **`/superdomain:model` 세션** |
+| 도메인 모델 재편(용어·추상화·애그리거트) | `docs/superdomain/contexts/<context>.md` | **`/superdomain:model` 세션** |
 | baseline 축소 | 코드에서 격리 위반 해소 | **`/superdomain:migrate`** — 축소는 이 경로로만 |
 
 - **`- 패키지:` 라벨은 이 스킬이 고치지 않는다.** 패키지가 바뀌면 컨텍스트의 귀속 범위가 통째로
@@ -339,7 +339,7 @@ git worktree remove <임시 경로>
   `model`·`review`·`apply` 셋뿐이므로(`governance/domain-doc-template.md` §5) evolve가 append할
   자리가 없다. 관측과 제안을 리포트에 남기고 다음 모델링 세션의 안건으로 넘긴다.
 - **넘긴 관측(baseline 추이·반복되는 의미론 지적)은 여기서 파일을 쓰지 않는다.** 리포트에 싣고
-  처분을 그쪽 스킬에 넘기는 것이 전부다 — `docs/conventions/` 문서를 쓸지는 사용자와 review가
+  처분을 그쪽 스킬에 넘기는 것이 전부다 — `docs/superdomain/conventions/` 문서를 쓸지는 사용자와 review가
   정한다.
 
 ### 9-a. 선언 편집 — 확정받은 값만
@@ -360,8 +360,8 @@ git worktree remove <임시 경로>
 `DOMAIN.md`를 한 글자라도 고쳤으면 돌린다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 - 앞은 선언 검증(필수 라벨 누락·비정규 값·구 라벨)이고, 뒤는 **그 편집으로 위반이 의도한 만큼만
@@ -369,7 +369,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
   더하면 위반이 사라진다 — **그 차이가 곧 이번 편집의 실제 효과**다. 의도한 적 없는 변화가 보이면
   라벨이나 표 구조를 잘못 건드린 것이다. 분류만 바꿨다면 위반 수는 그대로여야 한다.
 - 이어서 파생물을 재생성한다. 관례의 정본은 `skills/init/SKILL.md` 7-a·7-b이고 여기서 다시
-  정하지 않는다 — `docs/domain-summary.md`는 30줄 이하, 생성 구역은 **여는 마커가 이미 있으면 그
+  정하지 않는다 — `docs/superdomain/summary.md`는 30줄 이하, 생성 구역은 **여는 마커가 이미 있으면 그
   쌍 사이만 교체**, 짝이 없는 마커는 갱신하지 않고 오류로 보고.
 - **재생성은 파생물의 손 편집을 지운다.** 쓰기 전에 diff를 보여주고 확정을 받는다.
 - 컨텍스트 맵 생성 구역은 `DOMAIN.md` 안이다 — 고쳤으면 **게이트를 한 번 더** 돌린다. 컨텍스트
@@ -383,7 +383,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
    거절). 이 줄을 빼면 리포트가 클린으로 읽힌다.
 3. **제안별 처분** — 수락 / 기각 / 보류. 기각한 것은 사유를 함께 적는다(다음 실행이 읽는다).
 4. **쓴 파일** — ADR 경로와 파일명 근거(파일에 쓴 날짜 + slug),
-   `DOMAIN.md`의 어느 줄·표, `docs/domain-summary.md`·생성 구역. 9-b 마지막 게이트의 `OK:` 줄을
+   `DOMAIN.md`의 어느 줄·표, `docs/superdomain/summary.md`·생성 구역. 9-b 마지막 게이트의 `OK:` 줄을
    그대로 인용한다. 아무것도 쓰지 않았으면 그렇게 적는다.
 5. **넘긴 것과 남은 일** — `init`(경계 신설·병합·분리)·`sync`(선언과 디스크의 어긋남)·
    `model`(도메인 재편)·`migrate`(baseline 축소)·`review`(반복되는 의미론 지적)로 넘긴 항목과
@@ -391,7 +391,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
 6. **커밋은 사용자가 한다.** 실제로 쓴 파일만 넣어 명령을 제안한다.
 
    ```bash
-   git add DOMAIN.md docs/domain-summary.md docs/decisions/
+   git add DOMAIN.md docs/superdomain/summary.md docs/superdomain/adr/
    git commit -m "docs: evolve 제안 반영 <요지>"
    ```
 

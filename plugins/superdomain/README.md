@@ -73,8 +73,8 @@ claude --plugin-dir /path/to/superdomain
 ```mermaid
 flowchart TB
     ssot[("DOMAIN.md — 도메인 SSOT")]
-    dom[("docs/domain/*.md — 컨텍스트 문서")]
-    dec[("docs/decisions/ — ADR")]
+    dom[("docs/superdomain/contexts/*.md — 컨텍스트 문서")]
+    dec[("docs/superdomain/adr/ — ADR")]
     iso{{"컨텍스트 격리<br/>check_imports.py"}}
     inv{{"불변식 ↔ 테스트 태그<br/>check_invariants.py"}}
 
@@ -138,7 +138,7 @@ flowchart TB
   등재하는 것은 `sync`가 하지 않는다** — 경계·분류·패키지를 정하는 인터뷰가 필요하고 그 정본은
   `init`이다.
 - **분기·릴리스 회고 자리, 또는 같은 지적이 리뷰마다 반복된다** → `evolve`.
-- **`docs/domain/baseline.jsonl`이 있고 그 부채를 실제로 줄인다** → `migrate`.
+- **`docs/superdomain/state/baseline.jsonl`이 있고 그 부채를 실제로 줄인다** → `migrate`.
 
 ## 지금 있는 것
 
@@ -146,16 +146,16 @@ flowchart TB
 
 | 산출물 | 위치 | 하는 일 |
 |---|---|---|
-| `/superdomain:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·패키지·관계를 확정하고 `DOMAIN.md`와 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역·ADR)을 만든다. 기존 코드의 격리 위반은 실측해 **동결할지 묻고**, 동결하면 `docs/domain/baseline.jsonl`을 만든다 |
+| `/superdomain:init` | `skills/init/` | 질문으로 컨텍스트 경계·분류·패키지·관계를 확정하고 `DOMAIN.md`와 파생물(`docs/superdomain/summary.md`·컨텍스트 맵 생성 구역·ADR)을 만든다. 기존 코드의 격리 위반은 실측해 **동결할지 묻고**, 동결하면 `docs/superdomain/state/baseline.jsonl`을 만든다 |
 | `/superdomain:model` | `skills/model/` | 인터뷰·이벤트 스토밍·미팅 정리 세 모드로 컨텍스트 문서를 키운다. 불변식은 `INV-<CONTEXT>-NNN`으로 채번되고 `proposed` → `confirmed` 승격은 **항목별 사용자 확정으로만** 일어난다. `DOMAIN.md`는 읽기만 한다 |
 | `/superdomain:apply` | `skills/apply/` | 컨텍스트 문서의 `confirmed` 불변식 중 코드에 없는 것을 inside-out으로 구현하고 `@Tag("INV-...")` 테스트를 붙인다. `proposed`는 건드리지 않는다 |
-| `/superdomain:adr` | `skills/adr/` | 결정을 MADR로 `docs/decisions/yyyy-MM-dd-slug.md`에 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 SSOT를 함의하면 고칠 자리를 짚고 파서 게이트 재실행을 권한다 |
-| `/superdomain:review` | `skills/review/` | 변경을 결정적 검사 둘로 먼저 거른 뒤 의미론 판단만 `domain-reviewer`에 위임하고, 결과를 `docs/domain/review-log.jsonl`에 append한다. 코드는 고치지 않는다 |
+| `/superdomain:adr` | `skills/adr/` | 결정을 MADR로 `docs/superdomain/adr/yyyy-MM-dd-slug.md`에 남기고 `accepted`·`superseded` 전이를 양방향 링크로 처리한다. 결정이 SSOT를 함의하면 고칠 자리를 짚고 파서 게이트 재실행을 권한다 |
+| `/superdomain:review` | `skills/review/` | 변경을 결정적 검사 둘로 먼저 거른 뒤 의미론 판단만 `domain-reviewer`에 위임하고, 결과를 `docs/superdomain/state/review-log.jsonl`에 append한다. 코드는 고치지 않는다 |
 | `/superdomain:sync` | `skills/sync/` | 선언과 디스크를 다섯 축으로 대조해 드리프트를 찾고, 항목마다 [패키지 생성 / 코드 수정 / 문서 수정 / 무시]를 제시한다. 방향은 권고하되 확인 없이 확정하지 않고, 대조하지 못한 축은 "0건"이 아니라 "대조하지 않음"으로 남긴다 |
 | `/superdomain:evolve` | `skills/evolve/` | `collect_signals.py`의 관측에 `evolution-signals.md`의 임계값·해석을 적용해 **경계 재획정·분류 변경·관계 추가/삭제** 세 갈래의 제안과 `proposed` ADR 초안을 낸다. 임계값을 스스로 만들지 않고, 수락된 제안만 선언·파생물까지 반영한다 |
 | `/superdomain:migrate` | `skills/migrate/` | `baseline.jsonl`을 **컨텍스트 쌍 단위 클러스터**로 갚는다. **부채를 줄이는 유일한 경로**이며 한 번에 한 클러스터, 항목 삭제의 근거는 `check_imports.py` 두 실행으로 실측된 해소뿐이다. 비면 파일을 지우고 상환 완료 ADR로 닫는다 |
 | `domain-reviewer` 에이전트 | `agents/domain-reviewer.md` | 읽기 전용(Read·Grep·Glob). 전달받은 지식 문서의 `## 규칙` 절과 자유 관측 5범주(경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 정합·관계 유형 위반)로만 판정한다 |
-| SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/domain-summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
+| SessionStart 훅 | `hooks/hooks.json` → `scripts/session_summary.sh` | cwd에서 git 루트까지 올라가며 `docs/superdomain/summary.md`를 찾아 세션 컨텍스트로 주입한다. 없으면 조용히 종료한다 |
 | 도메인 선언 파서 | `scripts/parse_domain.py` | `DOMAIN.md`의 필수 결정 누락·비정규 값·깨진 참조·퇴역 라벨을 라인 번호와 함께 보고한다. **도메인 선언의 유일한 해석기**이고, `DOMAIN.md`를 읽는 나머지 셋은 전부 이 모듈로만 문서를 읽는다 |
 | 컨텍스트 격리 검사기 | `scripts/check_imports.py` | `.kt`/`.java` 소스의 `package`·`import`만 읽어 컨텍스트 경계를 넘는 참조가 관계 표에 열려 있는지 본다. `baseline.jsonl`이 있으면 매칭 위반을 `[기존 부채]`로 강등한다(읽기만 한다) |
 | 불변식 대조 검사기 | `scripts/check_invariants.py` | 컨텍스트 문서의 `confirmed` 불변식과 테스트의 `@Tag("INV-...")` 리터럴을 대조한다. 태그가 있을 수 없는 환경(테스트 소스 0건)은 클린이 아니라 `검사 불능`이다 |
@@ -170,10 +170,10 @@ flowchart TB
 여기서 거부되는 문서는 어느 스크립트로도 통과하지 못한다.
 
 ```bash
-python3 scripts/parse_domain.py DOMAIN.md        # 0=OK, 1=해석 오류, 2=사용법 오류
-python3 scripts/check_imports.py DOMAIN.md       # 0=위반 없음, 1=위반, 2=해석 불가·사용법 오류
-python3 scripts/check_invariants.py DOMAIN.md    # 0=위반 없음, 1=위반·검사 불능, 2=해석 불가·사용법 오류
-python3 scripts/collect_signals.py DOMAIN.md     # 0=산출, 1=산출 불가(사유 고지), 2=사용법 오류
+python3 scripts/parse_domain.py docs/superdomain/DOMAIN.md        # 0=OK, 1=해석 오류, 2=사용법 오류
+python3 scripts/check_imports.py docs/superdomain/DOMAIN.md       # 0=위반 없음, 1=위반, 2=해석 불가·사용법 오류
+python3 scripts/check_invariants.py docs/superdomain/DOMAIN.md    # 0=위반 없음, 1=위반·검사 불능, 2=해석 불가·사용법 오류
+python3 scripts/collect_signals.py docs/superdomain/DOMAIN.md     # 0=산출, 1=산출 불가(사유 고지), 2=사용법 오류
 ```
 
 **네 스크립트의 exit 의미가 같지 않다.** `check_imports.py`·`check_invariants.py`의 1은 정상 판정
@@ -222,7 +222,7 @@ python3 scripts/collect_signals.py DOMAIN.md     # 0=산출, 1=산출 불가(사
 | 라벨·표의 정확한 문법과 괄호 주석 규칙 | 같은 문서 §3 |
 | 컨텍스트가 사는 패키지의 규약 기본값 | 같은 문서 §5.2 |
 | `baseline.jsonl` 형식과 래칫 규율 | 같은 문서 §5.4 |
-| `docs/domain/<컨텍스트>.md` | `references/governance/domain-doc-template.md` §3 |
+| `docs/superdomain/contexts/<컨텍스트>.md` | `references/governance/domain-doc-template.md` §3 |
 | ADR 본문 | `references/governance/adr-template.md` §4 |
 
 ## 테스트
@@ -275,7 +275,7 @@ skills/init|model|apply|adr|review|sync|evolve|migrate/
 agents/domain-reviewer.md    review가 의미론 판단만 위임하는 읽기 전용 에이전트
 hooks/hooks.json             SessionStart 훅 등록
 scripts/
-  parse_domain.py            DOMAIN.md 파서 — 도메인 선언의 유일한 해석기
+  parse_domain.py            docs/superdomain/DOMAIN.md 파서 — 도메인 선언의 유일한 해석기
   check_imports.py           컨텍스트 격리 검사기 — 해석 결과의 첫 소비자
   check_invariants.py        불변식 ↔ 테스트 태그 대조 검사기
   collect_signals.py         진화 신호 수집기 — 관측만 하고 임계값은 갖지 않는다
@@ -294,9 +294,9 @@ docs/superpowers/            설계 스펙과 구현 계획
 | 경로 | 무엇 | 쓰는 스킬 |
 |---|---|---|
 | `DOMAIN.md` | 경계·분류·패키지·관계의 SSOT | `init`(생성) · `sync`·`evolve`(확정받은 편집) |
-| `docs/domain-summary.md` | 세션 훅이 주입하는 30줄 이하 요약 | `init`·`sync`·`evolve`(재생성) |
-| `docs/domain/<컨텍스트>.md` | 불변식·애그리거트·값 객체·도메인 이벤트·도메인 서비스·열린 질문. 컨텍스트가 하나뿐이면 `docs/domain.md`. **용어 정의는 쓰지 않는다** — 보편언어는 별도 용어집의 몫이다 | `model`(본문) · `apply`·`review`(열린 질문 append) |
-| `docs/domain/baseline.jsonl` | 동결된 격리 위반 | `init`(동결) · `migrate`(축소) |
-| `docs/domain/review-log.jsonl` | 리뷰 판정 이력 — `collect_signals.py`의 입력 | `review`(append) |
-| `docs/decisions/yyyy-MM-dd-slug.md` | MADR 결정 기록 | `adr` · `init`(초기화가 실제로 내린 결정) · `evolve`(제안마다 `proposed` 초안) |
-| `docs/conventions/<key>.md` | 선언에 자리가 없는 팀 규약. 반복되는 의미론 지적의 착지점 | 사용자(스킬이 승격 여부를 제안만 한다) |
+| `docs/superdomain/summary.md` | 세션 훅이 주입하는 30줄 이하 요약 | `init`·`sync`·`evolve`(재생성) |
+| `docs/superdomain/contexts/<컨텍스트>.md` | 불변식·애그리거트·값 객체·도메인 이벤트·도메인 서비스·열린 질문. 컨텍스트가 하나뿐이면 `docs/domain.md`. **용어 정의는 쓰지 않는다** — 보편언어는 별도 용어집의 몫이다 | `model`(본문) · `apply`·`review`(열린 질문 append) |
+| `docs/superdomain/state/baseline.jsonl` | 동결된 격리 위반 | `init`(동결) · `migrate`(축소) |
+| `docs/superdomain/state/review-log.jsonl` | 리뷰 판정 이력 — `collect_signals.py`의 입력 | `review`(append) |
+| `docs/superdomain/adr/yyyy-MM-dd-slug.md` | MADR 결정 기록 | `adr` · `init`(초기화가 실제로 내린 결정) · `evolve`(제안마다 `proposed` 초안) |
+| `docs/superdomain/conventions/<key>.md` | 선언에 자리가 없는 팀 규약. 반복되는 의미론 지적의 착지점 | 사용자(스킬이 승격 여부를 제안만 한다) |

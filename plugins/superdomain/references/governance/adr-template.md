@@ -2,7 +2,7 @@
 
 아키텍처 결정 기록(Architecture Decision Record). MADR 형식을 한국어로 옮긴 것이며, `adr` 스킬과 `init`이 만드는 첫 결정 기록이 이 형식을 쓴다.
 
-위치: `docs/decisions/yyyy-MM-dd-slug.md`
+위치: `docs/superdomain/adr/yyyy-MM-dd-slug.md`
 
 ---
 
@@ -18,7 +18,7 @@
 
 **쓰지 않는다**:
 
-- 팀의 취향 수준 컨벤션 → `docs/conventions/`
+- 팀의 취향 수준 컨벤션 → `docs/superdomain/conventions/`
 - 이미 표준이라 대안이 없었던 선택 → 기록할 근거가 없다
 - 코드를 읽으면 자명한 것 → 코드가 이미 문서다
 
@@ -29,7 +29,7 @@
 ## 2. 파일명 규칙
 
 ```
-docs/decisions/yyyy-MM-dd-slug.md
+docs/superdomain/adr/yyyy-MM-dd-slug.md
 ```
 
 - `yyyy-MM-dd` — 결정을 기록하는 날짜(`date +%F`). 머리의 `- 날짜:`와 같은 값이다.
@@ -155,9 +155,9 @@ proposed ──→ accepted ──→ superseded
 
 컨텍스트를 **신설·병합·분리**하는 결정은 이 표에 없다 — 경계를 다시 긋는 일이므로 `/superdomain:init`의 경계 인터뷰가 처리한다.
 
-어느 경우든 마지막에 `parse_domain.py`로 선언이 여전히 해석되는지 보고, `check_imports.py`를 다시 돌려 **그 편집으로 위반이 새로 드러나거나 사라졌는지** 확인한 뒤 파생물(`docs/domain-summary.md`·컨텍스트 맵 생성 구역)을 갱신한다. ADR의 "후속 작업" 칸이 이 연결을 잊지 않게 하는 장치다 — 해당 사항이 없으면 "없음"이라고 명시적으로 적는다.
+어느 경우든 마지막에 `parse_domain.py`로 선언이 여전히 해석되는지 보고, `check_imports.py`를 다시 돌려 **그 편집으로 위반이 새로 드러나거나 사라졌는지** 확인한 뒤 파생물(`docs/superdomain/summary.md`·컨텍스트 맵 생성 구역)을 갱신한다. ADR의 "후속 작업" 칸이 이 연결을 잊지 않게 하는 장치다 — 해당 사항이 없으면 "없음"이라고 명시적으로 적는다.
 
-반대로, **선언에 자리가 없는 결정**이라면 ADR로 끝내고 라벨에 억지로 밀어 넣지 않는다. 사람의 해석이 필요한 판단 기준이면 `docs/conventions/`의 리뷰 체크리스트로 보낸다.
+반대로, **선언에 자리가 없는 결정**이라면 ADR로 끝내고 라벨에 억지로 밀어 넣지 않는다. 사람의 해석이 필요한 판단 기준이면 `docs/superdomain/conventions/`의 리뷰 체크리스트로 보낸다.
 
 ---
 

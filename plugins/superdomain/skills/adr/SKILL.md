@@ -1,7 +1,7 @@
 ---
 name: adr
 description: >
-  도메인 구조 결정을 MADR 형식의 `docs/decisions/yyyy-MM-dd-slug.md`로 남긴다 — 인터뷰로
+  도메인 구조 결정을 MADR 형식의 `docs/superdomain/adr/yyyy-MM-dd-slug.md`로 남긴다 — 인터뷰로
   문제 상황·결정·실제로 검토된 대안·결과를 받아 `proposed`로 쓰고, 오늘 날짜와 slug로 파일명을
   정하고, 승인(`accepted`)과 대체(`superseded`) 전이를 신·구 ADR 양방향 링크로 처리하며,
   결정이 SSOT 변경을 함의하면 `DOMAIN.md`의 관계 표·분류·패키지 라벨 중 어디를 고쳐야 하는지
@@ -50,7 +50,7 @@ ADR의 조건(§6), 선언과의 연결(§7). **이 스킬은 그 내용을 복�
 git rev-parse --show-toplevel
 ```
 
-ADR은 **저장소 하나에 한 벌**이다 — 프로젝트가 여럿이어도 `docs/decisions/` 하나에 모인다.
+ADR은 **저장소 하나에 한 벌**이다 — 프로젝트가 여럿이어도 `docs/superdomain/adr/` 하나에 모인다.
 결정은 저장소 단위로 읽히고, 디렉터리가 흩어지면 "어디까지 봐야 결정을 다 본 것인가"의 답이
 사람마다 달라진다. 하위 디렉터리에서 시작했어도 git 루트로 올라와서 작업한다. 그 경로에
 `DOMAIN.md`가 없으면 아래를 알리고 **중단**한다.
@@ -60,7 +60,7 @@ ADR은 **저장소 하나에 한 벌**이다 — 프로젝트가 여럿이어도
 ### 0-b. 선언 로드 — 있는지 보는 것이 아니라 읽는 것이다
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
 ```
 
 **exit 0**이면 선언이 해석 가능하다는 뜻이고, 그 다음 `DOMAIN.md`를 직접 읽어 셋을 만든다 —
@@ -87,13 +87,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
 | **대체·조정** | "`open-claim-admin-pair`를 대체", "supersede", "그 결정 뒤집자" | 3 → 4 → 5 → 7 |
 | **선언 연결만** | "이 ADR을 선언에 반영하려면?" | 8 |
 
-`git status --short docs/decisions/`로 작업 중인 초안이 있는지 함께 본다.
+`git status --short docs/superdomain/adr/`로 작업 중인 초안이 있는지 함께 본다.
 
 ## 2. 신규 — 쓸 것인가부터 판정한다
 
 `adr-template.md` **§1을 지금 읽고** 그 체크리스트로 대조한다. 해당하지 않으면 만들지 않는다 —
 빈 ADR을 양산하면 아무도 ADR을 읽지 않게 되고, 그러면 진짜 결정도 함께 묻힌다. 대신 갈 곳을
-말한다: 취향 수준 컨벤션은 `docs/conventions/`, 코드를 읽으면 자명한 것은 아무 데도.
+말한다: 취향 수준 컨벤션은 `docs/superdomain/conventions/`, 코드를 읽으면 자명한 것은 아무 데도.
 
 판정 결과를 근거와 함께 제시하고 확인받는다. **판단이 서지 않으면 쓰는 쪽**이다(§1 마지막 줄).
 
@@ -145,7 +145,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
 
 ```bash
 date +%F
-ls docs/decisions/ 2>/dev/null | sort
+ls docs/superdomain/adr/ 2>/dev/null | sort
 ```
 
 **채번하지 않는다**(§2). 파일명은 오늘 날짜가 정하므로 디렉터리를 세어 다음 값을 구하는 단계가
@@ -159,7 +159,7 @@ ls docs/decisions/ 2>/dev/null | sort
   뭉뚱그려졌다는 뜻이고, 어느 쪽인지는 사용자만 안다.
 - **ADR이 아닌 파일이 섞여 있으면 고지한다.** 다음 파일명을 오염시키지는 않지만 `ls`로 결정을
   훑는 사람을 헷갈리게 하고, 이 디렉터리에 무엇이 사는지는 사용자만 안다.
-- **목록이 비면** `docs/decisions/`가 없거나 비었다는 뜻이다. 그대로 만들되, init이 만드는
+- **목록이 비면** `docs/superdomain/adr/`가 없거나 비었다는 뜻이다. 그대로 만들되, init이 만드는
   `*-record-architecture-decisions.md`가 없다는 사실을 함께 알린다.
 - 한 세션에서 ADR을 여럿 만들면 만들 때마다 다시 관측한다.
 
@@ -188,7 +188,7 @@ slug는 나중에 그 참조를 찾을 수 없게 만든다.
 실패한 문서에서 나왔으므로 "실재한다"는 근거가 되지 못한다 — 이름을 보여주고 확인을 받되, 답이
 없으면 `관련` 줄을 비운다.
 
-쓰기 전에 **초안 전문을 보여주고 확정받는다.** 확정 후 `docs/decisions/yyyy-MM-dd-slug.md`로
+쓰기 전에 **초안 전문을 보여주고 확정받는다.** 확정 후 `docs/superdomain/adr/yyyy-MM-dd-slug.md`로
 저장하고, 결정이 선언 변경을 함의하는지 8단계로 이어간다.
 
 ## 6. 승인 — `proposed` → `accepted`
@@ -294,7 +294,7 @@ ADR만 쓰고 끝내면 "결정은 났는데 선언은 옛 상태인" 문서가 
 먼저 해소하도록 안내하고 이 단계를 그 뒤로 미룬다 — ADR 기록 자체는 5단계에서 이미 끝났다.
 
 **① 선언이 바뀌는 결정인가.** "적절한 크기", "응집도가 높을 것"처럼 기준이 사람의 해석에 달려
-있는 결정은 선언에 자리가 없다. ADR로 끝내고 필요하면 `docs/conventions/`의 리뷰 체크리스트로
+있는 결정은 선언에 자리가 없다. ADR로 끝내고 필요하면 `docs/superdomain/conventions/`의 리뷰 체크리스트로
 보낸다 — 선언에 억지로 밀어 넣은 판정은 오탐을 만들고, 오탐이 반복되면 팀이 선언 전체를 무시하기
 시작한다(§7).
 
@@ -332,8 +332,8 @@ ADR만 쓰고 끝내면 "결정은 났는데 선언은 옛 상태인" 문서가 
 일이 아니다. 고칠 곳을 정확히 제시하고, 편집 뒤에 두 가지를 권한다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 앞은 선언이 여전히 해석되는지, 뒤는 **그 편집으로 위반이 새로 드러나거나 사라졌는지**다. 관계 표에서
@@ -351,7 +351,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
 5. **커밋은 사용자가 한다.** 명령만 제안한다.
 
    ```bash
-   git add docs/decisions/
+   git add docs/superdomain/adr/
    git commit -m "docs: ADR <결정 요지>"
    ```
 

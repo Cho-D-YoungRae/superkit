@@ -166,7 +166,7 @@ core·supporting에서 "이번만 영속 엔티티를 도메인에 그대로 쓰
 - [ ] generic인데 자체 구현이고 최근 6개월 변경 상위 1/3인 것이 있는가? → 가장 비싼 오분류.
       supporting으로 올리거나 교체 계획을 ADR로 남긴다.
 - [ ] 분류 결과가 조직도(팀 이름)와 1:1로 일치하는가? → 도메인이 아니라 조직을 분류했을 가능성.
-- [ ] 각 core·supporting 컨텍스트에 `docs/domain/<context>.md`가 있는가?
+- [ ] 각 core·supporting 컨텍스트에 `docs/superdomain/contexts/<context>.md`가 있는가?
 - [ ] 분류 근거가 `DOMAIN.md`의 `### 근거` 절에 한 문장 이상 적혀 있는가? 기록 없는 분류는 다음
       세션에 다시 추측된다.
 

@@ -48,7 +48,7 @@ description: >
 - 대상 컨텍스트가 `- 패턴:`으로 선언한 문서(`cqrs`·`outbox`·`event-sourcing`). 선언되지 않은
   패턴을 이번 구현으로 들이지 않는다 — 패턴 채택은 대안이 오가는 결정이므로 근거를 남기고 편집
   자리를 짚는 `/superdomain:adr`의 일이다.
-- 대상 프로젝트의 `docs/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
+- 대상 프로젝트의 `docs/superdomain/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 INDEX의 `draft` 칸이 찬 문서는 구현 규칙의 근거로 인용하지 않는다.
 
@@ -72,7 +72,7 @@ git rev-parse --show-toplevel
 쪽). 고르는 것은 사용자다. 한 번에 한 컨텍스트만 다룬다 — 패키지도 domain 문서도 컨텍스트마다
 다르다.
 
-domain 문서는 `docs/domain/<컨텍스트>.md`, 컨텍스트가 하나뿐인 프로젝트면
+domain 문서는 `docs/superdomain/contexts/<컨텍스트>.md`, 컨텍스트가 하나뿐인 프로젝트면
 `docs/domain.md`다(정본: `${CLAUDE_PLUGIN_ROOT}/references/governance/domain-doc-template.md` §2).
 
 **문서가 없으면 만들지 않고 중단한다.**
@@ -86,7 +86,7 @@ domain 문서는 `docs/domain/<컨텍스트>.md`, 컨텍스트가 하나뿐인 �
 ## 2. 작업 목록은 검사기가 정한다 — 직접 재스캔하지 않는다
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context <컨텍스트> --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" docs/superdomain/DOMAIN.md --context <컨텍스트> --json
 ```
 
 - exit **2**면 해석 불가다. stdout에 **payload가 없고** stderr에 `경로:라인: 메시지` 줄만 있다.
@@ -124,7 +124,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context 
 **쓰기 전에** 한 번 찍어 두는 수밖에 없다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
 ```
 
 `violations[]`의 `rule_id`·`path`·`line` 집합만 보관한다. exit **2**면 결정적 게이트 하나가
@@ -261,7 +261,7 @@ grep -rnE '\b(class|interface|object|record|enum)[[:space:]]+(Claim|Money|ClaimN
 ### 6-a. 불변식 태그
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context <컨텍스트>
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" docs/superdomain/DOMAIN.md --context <컨텍스트>
 ```
 
 **exit 0이어야 한다.** exit 1이면 남은 위반이 곧 남은 작업이다(또는 `blocked`가 아직 차 있다 —
@@ -271,7 +271,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_invariants.py" DOMAIN.md --context 
 ### 6-b. 컨텍스트 격리
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 2-a의 스냅샷과 비교해 **새로 생긴 위반이 0**이어야 한다. 기존 위반이 남아 있으면 exit는 1이지만
