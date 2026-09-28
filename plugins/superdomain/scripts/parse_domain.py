@@ -17,7 +17,7 @@ import한다 — 해석이 두 곳에 있으면 두 결과가 갈라지기 때�
 **침묵하지 않는다**가 이 파서의 규율이다. 구 파서는 모르는 라벨을 조용히 버렸지만, 구 템플릿의
 라벨 6종은 여기서 오류가 된다 — 조용히 버리면 사용자는 자기가 쓴 결정이 강제되고 있다고 믿는다.
 
-exit 규약: 0 = OK, 1 = 해석 오류, 2 = 사용법 오류.
+exit 규약: 0 = OK, 1 = 해석 오류, 2 = 사용법 오류 또는 배치 오류(옛 배치 포함 — layout.py).
 """
 
 from __future__ import annotations
@@ -734,11 +734,21 @@ def parse_domain(path) -> Domain:
 
 
 def main(argv) -> int:
+    # 배치 모듈은 CLI에서만 읽는다 — layout이 이 모듈의 마커 상수를 import하므로 모듈 수준에서
+    # 서로 import하면 순환이 생긴다. 라이브러리 함수 parse_domain()은 배치를 모른다.
+    from layout import DOMAIN_RELATIVE, LayoutError, from_domain_path
+
     if len(argv) != 1 or argv[0].startswith("-"):
-        print("사용법: python3 parse_domain.py <DOMAIN.md 경로>", file=sys.stderr)
+        print(f"사용법: python3 parse_domain.py <프로젝트 루트>/{DOMAIN_RELATIVE}", file=sys.stderr)
         return 2
 
     path = argv[0]
+    try:
+        from_domain_path(path)
+    except LayoutError as error:
+        print(error, file=sys.stderr)
+        return 2
+
     domain = parse_domain(path)
     if domain.errors:
         for error in sorted(domain.errors, key=lambda e: e.line):

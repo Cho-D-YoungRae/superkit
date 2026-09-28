@@ -803,28 +803,44 @@ class TestCanonicalSkeleton(DomainTextCase):
 
 
 class TestCli(DomainTextCase):
-    """exit 규약: 0=OK, 1=해석 오류, 2=사용법 오류."""
+    """exit 규약: 0=OK, 1=해석 오류, 2=사용법·배치 오류."""
+
+    LAYOUT = "docs/superdomain/DOMAIN.md"
 
     def run_cli(self, *args):
         return subprocess.run([sys.executable, str(SCRIPT), *args],
                               capture_output=True, text=True)
 
     def test_exit_zero_on_valid_document(self):
-        result = self.run_cli(str(FIXTURES / "full.md"))
+        path = self._write((FIXTURES / "full.md").read_text(encoding="utf-8"), name=self.LAYOUT)
+        result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "OK: 프로젝트 2, 컨텍스트 3")
 
     def test_exit_one_on_parse_error(self):
-        path = self._write(MINIMAL.replace("- 분류: core", "- 분류: kernel"))
+        path = self._write(MINIMAL.replace("- 분류: core", "- 분류: kernel"), name=self.LAYOUT)
         result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 1)
         self.assertIn("kernel", result.stderr)
         self.assertIn(f"{path}:", result.stderr)
 
-    def test_exit_one_on_missing_file(self):
-        result = self.run_cli(str(TESTS_DIR / "없는파일-DOMAIN.md"))
+    def test_exit_one_on_missing_file_in_the_right_place(self):
+        path = self._write("", name=self.LAYOUT)
+        path.unlink()
+        result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 1)
         self.assertIn("읽을 수 없습니다", result.stderr)
+
+    def test_exit_two_outside_the_layout(self):
+        result = self.run_cli(str(FIXTURES / "full.md"))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(self.LAYOUT, result.stderr)
+
+    def test_exit_two_with_migration_commands_for_a_legacy_root(self):
+        path = self._write(MINIMAL)          # 루트의 DOMAIN.md — 0.2.x 배치
+        result = self.run_cli(str(path))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("git mv DOMAIN.md docs/superdomain/DOMAIN.md", result.stderr)
 
     def test_exit_two_on_no_argument(self):
         result = self.run_cli()
