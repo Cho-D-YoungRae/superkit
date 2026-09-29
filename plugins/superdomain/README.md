@@ -85,12 +85,16 @@ docs/superpowers/        설계 스펙과 구현 계획
 claude --plugin-dir /path/to/superdomain
 ```
 
-스킬은 `/superdomain:<스킬명>`으로 노출된다. SKILL.md 본문은 바로 반영되지만, `plugin.json`이나 에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
+스킬은 `/superdomain:<스킬명>`으로 노출된다. SKILL.md를 포함해 플러그인 파일을 고쳤다면 `/reload-plugins`로 반영한다.
 
 구조 검증:
 
 ```bash
 claude plugin validate --strict .claude-plugin/plugin.json
+```
+
+```bash
+claude plugin validate --strict .claude-plugin/marketplace.json
 ```
 
 ```bash
