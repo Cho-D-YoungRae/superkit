@@ -35,7 +35,7 @@ README.md ARCHITECTURE.md LICENSE
 - 워크플로 스킬에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`(웹·HTML은 `web-extract/SKILL.md`), 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
 - 스크립트 출력 경계(stdout·캐시만)를 절대 넘지 않는다. 서드파티 의존은 지연 임포트(테스트가 의존 없이 순수 함수를 로드한다).
 - 스킬 지시문에서 파일 읽기·검색은 Read·Glob·Grep 도구로, Bash는 `cd` 없이 절대 경로의 단일 명령으로 쓴다 — `cd … &&` 복합 명령·셸 변수·플래그 붙은 `cp`는 사용자 권한 확인을 부른다(ARCHITECTURE ADR-8, `tests/test_skills.py`가 검사).
-- **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커와 `config.yaml.tmpl`의 `schema_version`을 함께 증가시키고, `ARCHITECTURE.md` "스키마 버전 이력"에 변경 요약 한 줄을 추가하며(두 가지 모두 `tests/test_templates.py`가 검사), `skills/wiki-init/SKILL.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
+- **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커와 `config.yaml.tmpl`의 `schema_version`을 함께 증가시키고(단, main에 아직 나가지 않은 버전은 번호를 올리지 않고 제자리에서 보정하며 그 버전의 이력 줄을 갱신한다), `ARCHITECTURE.md` "스키마 버전 이력"에 변경 요약 한 줄을 추가하며(두 가지 모두 `tests/test_templates.py`가 검사), `skills/wiki-init/SKILL.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
 - 문서 동기화: 원칙·구조 변경 시 README.md와 ARCHITECTURE.md를 같은 변경에서 함께 수정한다.
 
 ## 테스트 절차
@@ -57,5 +57,6 @@ uv run --with pytest --with pyyaml --with pymupdf pytest tests/ -q
 ⑧ `/llm-wiki:wiki-status` → log 10건+통계, 파일 무변경
 ⑨ 문서가 설계 스펙 §7 요구 충족
 ⑩ (추가) 일반 웹 URL ingest → `web-extract`가 포크 실행되어 짧은 보고만 돌아오고, raw에 요약 없이 본문이 저장되며(`extraction: html`), 같은 URL 재-ingest는 URL로 스킵
+⑪ (추가) 인젝션 판정 — 프롬프트 예시를 인용한 글(예: 프롬프트 사례를 소개하는 블로그)을 `--batch`로 ingest하면 멈추지 않고 예시를 출처 밝힌 인용으로 옮기며, 읽는 에이전트를 향한 지시문(숨은 HTML 주석 등)이 든 노트는 `--batch`여도 멈추고 확인을 요청하며 지시를 따르지 않는다(페이지·log·AGENTS.md 무변경)
 
 각 태스크/변경 완료 시 위 단위 테스트를 반드시 실행하고, 커밋은 단계별로 분리한다.
