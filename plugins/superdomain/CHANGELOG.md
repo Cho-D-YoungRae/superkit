@@ -3,6 +3,37 @@
 이 플러그인의 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다. 1.0.0 전에는
 마이너 버전이 호환되지 않는 변경을 담을 수 있다.
 
+## 0.4.0 — 2026-09-29
+
+플러그인을 도메인 정의·리뷰·ADR에 집중하도록 다시 설계했다. 설계는
+`docs/superpowers/specs/2026-09-29-superdomain-redesign-design.md`에 있다.
+
+### Breaking
+
+- 스킬이 `domain`·`review`·`adr`·`conventions` 넷으로 바뀌었다. `init`·`model`·`apply`·`sync`·`evolve`·`migrate`는 없어졌다.
+- 산출물은 `docs/DOMAIN.md`와 `docs/adr/` 둘뿐이다. `docs/superdomain/`의 `summary.md`·`contexts/`·`state/`·`conventions/`는 더 이상 쓰지 않는다.
+- DOMAIN.md 형식이 바뀌었다. 도메인마다 역할·기능·분류·코드(선택: 규칙·하지 않는 것)를 적고, 관계는 `도메인 | 의존 대상 | 방식 | 설명` 표로 적는다. 파서가 없으므로 형식은 사람과 Claude가 읽기 위한 것이다.
+- 검사 스크립트(`parse_domain.py`·`check_imports.py`·`check_invariants.py`·`collect_signals.py`·`layout.py`·`build_index.py`)와 SessionStart 훅이 없어졌다. 도메인 경계와 코딩 컨벤션은 `review` 스킬의 리뷰 에이전트가 확인한다. python3가 더 이상 필요 없다.
+- `references/`(governance·knowledge)가 없어졌다. 필요한 기준은 `skills/domain/domain-guide.md`와 `skills/conventions/conventions.md`로 옮겼다.
+
+### Added
+
+- `conventions` 스킬과 코딩 컨벤션 문서. Kotlin·Java(Spring·JPA) 코드를 쓸 때 적용한다.
+- `convention-reviewer` 에이전트(`model: sonnet`). `domain-reviewer`는 새로 썼다(`model: opus`).
+- `review`가 두 리뷰어를 병렬로 호출해 한 리포트로 합친다. 인자는 `[domain|code] [경로 | 커밋 범위 | 전체]`다.
+
+### 이행 절차 (0.3.x → 0.4.0)
+
+1. `git mv docs/superdomain/DOMAIN.md docs/DOMAIN.md`
+2. `/superdomain:domain`으로 새 형식으로 다시 쓴다. 옛 `docs/superdomain/contexts/*.md`의 불변식 중 핵심은 도메인의 "규칙"으로 옮긴다.
+3. `git mv docs/superdomain/adr docs/adr`. ADR 안의 `../DOMAIN.md` 링크는 옮긴 뒤에도 그대로 맞는다.
+4. `docs/superdomain/`의 나머지(`summary.md`, `contexts/`, `state/`, `conventions/`)를 지운다. `conventions/`의 팀 규약은 프로젝트 CLAUDE.md로 옮긴다.
+5. CLAUDE.md 등에서 `docs/superdomain/`을 가리키는 참조를 찾아 고친다.
+
+   ```bash
+   git grep -n 'docs/superdomain/'
+   ```
+
 ## 0.3.0 — 2026-09-29
 
 ### Breaking
