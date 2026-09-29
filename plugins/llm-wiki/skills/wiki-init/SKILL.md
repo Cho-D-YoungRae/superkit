@@ -8,7 +8,7 @@ argument-hint: "[대상 디렉토리]"
 
 당신은 llm-wiki 플러그인의 init 절차를 수행한다. 템플릿 원본은 `${CLAUDE_PLUGIN_ROOT}/templates/`에 있다. 템플릿 엔진은 없다 — 아래 지시에 따라 직접 치환·제거한다.
 
-**도구 사용**: 템플릿·`ARCHITECTURE.md` 같은 플러그인 파일은 위키 밖에 있으므로 Read·Glob·Grep 도구로 읽는다(셸 `ls`·`cat`·`grep`은 작업 디렉토리 밖이라 차단되거나 권한 확인을 부른다). 렌더링 결과는 Write 도구로 쓰고, 기존 파일 병합은 Edit 도구로 한다 — `sed`·`awk`·셸 스크립트로 변환하지 않는다(권한 확인을 부르고 조건 블록 처리가 틀리기 쉽다). Bash는 `mkdir -p`·`git init`·`uv --version`에만, `cd` 없이 대상의 절대 경로로 쓴다.
+**도구 사용**: 템플릿·`ARCHITECTURE.md` 같은 플러그인 파일은 위키 밖에 있으므로 Read·Glob·Grep 도구로 읽는다(셸 `ls`·`cat`·`grep`은 작업 디렉토리 밖이라 차단되거나 권한 확인을 부른다). 렌더링 결과는 Write 도구로 쓰고, 기존 파일 병합은 Edit 도구로 한다 — `sed`·`awk`·셸 스크립트로 변환하지 않는다(권한 확인을 부르고 조건 블록 처리가 틀리기 쉽다). Bash는 `mkdir -p`·`git init`·`uv --version`에만, `cd`·셸 변수 없이 대상의 절대 경로를 그대로 적어 쓴다. 완료 확인도 Read·Glob·Grep 도구로 한다.
 
 ## 0. 대상 디렉토리
 
