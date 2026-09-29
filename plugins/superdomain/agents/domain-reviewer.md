@@ -133,7 +133,8 @@ domain 문서의 `## 불변식` 표와 코드가 정합한가. **갈래가 둘�
   적히지 않은 결정이다. review가 이것을 domain 문서의 `## 열린 질문`으로 보내고, 다음 model
   세션이 `proposed`로 채번한다 — 그 승격의 신호가 이 갈래의 목적이다.
 - 그러므로 `question`을 **답이 필요한 질문 형태**로 쓴다(§7). "이런 규칙이 있다"가 아니라
-  "이 규칙이 불변식인가, 아니면 이 화면에서만 참인가"다.
+  "청구 금액이 0 이하이면 접수를 거부하는 규칙은 claim의 불변식인가, 아니면 이 접수 화면에서만
+  참인가"다. 열린 질문에는 이 문장 하나만 남으므로 **규칙의 조건이 문장에 들어 있어야 한다.**
 - 관측한 규칙의 조건과 그것을 읽은 파일·라인을 그대로 인용한다. 규칙을 일반화해 적지 않는다.
 
 #### (2) 태그와 실제 검증의 불일치 — 문서에 **있고 태그도 붙었는데** 검증하지 않는 것
@@ -232,6 +233,17 @@ domain 문서의 `## 불변식` 표와 코드가 정합한가. **갈래가 둘�
     "basis": "context-mapping R3 체크리스트 — 관계 표는 billing과의 계약을 PaymentCompleted 이벤트 하나로만 열어 두었고, import가 없어 컨텍스트 격리 검사는 이 참조를 보지 못한다.",
     "suggestion": "조회를 PaymentCompleted 구독으로 옮기거나, 관계 표의 계약 칸을 실제에 맞게 고친다.",
     "related_rule": "semantic.boundary-leak"
+  },
+  {
+    "type": "discussion",
+    "path": "backend/src/main/kotlin/com/acme/claim/application/ClaimService.kt",
+    "line": 57,
+    "severity": "info",
+    "observation": "청구가 심사 중(UNDER_REVIEW)일 때 금액 변경을 IllegalStateException으로 막는 분기가 서비스에 있다.",
+    "basis": "C4 (1) 불변식 후보 — 대응 규칙을 찾지 못했다: domain 문서의 불변식 표에서 INV-CLAIM-001은 승인된 청구만 다루고, 심사 중 상태의 금액 변경 제한에는 대응 행이 없다.",
+    "question": "심사 중인 청구의 금액 변경을 막는 규칙은 승인된 청구의 금액 불변(INV-CLAIM-001)을 넓힌 불변식인가, 아니면 이 서비스의 입력 검증에 그치는가?",
+    "related_rule": "semantic.invariant-fit",
+    "related_invariant": "INV-CLAIM-001"
   }
 ]
 ```
@@ -243,9 +255,9 @@ domain 문서의 `## 불변식` 표와 코드가 정합한가. **갈래가 둘�
 | `line` | 선택 | 실제로 읽은 라인 번호 |
 | `severity` | 필수 | `blocker` · `warn` · `info` |
 | `observation` | 필수 | 무엇을 봤는가 — 한 문장. 읽은 파일·라인에 근거한다 |
-| `basis` | 필수 | 판정 근거 — 한 문장. 규칙 절(`context-mapping R3`) 또는 관측 범주(C1~C5)를 적는다 |
+| `basis` | 필수 | 판정 근거 — 한 문장. 규칙 절(`context-mapping R3`)을 적는다. 대응 규칙을 찾지 못했으면 그 사실과 관측 범주(C1~C5)를 적는다 |
 | `suggestion` | 선택 | 수정 제안 — 문장으로. 없으면 필드를 빼고 지어내지 않는다 |
-| `question` | `discussion`이면 필수 | domain 문서의 `## 열린 질문`에 그대로 들어갈 질문 한 문장. 다른 type에는 쓰지 않는다 |
+| `question` | `discussion`이면 필수 | domain 문서의 `## 열린 질문`에 그대로 들어갈 질문 한 문장. 그 문장만 읽어도 어떤 규칙인지 알도록 규칙의 조건을 담는다(뒤에는 review가 `(관측: <경로:라인>)`만 붙인다). 다른 type에는 쓰지 않는다 |
 | `related_rule` | 선택 | §4의 `semantic.*` 범주 태그. **규칙 절 식별자를 여기 넣지 않는다** — 이 값은 `review-log.jsonl`의 집계 키가 되고 그 어휘는 세 형태뿐이다(`skills/review/SKILL.md` 5-c) |
 | `related_invariant` | 선택 | `INV-<CONTEXT>-NNN` |
 | `related_adr` | 선택 | ADR 파일명 |

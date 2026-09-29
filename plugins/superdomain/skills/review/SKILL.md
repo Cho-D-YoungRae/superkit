@@ -379,7 +379,8 @@ check_imports는 선언된 프로젝트 전체를 검사하므로 이번 변경�
 
 분류가 `discussion`(추가 논의)인 항목을 귀속 컨텍스트의 `docs/superdomain/contexts/<컨텍스트>.md`
 `## 열린 질문`에 올린다. `skill-protocol.md` §8을 따른다. 출처 표기는 `review`다. `discussion` 항목의
-`question`을 그대로 쓰고, 뒤에 관측 위치를 단다.
+`question`을 그대로 쓰고, 뒤에 관측 위치를 단다. `question`이 비어 온 `discussion` 항목은 열린
+질문에 올리지 않고 리포트에 "질문 누락"으로 남긴다. `observation`으로 질문을 지어내지 않는다.
 
 ```
 - [ ] [<YYYY-MM-DD> review] 승인 이후의 금액 변경을 누가 막는가? (관측: <경로:라인>)
