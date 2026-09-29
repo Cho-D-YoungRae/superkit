@@ -94,7 +94,7 @@ argument-hint: "[대상 디렉토리]"
 2. **N = M**: "이미 최신 (schema_version N)"을 보고한다. config `obsidian: true`인데 `.obsidian/app.json`에 A4의 권장 키가 없으면 추가를 제안한다(승인 시 없는 키만 추가). 그 밖엔 종료.
 3. **N > M**: 위키가 이 플러그인보다 새 스키마로 만들어졌다 — **아무것도 바꾸지 않고**, `/plugin` 메뉴에서 llm-wiki를 최신으로 업데이트하라고 안내한 뒤 종료한다(다운그레이드 금지).
 4. **N < M**: 현재 `.llm-wiki/config.yaml`의 `link_style`·`obsidian` 값으로 템플릿의 새 managed 블록을 렌더링(A4의 조건 블록 규칙과 동일)하고, 기존 managed 블록과의 **diff를 사용자에게 보여주고 승인받는다**. `${CLAUDE_PLUGIN_ROOT}/ARCHITECTURE.md`의 "스키마 버전 이력"(Grep 도구로 찾아 Read)에서 vN 다음부터 vM까지의 항목으로 무엇이 왜 바뀌는지 함께 요약한다(여러 버전을 건너뛰어도 최신 블록으로 한 번에 교체한다).
-5. 승인 시: 마커 사이 내용만 교체한다(마커 밖 사용자 영역은 그대로 보존). config에 템플릿 신버전이 요구하는 새 키가 있으면 기본값으로 추가하되 기존 값은 유지하고, config의 `schema_version`을 M으로 맞춘다. `wiki/log.md`에 `## [날짜] init | 스키마 업그레이드 vN→vM`을 append한다.
+5. 승인 시: 마커 사이 내용만 교체한다(마커 밖 사용자 영역은 그대로 보존). config에 템플릿 신버전이 요구하는 새 키가 있으면 기본값으로 추가하되 기존 값은 유지하고, config의 `schema_version`을 M으로 맞춘다. `wiki/log.md`에 `## [날짜] init | 스키마 업그레이드 vN→vM`을 append한다. 적용 후 확인(관리 영역이 렌더링과 같은지, 사용자 영역이 그대로인지)은 Read·Grep 도구로 한다 — 셸 `diff`·`sed`는 권한 확인을 부른다.
 6. 거부 시 아무것도 바꾸지 않는다.
 
 ## 금지
