@@ -117,6 +117,8 @@ def _merge_segments(segments: list[Chunk], chunk_pages: int) -> list[Chunk]:
 
 def plan_chunks(page_count: int, toc: list, chunk_pages: int) -> list[Chunk]:
     """분할 계획(순수 로직). toc 항목: (level, title, 1-기반 시작쪽). 규칙은 모듈 docstring 참조."""
+    if chunk_pages < 1:
+        raise ValueError(f"chunk_pages는 1 이상이어야 합니다: {chunk_pages}")  # 0 이하는 고정 분할이 끝나지 않는다
     if page_count <= 0:
         return []
     entries = _toc_entries(toc, page_count)

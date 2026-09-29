@@ -249,3 +249,12 @@ def test_scanned_pdf_exits_two(pdf_chunk, tmp_path):
 def test_missing_file_exits_one(pdf_chunk, tmp_path):
     code, _ = run(pdf_chunk, [str(tmp_path / "nope.pdf"), "--cache-dir", str(tmp_path / "cache")])
     assert code == 1
+
+
+def test_plan_chunks_rejects_non_positive_chunk_pages(pdf_chunk):
+    # 순수 함수를 직접 불러도 고정 분할이 끝나지 않는 입력은 막는다(CLI는 argparse 단계에서 이미 거절)
+    import pytest
+
+    for bad in (0, -5):
+        with pytest.raises(ValueError):
+            pdf_chunk.plan_chunks(45, [], bad)
