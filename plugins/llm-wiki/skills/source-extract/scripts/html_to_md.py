@@ -58,6 +58,9 @@ P_CLOSERS = {
     "p", "div", "ul", "ol", "dl", "pre", "blockquote", "table", "section", "article", "header", "footer",
     "nav", "aside", "main", "figure", "hr", "form", "details", "address", "h1", "h2", "h3", "h4", "h5", "h6",
 }
+# 코드 블록 언어를 담는 class 토큰 — highlight-source-x(GitHub)를 highlight-x(Sphinx)보다 먼저 맞춘다
+CODE_LANG_CLASS_RE = re.compile(r"^(?:language|lang|highlight-source|highlight)-([\w+#.-]+)$")
+NON_LANGUAGES = {"default", "none"}  # Sphinx 기본 하이라이터 표기 등 — 언어가 아니다
 # 태그 → (닫을 열린 태그들, 탐색을 멈출 경계 태그들): 닫는 태그를 생략한 li·td 등이 중첩되지 않게
 IMPLIED_END = {
     "li": ({"li"}, {"ul", "ol"}),
@@ -78,12 +81,13 @@ class UnsupportedContentError(Exception):
 
 
 class _Node:
-    __slots__ = ("tag", "attrs", "children")
+    __slots__ = ("tag", "attrs", "children", "parent")
 
-    def __init__(self, tag: str, attrs: dict[str, str]):
+    def __init__(self, tag: str, attrs: dict[str, str], parent: _Node | None = None):
         self.tag = tag
         self.attrs = attrs
         self.children: list[_Node | str] = []
+        self.parent = parent
 
 
 class _TreeBuilder(HTMLParser):
@@ -96,14 +100,14 @@ class _TreeBuilder(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._implied_close(tag)
-        node = _Node(tag, {k: (v or "") for k, v in attrs})
+        node = _Node(tag, {k: (v or "") for k, v in attrs}, self.stack[-1])
         self.stack[-1].children.append(node)
         if tag not in VOID_TAGS:
             self.stack.append(node)
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._implied_close(tag)
-        self.stack[-1].children.append(_Node(tag, {k: (v or "") for k, v in attrs}))
+        self.stack[-1].children.append(_Node(tag, {k: (v or "") for k, v in attrs}, self.stack[-1]))
 
     def handle_endtag(self, tag: str) -> None:
         for i in range(len(self.stack) - 1, 0, -1):
@@ -360,6 +364,28 @@ def _list(el: _Node, base: str) -> str:
     return "\n".join(i for i in items if i)
 
 
+def _code_lang(pre: _Node) -> str:
+    """코드 블록 언어 — <pre>, 그 안의 첫 <code>, 가까운 조상 3단계 순으로 찾는다.
+    Prism·highlight.js는 pre/code에, Jekyll·Rouge는 바깥 div에(language-x), Sphinx는 조부모 div에(highlight-x),
+    GitHub는 div에(highlight-source-x) 언어를 단다."""
+    candidates = [pre, *[c for c in _iter(pre) if c.tag == "code"][:1]]
+    node = pre.parent
+    for _ in range(3):
+        if node is None:
+            break
+        candidates.append(node)
+        node = node.parent
+    for n in candidates:
+        for attr in ("data-lang", "data-language"):
+            if n.attrs.get(attr):
+                return n.attrs[attr].strip()
+        for token in n.attrs.get("class", "").split():
+            m = CODE_LANG_CLASS_RE.match(token)
+            if m and m.group(1) not in NON_LANGUAGES:
+                return m.group(1)
+    return ""
+
+
 def _code_block(el: _Node) -> str:
     text = _raw_text(el)
     if text.startswith("\n"):
@@ -367,12 +393,7 @@ def _code_block(el: _Node) -> str:
     text = text.rstrip("\n")
     if not text.strip():
         return ""
-    lang = ""
-    for n in [el, *[c for c in _iter(el) if c.tag == "code"][:1]]:
-        m = re.search(r"(?:^|\s)(?:language|lang)-([\w+#.-]+)", n.attrs.get("class", ""))
-        if m:
-            lang = m.group(1)
-            break
+    lang = _code_lang(el)
     fence = "```"
     while fence in text:
         fence += "`"

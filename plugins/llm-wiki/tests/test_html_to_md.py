@@ -182,3 +182,21 @@ def test_usage_errors_exit_one(html_to_md):
     assert run(html_to_md, [])[0] == 1
     assert run(html_to_md, ["https://example.com", "--bogus"])[0] == 1
     assert run(html_to_md, ["https://example.com", "--file", "x.html"])[0] == 1
+
+
+@pytest.mark.parametrize(
+    ("html", "lang"),
+    [
+        # Jekyll·Rouge(GitHub Pages 블로그): 언어가 바깥 div에 있다
+        ('<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>x = 1\n</code></pre></div></div>', "python"),
+        # Sphinx(파이썬 문서): 조부모 div의 highlight-<언어>
+        ('<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>x = 1\n</pre></div></div>', "python"),
+        # GitHub 렌더링 HTML: highlight-source-<언어>
+        ('<div class="highlight highlight-source-shell notranslate"><pre>x = 1</pre></div>', "shell"),
+        ('<pre data-lang="rust">x = 1</pre>', "rust"),
+        # Sphinx 기본 하이라이터 표기는 언어가 아니다
+        ('<div class="highlight-default notranslate"><div class="highlight"><pre>x = 1</pre></div></div>', ""),
+    ],
+)
+def test_code_block_language_from_ancestor_markup(html_to_md, html, lang):
+    assert body_of(html_to_md, html) == f"```{lang}\nx = 1\n```"
