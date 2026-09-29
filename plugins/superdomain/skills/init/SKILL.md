@@ -323,8 +323,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN
 - 승인받았으면 `violations[]`의 각 항목을 `{"rule": <rule_id>, "path": <path>}` 한 줄 JSON으로
   바꿔 (rule, path)로 중복을 없애고 그 순서로 정렬해 **`docs/superdomain/state/baseline.jsonl`**에 쓴다.
   출력에 없는 항목은 지어내지 않고 `note`는 넣지 않는다(메시지는 재실행으로 다시 얻는다).
-  **`path`는 git 루트 기준 상대경로이고 구분자는 `/`다** — 로더가 위반의 표시 경로와 글자 그대로
-  대조하므로, 표기가 어긋난 줄은 아무것도 강등하지 못한 채 항목 수만 채운다.
+  **`path`는 프로젝트 루트(= git 루트, skill-protocol §1) 기준 상대경로이고 구분자는 `/`다** —
+  로더가 위반의 표시 경로와 글자 그대로 대조하므로, 표기가 어긋난 줄은 아무것도 강등하지 못한 채
+  항목 수만 채운다.
 - **이미 `docs/superdomain/state/baseline.jsonl`이 있으면 덮어쓰지 않는다.** 재초기화 실행의 `violations[]`는
   그 baseline이 이미 걸러 낸 목록이라 그대로 쓰면 부채가 조용히 줄어든다 — 래칫이 거꾸로 도는
   것이다. 파일은 그대로 두고 현재 건수만 보고한다(축소는 migrate만).

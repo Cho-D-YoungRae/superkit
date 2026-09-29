@@ -176,8 +176,8 @@ domain-reviewer의 C4 (2)뿐이다** — 위임을 돌리지 못한 실행에서
 다 있다: §0에서 읽은 `- 분류:`와 방금 받은 고지의 컨텍스트 이름이다. 셀 하나를 대조한다.
 **새 스크립트가 아니라 2-b 출력과 선언의 대조이므로 「결정적 검사는 이 둘뿐」(§2 머리)은 그대로다.**
 
-- 정본은 `governance/domain-doc-template.md` §1이다 — `core`·`supporting`에 domain 문서는
-  **필수**이고 `generic`은 선택이다.
+- 정본은 `${CLAUDE_PLUGIN_ROOT}/references/governance/domain-doc-template.md` §1이다 —
+  `core`·`supporting`에 domain 문서는 **필수**이고 `generic`은 선택이다.
 - 위 고지 중 **분류가 `core`·`supporting`인 것**을 갈라 리포트에 「필수 문서 없음」으로 싣는다.
   `generic`인 것은 정상 상태이므로 고지 그대로 승계 구역에 둔다(5-a 구역 3).
 - **결정적으로 판정되는 사실이라 domain-reviewer에게 넘기지 않는다.** 에이전트의 범주는 다섯이고
@@ -239,7 +239,8 @@ domain-reviewer의 C4 (2)뿐이다** — 위임을 돌리지 못한 실행에서
 
 **해결되지 않는 패턴 key는 리포트에 남긴다.** (a)의 `- 패턴:` 값이 INDEX에 없어 아무 문서도 열지
 못했으면 그 key를 사실로 적는다(`- 패턴: saga` → 지식 문서 0건). 파서가 이 값을 검증하지 않으므로
-(`governance/domain-template.md` 라벨 사전) 아무도 말하지 않으면 그 선언은 조용히 무효다.
+(`${CLAUDE_PLUGIN_ROOT}/references/governance/domain-template.md` 라벨 사전) 아무도 말하지 않으면
+그 선언은 조용히 무효다.
 **판정하지 않는다** — 오타인지 아직 없는 문서인지는 사용자가 가른다.
 
 최종 목록은 리포트에 그대로 싣는다. 무엇을 근거로 판정했는지는 판정 결과의 일부다.
@@ -388,8 +389,9 @@ check_imports는 선언된 프로젝트 전체를 검사하므로 이번 변경�
 
 ## 7. `review-log.jsonl`에 append
 
-경로는 git 루트의 `docs/superdomain/state/review-log.jsonl`이다. **append only** — 기존 줄을 고치거나
-지우거나 정렬하지 않는다. 파일이 없으면 새로 만들고, 마지막 줄에 개행이 없으면 개행부터 넣는다.
+경로는 프로젝트 루트(= git 루트, skill-protocol §1)의 `docs/superdomain/state/review-log.jsonl`이다.
+**append only** — 기존 줄을 고치거나 지우거나 정렬하지 않는다. 파일이 없으면 새로 만들고, 마지막
+줄에 개행이 없으면 개행부터 넣는다.
 
 한 항목당 **한 줄 JSON**, 키는 다섯이다.
 

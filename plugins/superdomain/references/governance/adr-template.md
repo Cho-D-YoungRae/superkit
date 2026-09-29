@@ -150,12 +150,12 @@ proposed ──→ accepted ──→ superseded
 |---|---|
 | 두 컨텍스트 사이의 참조를 연다·닫는다 | `DOMAIN.md`의 `### 관계` 표에 쌍을 추가·삭제(허용 단위는 쌍이고 방향을 구분하지 않는다) |
 | 투자·리뷰 강도가 바뀐다 | `DOMAIN.md`의 `- 분류:` 라벨 수정 |
-| 컨텍스트가 사는 패키지가 바뀐다 | `DOMAIN.md`의 `- 패키지:` 라벨 수정 — 검사의 귀속 범위가 함께 바뀐다 |
+| 컨텍스트가 사는 패키지가 바뀐다 | `DOMAIN.md`의 `- 패키지:` 라벨 수정 — 검사의 귀속 범위가 함께 바뀐다(편집은 `/superdomain:init` — skill-protocol §9) |
 | 적용 패턴이 바뀐다 | `DOMAIN.md`의 `- 패턴:` 라벨 수정 |
 
 컨텍스트를 **신설·병합·분리**하는 결정은 이 표에 없다 — 경계를 다시 긋는 일이므로 `/superdomain:init`의 경계 인터뷰가 처리한다.
 
-어느 경우든 마지막에 `parse_domain.py`로 선언이 여전히 해석되는지 보고, `check_imports.py`를 다시 돌려 **그 편집으로 위반이 새로 드러나거나 사라졌는지** 확인한 뒤 파생물(`docs/superdomain/summary.md`·컨텍스트 맵 생성 구역)을 갱신한다. ADR의 "후속 작업" 칸이 이 연결을 잊지 않게 하는 장치다 — 해당 사항이 없으면 "없음"이라고 명시적으로 적는다.
+어느 경우든 마지막에 `parse_domain.py`로 선언이 여전히 해석되는지 보고, `check_imports.py`를 다시 돌려 **그 편집으로 위반이 새로 드러나거나 사라졌는지** 확인한 뒤 파생물(`docs/superdomain/summary.md`·컨텍스트 맵 생성 구역)을 갱신한다. `/superdomain:adr`이 짚은 자리를 사용자가 편집했다면 갱신하는 주체는 `/superdomain:sync`다 — 낡은 파생물을 잡아(3-d) `derived-artifacts.md` §5대로 다시 만든다. adr은 파생물을 쓰지 않고 sync를 권하는 데서 멈춘다(`/superdomain:init`·`/superdomain:evolve`가 편집했으면 그 스킬이 직접 다시 만든다 — skill-protocol §1). ADR의 "후속 작업" 칸이 이 연결을 잊지 않게 하는 장치다 — 해당 사항이 없으면 "없음"이라고 명시적으로 적는다.
 
 반대로, **선언에 자리가 없는 결정**이라면 ADR로 끝내고 라벨에 억지로 밀어 넣지 않는다. 사람의 해석이 필요한 판단 기준이면 `docs/superdomain/conventions/`의 리뷰 체크리스트로 보낸다.
 

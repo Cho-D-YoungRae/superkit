@@ -275,7 +275,7 @@ git worktree remove <임시 경로>
 
 형식의 정본은 `${CLAUDE_PLUGIN_ROOT}/references/governance/adr-template.md`다 — 쓸지의 판정(§1),
 파일명(§2), 상태(§3), 템플릿 본문(§4). **지금 그 절들을 읽고** 그대로 채운다. 이 문서에 템플릿을
-복제하지 않는다. 규율은 `skills/adr/SKILL.md`의 것을 그대로 승계한다.
+복제하지 않는다. 규율은 `${CLAUDE_PLUGIN_ROOT}/skills/adr/SKILL.md`의 것을 그대로 승계한다.
 
 - **초안은 먼저 리포트에 본문으로 보여준다.** 파일로 쓰는 것은 사용자가 "이 제안은 남기겠다"고
   한 것만이다 — 훑어보지도 않은 초안 다섯 개가 `docs/superdomain/adr/`에 쌓이면 ADR 목록 자체가
@@ -314,8 +314,8 @@ git worktree remove <임시 경로>
 - **`- 패키지:` 라벨은 이 스킬이 고치지 않는다.** 패키지가 바뀌면 컨텍스트의 귀속 범위가 통째로
   바뀌어 이번 관측의 분모 자체가 달라진다 — 그 결정은 경계 인터뷰의 일부이므로 `init`으로 넘긴다.
 - **도메인 재편 제안은 domain 문서를 건드리지 않는다.** 그 문서의 「열린 질문」 절 출처 값은
-  `model`·`review`·`apply` 셋뿐이므로(`governance/domain-doc-template.md` §5) evolve가 append할
-  자리가 없다. 관측과 제안을 리포트에 남기고 다음 모델링 세션의 안건으로 넘긴다.
+  `model`·`review`·`apply` 셋뿐이므로(`${CLAUDE_PLUGIN_ROOT}/references/governance/domain-doc-template.md`
+  §5) evolve가 append할 자리가 없다. 관측과 제안을 리포트에 남기고 다음 모델링 세션의 안건으로 넘긴다.
 - **넘긴 관측(baseline 추이·반복되는 의미론 지적)은 여기서 파일을 쓰지 않는다.** 리포트에 싣고
   처분을 그쪽 스킬에 넘기는 것이 전부다 — `docs/superdomain/conventions/` 문서를 쓸지는 사용자와 review가
   정한다.

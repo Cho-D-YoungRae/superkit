@@ -262,8 +262,9 @@ domain 문서의 `## 불변식` 표와 코드가 정합한가. **갈래가 둘�
 | `related_invariant` | 선택 | `INV-<CONTEXT>-NNN` |
 | `related_adr` | 선택 | ADR 파일명 |
 
-review 스킬은 이 배열을 리포트와 `review-log.jsonl`로 필드 그대로 옮긴다. `discussion` 항목의
-`question`은 domain 문서의 `## 열린 질문`에 append되므로 답이 필요한 질문으로 쓴다.
+review 스킬은 이 배열을 리포트에는 필드 그대로, `review-log.jsonl`에는 review 7단계 규약대로
+옮긴다. `discussion` 항목의 `question`은 domain 문서의 `## 열린 질문`에 append되므로 답이 필요한
+질문으로 쓴다.
 
 ## 진행 순서
 

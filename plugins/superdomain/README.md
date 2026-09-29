@@ -272,9 +272,9 @@ python3 -m unittest discover -s tests
    ```
 3. `python3 scripts/build_index.py`를 실행해 `references/INDEX.md`를 갱신한다.
 
-문서는 본문에 `## 적용 기준`과 `## 규칙` **레벨 2 헤딩이 둘 다** 생길 때까지 `draft`로 등재된다.
-**draft 문서는 배경 설명으로 인용해도 되지만 판정 근거로 삼을 수 없다** — 완벽보다 존재가
-우선이므로 얇은 초안을 올리는 것은 정상이고, 대신 그것이 판정에 쓰이지 않도록 막는 장치가 draft
+문서는 본문에 `## 적용 기준`과 `## 규칙` **두 레벨 2 헤딩과 그 아래 본문이** 생길 때까지 `draft`로
+등재된다. **draft 문서는 배경 설명으로 인용해도 되지만 판정 근거로 삼을 수 없다** — 완벽보다
+존재가 우선이므로 얇은 초안을 올리는 것은 정상이고, 대신 그것이 판정에 쓰이지 않도록 막는 장치가 draft
 플래그다. 자세한 규칙(frontmatter 제한 문법, 분량, 승격 절차)은
 `references/governance/knowledge-doc-template.md`에 있다.
 
