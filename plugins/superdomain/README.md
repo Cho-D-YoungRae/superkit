@@ -52,6 +52,11 @@ claude plugin details superdomain
 갱신은 `claude plugin marketplace update superdomain`, 제거는
 `claude plugin uninstall superdomain`이다.
 
+### 0.2.x에서 올라왔다면
+
+산출물 위치가 바뀌었다 — [CHANGELOG](CHANGELOG.md)의 0.3.0 이행 절차를 먼저 따른다. 옛
+배치에서는 스크립트가 exit 2로 멈추고 이행 명령을 출력한다.
+
 ### 로컬 개발용 로드
 
 ```bash
@@ -60,9 +65,6 @@ claude --plugin-dir /path/to/superdomain
 
 스킬은 `/superdomain:<스킬명>`으로 노출된다. `SKILL.md` 본문은 핫리로드되지만
 `plugin.json`·훅·에이전트를 고쳤다면 `/reload-plugins`가 필요하다.
-
-**0.2.x에서 올라왔다면** 산출물 위치가 바뀌었다 — [CHANGELOG](CHANGELOG.md)의 0.3.0 이행 절차를
-먼저 따른다. 옛 배치에서는 스크립트가 exit 2로 멈추고 이행 명령을 출력한다.
 
 ## 워크플로
 

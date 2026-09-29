@@ -51,6 +51,9 @@
 
 ### 이행 절차 (0.2.x → 0.3.0)
 
+플러그인을 올리기 전에 옛 경로로 세 스크립트를 한 번 돌려 `OK:` 줄과 위반·부채 건수를 적어 두면
+4단계에서 대조할 수 있다.
+
 1. 대상 프로젝트의 git 루트에서 파서를 새 경로로 돌려 이행 명령을 받는다(선언 파일이 아직
    없어도 된다).
 
@@ -66,14 +69,19 @@
 3. 옮긴 문서 안의 경로 참조를 고친다.
 
    ```bash
-   git grep -nE 'docs/decisions|docs/domain/|docs/domain-summary\.md|docs/domain\.md|\(DOMAIN\.md\)|\.\./DOMAIN\.md' -- docs
+   git grep -nE 'docs/decisions|docs/domain/|docs/domain-summary\.md|docs/domain\.md|\(DOMAIN\.md\)|\.\./DOMAIN\.md' -- docs CLAUDE.md
    ```
 
    `docs/decisions/` → `docs/superdomain/adr/`, `docs/domain/` → `docs/superdomain/contexts/`,
    `docs/domain-summary.md` → `docs/superdomain/summary.md`. `DOMAIN.md`에서 ADR을 가리키던 상대
    링크(`docs/decisions/x.md`)는 이제 같은 디렉터리 기준이므로 `adr/x.md`다. ADR끼리의 상대 링크는
-   그대로 둔다. 옛 자리에서 `../../DOMAIN.md`로 선언을 가리키던 링크(컨텍스트 문서·ADR)는 이제
-   `../DOMAIN.md`다.
+   그대로 둔다. `DOMAIN.md`가 컨텍스트 문서를 `docs/domain/x.md`로 가리켰다면 이제
+   `contexts/x.md`다. 옛 자리에서 `../../DOMAIN.md`로 선언을 가리키던 링크(컨텍스트 문서·ADR)는
+   이제 `../DOMAIN.md`다.
+
+   CLAUDE.md에 0.2.x `init`이 제안한 한 줄(도메인 경계·요약 경로)을 넣었다면
+   `docs/superdomain/DOMAIN.md`·`docs/superdomain/summary.md`로 고친다. pre-commit 훅·CI가
+   스크립트에 넘기는 인자도 `docs/superdomain/DOMAIN.md`로 바꾼다.
 4. 파서와 두 검사를 새 경로로 돌려 이행 전과 결과가 같은지 확인한다.
 
    ```bash
