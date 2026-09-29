@@ -23,19 +23,28 @@ FIXTURES = TESTS_DIR / "fixtures" / "domain"
 SCRIPT = ROOT / "scripts" / "parse_domain.py"
 
 MINIMAL = (FIXTURES / "minimal.md").read_text(encoding="utf-8")
+TEMPLATE = ROOT / "references" / "governance" / "domain-template.md"
+
+
+def canonical_skeleton():
+    """정본 §2의 스켈레톤을 그대로 떼어 온다 — 픽스처를 손으로 베끼지 않는다."""
+    lines = TEMPLATE.read_text(encoding="utf-8").split("\n")
+    start = lines.index("```markdown") + 1
+    return "\n".join(lines[start:lines.index("```", start)]) + "\n"
 
 
 class DomainTextCase(unittest.TestCase):
     """문서 텍스트를 임시 파일에 써서 파싱하는 공통 도우미.
 
-    임시 디렉터리는 `tests/tmp*`(.gitignore 대상)에 만들고 테스트마다 지운다 —
-    시스템 /tmp에 파일을 흘리지 않는다.
+    임시 디렉터리는 시스템 temp에 만들고 addCleanup으로 지운다 — 실패한 테스트도 흔적을
+    남기지 않는다.
     """
 
     def _write(self, text, name="DOMAIN.md"):
-        tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
+        tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
         self.addCleanup(shutil.rmtree, tmpdir, True)
         path = tmpdir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
 
@@ -163,6 +172,63 @@ class TestGeneratedZoneInsideSection(DomainTextCase):
         d = self._parse_text(text)
         self.assertEqual(d.errors, [])
         self.assertEqual([r.partner for r in d.contexts[1].relations], ["claim"])
+
+
+class TestFreeTextIsolation(DomainTextCase):
+    """템플릿 밖의 서술은 파싱 결과를 바꾸지 않는다(domain-template §1).
+
+    라벨은 섹션 머리에서만 읽고, 코드 펜스 안은 어디서든 헤딩·라벨·표로 해석하지 않는다.
+    """
+
+    def test_label_under_subheading_is_free_text(self):
+        d = self._parse_text(MINIMAL + "\n### 근거\n- 패키지: com.legacy.claim\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
+    def test_label_inside_fence_is_ignored(self):
+        # 2026-09-26 재현: 펜스 안의 라벨이 OK / exit 0인 채 컨텍스트 패키지를 바꿨다.
+        d = self._parse_text(MINIMAL + "```\n- 패키지: com.legacy.claim\n```\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
+    def test_heading_inside_fence_is_ignored(self):
+        text = MINIMAL + "\n### 메모\n```markdown\n## 컨텍스트: ghost\n- 분류: core\n```\n"
+        d = self._parse_text(text)
+        self.assertEqual(d.errors, [])
+        self.assertEqual([c.name for c in d.contexts], ["claim"])
+
+    def test_labels_after_a_closed_fence_still_apply(self):
+        d = self._parse_text(MINIMAL + "~~~~\n- 패키지: x.y\n~~~~~\n- 패턴: cqrs\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+        self.assertEqual(d.contexts[0].patterns, ["cqrs"])
+
+    def test_fence_closes_only_with_the_same_character(self):
+        d = self._parse_text(MINIMAL + "```\n~~~\n- 패키지: x.y\n```\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
+    def test_unclosed_fence_is_error(self):
+        text = (MINIMAL + "\n### 메모\n```\n열고 닫지 않았다\n\n"
+                "## 컨텍스트: billing\n- 분류: supporting\n")
+        d = self._parse_text(text)
+        self.assertHasError(d, "닫히지 않은 코드 펜스")
+
+    def test_backtick_in_info_string_does_not_open_a_fence(self):
+        # CommonMark: 백틱 펜스의 정보 문자열에는 백틱이 올 수 없다 — "```inline``` 표기"는
+        # 인라인 코드로 시작하는 문장이다. 펜스로 열면 뒤의 컨텍스트 절이 오류 없이 사라진다.
+        text = (MINIMAL + "\n### 근거\n```inline``` 표기를 문장 머리에 썼다.\n\n"
+                "## 컨텍스트: billing\n- 분류: supporting\n\n"
+                "## 컨텍스트 맵\n```mermaid\ngraph LR\n```\n")
+        d = self._parse_text(text)
+        self.assertEqual(self._messages(d), [])
+        self.assertEqual([c.name for c in d.contexts], ["claim", "billing"])
+
+    def test_backtick_in_tilde_info_string_still_opens_a_fence(self):
+        # 물결 펜스의 정보 문자열에는 백틱이 와도 된다 — 이쪽은 여전히 펜스다.
+        d = self._parse_text(MINIMAL + "~~~ `예시`\n- 패키지: x.y\n~~~\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
 
 
 class TestParenComments(DomainTextCase):
@@ -410,6 +476,38 @@ class TestRetiredLabels(DomainTextCase):
     def test_other_unknown_labels_are_still_ignored(self):
         d = self._parse_text(MINIMAL + "- 담당팀: 청구스쿼드\n")
         self.assertEqual(d.errors, [])
+
+    def test_retired_label_in_document_head_is_rejected(self):
+        text = MINIMAL.replace("<!-- superdomain:template v1 -->\n",
+                               "<!-- superdomain:template v1 -->\n- 스타일: hexagonal\n")
+        self.assertHasError(self._parse_text(text), "'스타일'")
+
+    def test_retired_label_in_unknown_section_is_rejected(self):
+        d = self._parse_text(MINIMAL + "\n## 모듈: core\n- 모듈 구성: multi\n")
+        self.assertHasError(d, "'모듈 구성'")
+
+    def test_retired_label_under_subheading_is_free_text(self):
+        d = self._parse_text(MINIMAL + "\n### 근거\n- 스타일: 예전엔 hexagonal이었다\n")
+        self.assertEqual(d.errors, [])
+
+
+class TestEncoding(DomainTextCase):
+    def test_non_utf8_file_is_error_not_exception(self):
+        # cp949로 저장된 선언 — 트레이스백으로 죽으면 exit 1(위반)과 구별되지 않는다.
+        path = self._write("")
+        path.write_bytes(MINIMAL.encode("utf-8") + "한".encode("cp949"))
+        d = parse_domain(path)
+        self.assertHasError(d, "UTF-8로 읽을 수 없습니다")
+        self.assertFalse(any("/superdomain:init" in m for m in self._messages(d)),
+                         self._messages(d))
+
+    def test_bom_before_marker_on_first_line_is_accepted(self):
+        # 제목 줄을 빼 마커가 첫 줄이 되게 한다. BOM이 `^\s*<!--`를 깨뜨리면 '형식이 올바르지
+        # 않은 마커'로 거부된다 — 윈도우 에디터로 저장한 문서가 이유 없이 막힌다.
+        text = "﻿" + MINIMAL.split("\n", 1)[1]
+        d = self._parse_text(text)
+        self.assertEqual(d.errors, [])
+        self.assertEqual([c.name for c in d.contexts], ["claim"])
 
 
 class TestTemplateMarker(DomainTextCase):
@@ -720,29 +818,65 @@ class TestPublicSurface(unittest.TestCase):
         self.assertEqual(str(LocatedError(3, "메시지")), "3: 메시지")
 
 
+class TestCanonicalSkeleton(DomainTextCase):
+    """domain-template §2는 "그대로 복사해 파서를 통과하는 블록"이라고 약속한다."""
+
+    def test_skeleton_parses_without_errors(self):
+        d = self._parse_text(canonical_skeleton())
+        self.assertEqual(self._messages(d), [])
+        self.assertEqual((len(d.projects), len(d.contexts)), (2, 3))
+
+
 class TestCli(DomainTextCase):
-    """exit 규약: 0=OK, 1=해석 오류, 2=사용법 오류."""
+    """exit 규약: 0=OK, 1=해석 오류, 2=사용법·배치 오류."""
+
+    LAYOUT = "docs/superdomain/DOMAIN.md"
 
     def run_cli(self, *args):
         return subprocess.run([sys.executable, str(SCRIPT), *args],
                               capture_output=True, text=True)
 
     def test_exit_zero_on_valid_document(self):
-        result = self.run_cli(str(FIXTURES / "full.md"))
+        path = self._write((FIXTURES / "full.md").read_text(encoding="utf-8"), name=self.LAYOUT)
+        result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "OK: 프로젝트 2, 컨텍스트 3")
 
     def test_exit_one_on_parse_error(self):
-        path = self._write(MINIMAL.replace("- 분류: core", "- 분류: kernel"))
+        path = self._write(MINIMAL.replace("- 분류: core", "- 분류: kernel"), name=self.LAYOUT)
         result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 1)
         self.assertIn("kernel", result.stderr)
         self.assertIn(f"{path}:", result.stderr)
 
-    def test_exit_one_on_missing_file(self):
-        result = self.run_cli(str(TESTS_DIR / "없는파일-DOMAIN.md"))
+    def test_exit_one_on_missing_file_in_the_right_place(self):
+        path = self._write("", name=self.LAYOUT)
+        path.unlink()
+        result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 1)
         self.assertIn("읽을 수 없습니다", result.stderr)
+
+    def test_exit_one_on_non_utf8_file(self):
+        path = self._write("", name=self.LAYOUT)
+        path.write_bytes(b"# \xc7\xd1\n")
+        result = self.run_cli(str(path))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        # 줄 번호는 읽지 못한 첫 바이트가 있는 줄이다 — 어디를 다시 저장할지 짚는다.
+        self.assertTrue(result.stderr.startswith(f"{path}:1: "), result.stderr)
+        self.assertIn("UTF-8로 읽을 수 없습니다", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_exit_two_outside_the_layout(self):
+        result = self.run_cli(str(FIXTURES / "full.md"))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(self.LAYOUT, result.stderr)
+
+    def test_exit_two_with_migration_commands_for_a_legacy_root(self):
+        path = self._write(MINIMAL)          # 루트의 DOMAIN.md — 0.2.x 배치
+        result = self.run_cli(str(path))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("git mv DOMAIN.md docs/superdomain/DOMAIN.md", result.stderr)
 
     def test_exit_two_on_no_argument(self):
         result = self.run_cli()

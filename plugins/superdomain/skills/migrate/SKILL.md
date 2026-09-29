@@ -1,33 +1,28 @@
 ---
 name: migrate
 description: >
-  동결된 컨텍스트 격리 위반을 점진 상환한다 — `docs/domain/baseline.jsonl`의 항목을 **컨텍스트
-  쌍(A↔B) 단위**로 클러스터링하고, collect_signals의 핫스팟과 참조 fan-in을 근거로 우선순위를
-  매겨 **한 번에 한 클러스터만** 계획을 제시하고, 승인받은 뒤 경계를 넘는 참조를 실제로 끊는
-  코드 변경을 수행하고, `check_imports.py` 두 실행으로 해소를 실측한 뒤 baseline에서 그 항목을
-  지운다. baseline이 비면 파일을 지우고 상환 완료 ADR로 닫는다. 사용자가 "부채 갚기",
-  "baseline 줄이기", "격리 위반 정리", "컨텍스트 결합 끊기", "마이그레이션", "레거시 구조 정리",
-  "migrate", "/superdomain:migrate"를 요청할 때, `docs/domain/baseline.jsonl`이 있는
-  프로젝트에서 동결된 부채를 실제로 줄이려 할 때, 또는 `/superdomain:evolve`가 "baseline
-  감소가 정체됐다"고 보고했을 때 사용한다. **baseline을 줄이는 유일한 스킬**이며(동결은
-  `/superdomain:init`, `check_imports.py`는 읽기만 한다) 빅뱅 리팩터링 계획은 제시하지
-  않는다. 선언과 디스크의 드리프트를 대조·처분하는 일은 `/superdomain:sync`, 컨텍스트·분류·
-  패키지 선언 자체를 세우거나 바꾸는 일은 `/superdomain:init`, 관계 표를 열 근거를 남기는
-  일은 `/superdomain:adr`, 변경분을 검토하고 리포트만 내는 일은 `/superdomain:review`,
-  도메인 문서의 불변식을 코드와 태그 테스트로 옮기는 일은 `/superdomain:apply`다.
-  `docs/domain/baseline.jsonl`이 없으면 이 스킬은 할 일이 없다.
+  동결된 컨텍스트 격리 위반을 점진 상환한다 — `docs/superdomain/state/baseline.jsonl`의 항목을
+  컨텍스트 쌍(A↔B) 단위로 클러스터링하고, collect_signals의 핫스팟과 참조 fan-in으로 우선순위를
+  매겨 한 번에 한 클러스터만 계획을 제시하고, 승인받은 뒤 경계를 넘는 참조를 실제로 끊고,
+  `check_imports.py` 두 실행으로 해소를 실측한 뒤 baseline에서 그 항목을 지운다. baseline이 비면
+  파일을 지우고 상환 완료 ADR로 닫는다. 사용자가 "부채 갚기", "baseline 줄이기", "격리 위반
+  정리", "컨텍스트 결합 끊기", "마이그레이션", "레거시 구조 정리", "migrate",
+  "/superdomain:migrate"를 요청할 때, 또는 `/superdomain:evolve`가 baseline 감소 정체를 보고했을 때
+  사용한다. baseline을 줄이는 유일한 스킬이다(동결은 `/superdomain:init`). baseline 파일이 없으면
+  할 일이 없다. superdomain 0.2.x 산출물을 새 배치로 옮기는 일에는 쓰지 않는다 — 그것은
+  CHANGELOG의 이행 절차다.
 ---
 
 # 동결된 격리 위반을 점진 상환
 
 이 스킬은 **부채를 줄이는 유일한 경로**다. init이 동결하고 `check_imports.py`가 읽기만 하는
-`docs/domain/baseline.jsonl`을 실제로 축소하는 권한은 여기 하나뿐이다. 그 권한이 잘못 쓰이면
+`docs/superdomain/state/baseline.jsonl`을 실제로 축소하는 권한은 여기 하나뿐이다. 그 권한이 잘못 쓰이면
 래칫이 거꾸로 돌고, 그 순간 이 플러그인의 보장이 통째로 사라진다. 그래서 불변이 넷이다.
 
 1. **한 번에 한 클러스터.** 계획도 하나, 승인도 하나, 수행도 하나다. 빅뱅 리팩터링 계획을 제시하지
    않고, 한 클러스터를 끝냈다고 다음으로 **자동으로 넘어가지 않는다** — 연속해서 두 개를 하려면
-   승인도 두 번 받는다. 이것은 판단을 아끼라는 뜻이 아니다: 클러스터 경계와 순서를 근거와 함께
-   **적극적으로 제안**하는 것이 이 스킬의 일이고, 금지는 확인 없는 **착수** 하나뿐이다.
+   승인도 두 번 받는다. 제안은 적극적으로 하고, 확인 없는 **착수**만 하지 않는다(skill-protocol
+   §4) — 클러스터 경계와 순서를 근거와 함께 제안하는 것이 이 스킬의 일이다.
 2. **줄이는 근거는 실측된 해소 하나뿐이다.** 항목을 지우는 이유가 "고쳤으니 됐을 것"이면 그것은
    축소가 아니라 은폐다. 6단계의 두 실행이 근거이고, 근거가 없으면 항목은 남는다.
    **예외처럼 보이는 갈래가 하나 있다** — `### 관계` 표가 그 쌍을 열어 위반 자체가 사라진 경우다.
@@ -42,8 +37,8 @@ description: >
 
 ## 지식 참조 프로토콜
 
-지식이 필요하면 **먼저 `${CLAUDE_PLUGIN_ROOT}/references/INDEX.md`를 읽고** 필요한 문서만 연다.
-`knowledge/`를 통째로 또는 디렉터리 단위로 읽는 것은 금지다. 고르는 기준은 셋이다.
+지식 문서는 `${CLAUDE_PLUGIN_ROOT}/references/governance/skill-protocol.md` §5의 프로토콜로만 연다
+(INDEX 먼저, 필요한 문서만, draft는 판정 근거 불가). 이 스킬이 여는 문서와 시점은 다음과 같다.
 
 - **경계를 넘는 결합을 어떻게 끊는가**의 정본은 `strategic/context-mapping.md`다 — 관계 유형의
   정의와 안티패턴, 그리고 관계 표가 참조의 allow-list라는 사실이 거기 있다. 이 스킬이 매 클러스터
@@ -51,22 +46,22 @@ description: >
 - **이번 클러스터가 실제로 건드리는 주제** — INDEX의 `read_when`에 `migrate`가 붙은 문서가
   후보다: 영속이 얽히면 `persistence`, 포트를 도입하면 `repositories-domain-services`, 대상
   컨텍스트가 `- 패턴:`으로 선언한 문서가 있으면 그 key의 문서도.
-- 대상 프로젝트의 `docs/conventions/` 문서. 같은 주제면 **로컬이 이긴다.**
 
 ---
 
 ## 0. 위치·게이트·조기 종료
 
+`${CLAUDE_PLUGIN_ROOT}/references/governance/skill-protocol.md` §3(초기화 게이트)을 따른다 — git
+루트로 올라가 `parse_domain.py docs/superdomain/DOMAIN.md`로 배치를 확인하고, 배치 오류(옛 배치·
+이행 미완, exit 2)면 출력을 보여 주고, 선언이 없으면 `/superdomain:init`을 안내하고 **중단**한다.
+
+통과하면 동결 목록을 본다.
+
 ```bash
-git rev-parse --show-toplevel
-ls -l docs/domain/baseline.jsonl
+ls -l docs/superdomain/state/baseline.jsonl
 ```
 
-git 루트가 작업 기준이다. `DOMAIN.md`가 없으면 아래를 알리고 **중단**한다.
-
-> superdomain이 초기화되지 않았습니다. `/superdomain:init`으로 도메인 경계 선언을 먼저 세우세요.
-
-**`docs/domain/baseline.jsonl`의 존재가 이 스킬의 입장 조건 전부다.** 선언에는 부채를 가리키는
+**`docs/superdomain/state/baseline.jsonl`의 존재가 이 스킬의 입장 조건 전부다.** 선언에는 부채를 가리키는
 라벨이 없다 — 파일이 있으면 동결된 부채가 있는 것이고, 없으면 없는 것이다. 세 지점(init의 동결,
 `check_imports.py`의 강등, 이 스킬의 축소)이 같은 경로 하나를 본다.
 
@@ -76,37 +71,23 @@ git 루트가 작업 기준이다. `DOMAIN.md`가 없으면 아래를 알리고 
 | 파일 있고 항목 있음 | 1단계로 |
 | 파일 있는데 빈 줄뿐 | 갚을 것이 없는데 래칫이 있는 척하는 상태다. **7단계(상환 종료)로 바로 간다** — 이 경로의 완료 ADR은 "갚은 클러스터 0"이므로, 무엇이 왜 0이었는지(동결 시점부터 비어 있었는지, 다른 경로로 해소됐는지)를 사용자에게 확인해 7-b의 재료로 넘긴다 |
 
-- **파일이 없을 때 한 번 더 본다.** 구판에서 넘어온 저장소는 `baseline.jsonl`을 다른 자리에 갖고
-  있을 수 있고, 그러면 `check_imports.py`가 그것을 읽지 않아 **동결분이 통째로 신규 위반으로
-  올라오는데** 이 스킬은 "부채 없음"으로 끝난다. 두 리포트가 정반대를 말하는 상태다.
-
-  ```bash
-  find docs -name baseline.jsonl 2>/dev/null
-  ```
-
-  **`2>/dev/null`을 빠뜨리지 않는다** — 이 명령이 도는 조건은 "새 경로에 파일이 없음"이고, 그때
-  `docs/` 자체가 없는 것이 흔하다(동결한 적 없는 프로젝트). 그대로 두면 정상 경로에서 오류 문면과
-  exit 1이 나와 사용자가 실패로 읽는다.
-
-  히트가 있으면 그 경로를 그대로 보여주고 **위 경로로 옮길지 묻는다.** 파일 이동뿐이지만 래칫의
-  근거를 바꾸는 일이므로 확정을 받는다. 옮겼으면 0단계부터 다시 시작한다.
-
 ## 1. 입력 — 선언·현재 판정·동결 목록
 
 세 개를 함께 놓아야 "무엇이 아직 살아 있는 부채인가"가 나온다.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" DOMAIN.md
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
-cat -n docs/domain/baseline.jsonl
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parse_domain.py" docs/superdomain/DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
+cat -n docs/superdomain/state/baseline.jsonl
 ```
 
 - **`parse_domain.py`가 exit 1이면 멈춘다.** stderr의 `경로:라인: 메시지`를 그대로 보여준다. 깨진
   선언 위에서 코드를 옮기면 무엇이 경계였는지가 사라진다. 고치는 것은 이 스킬의 일이 아니다
-  (exit 2는 사용법 오류 — 인자를 고쳐 다시 돌린다). exit 0이면 `DOMAIN.md`를 직접 읽어 컨텍스트
-  이름·`- 패키지:`·`### 관계` 표를 손에 쥔다. **컨텍스트 패키지가 2·5단계의 목표 자리를 정한다.**
+  (exit 2는 사용법·배치 오류 — 사용법 오류면 인자를 고쳐 다시 돌리고, 배치 오류는 0단계 게이트에서
+  이미 멈췄다). exit 0이면 `DOMAIN.md`를 직접 읽어 컨텍스트 이름·`- 패키지:`·`### 관계` 표를 손에
+  쥔다. **컨텍스트 패키지가 2·5단계의 목표 자리를 정한다.**
 - **`check_imports.py`의 exit 2는 baseline이 깨졌다는 뜻일 수 있다**(1은 "위반 발견"이라는 정상
-  판정이다). stderr가 `docs/domain/baseline.jsonl:<줄>: …`을 지목하면 **그 줄을 고치는 것이 이번
+  판정이다). stderr가 `docs/superdomain/state/baseline.jsonl:<줄>: …`을 지목하면 **그 줄을 고치는 것이 이번
   세션의 첫 작업**이다(재작성 권한은 이 스킬에 있다). 적용하는 것은 6-b의 **재작성 형식 규율**
   뿐이다 — 한 줄 JSON, (rule, path) 정렬, 남길 줄은 원문 그대로. 6-b의 "지우는 것은 6-a에서 부재를
   확인한 항목뿐"은 여기 걸리지 않는다: 그 문장은 해소를 근거로 한 축소를 규율하고, 여기서 다루는
@@ -114,7 +95,8 @@ cat -n docs/domain/baseline.jsonl
   **지어내지 않는다** — 한 줄이 깨지면 어느 위반이 동결분인지 전체를 알 수 없다는 것이 exit 2의
   이유다. 판단이 서지 않으면 **그 줄을 지우는 쪽이 안전하다**(항목이 빠지면 그 위반은 신규 위반으로
   올라오므로 래칫은 조여질 뿐 풀리지 않는다). 그것도 사용자 확정 사항이다.
-- **살아 있는 부채는 `baseline.demoted[]`다**(각 항목은 `path`·`line`·`rule_id`·`message`).
+- **살아 있는 부채는 `baseline.demoted[]`다**(각 항목은 `path`·`line`·`rule_id`·`message`·
+  `from_context`·`to_context`).
   `baseline.entries`(동결 항목 수)와 건수가 다른 것은 정상이고, 이유가 둘이다.
 
 | 어긋남 | 뜻 |
@@ -123,18 +105,17 @@ cat -n docs/domain/baseline.jsonl
 | 항목이 `demoted`에 없다 | 해소됐거나, **이번 실행이 그 파일을 판정하지 않았다** |
 
 **미매칭 항목을 "해소됨"으로 단정하지 않는다.** 그것이 이 스킬이 가장 쉽게 저지를 수 있는 거짓
-축소다. 판정하지 못한 실행을 가려내는 자리는 같은 JSON 안에 넷이다.
+축소다. 판정하지 못한 실행을 가려내는 자리는 같은 JSON 안에 넷이다. 채널의 뜻은 `skill-protocol.md`
+§6이다. 이 스킬에서의 처리만 적는다.
 
-| 채널 | 뜻 |
+| 키 | 이 스킬에서의 처리 |
 |---|---|
-| `skipped[]` | 검사가 아예 서지 않았다 — 프로젝트 경로 부재·경로가 파일·소스 전부 읽기 실패·소스 0건 |
-| `zero_match[]` | 그 컨텍스트 패키지에 귀속된 소스가 0건이다(`[0건 경고]`) |
-| `unreadable[]` | 소스를 읽지 못했다(인코딩·권한) |
-| `ambiguous_package[]` | `package` 선언이 2건 이상이라 **그 파일의 귀속을 믿을 수 없다** — 검사가 스스로 판정을 부인한 상태다 |
+| `skipped[]` | 걸린 범위의 미매칭 항목은 **미판정**이다 — 해소로 세지 않는다(6-a 3항) |
+| `zero_match[]` | 같다 — 그 컨텍스트의 미매칭 항목은 미판정(6-a 3항) |
+| `unreadable[]` | 그 경로의 미매칭 항목은 미판정(6-a 3항) |
+| `ambiguous_package[]` | 경로가 baseline 항목의 `path`와 겹치면 그 항목의 판정은 처음부터 흔들린다 — 클러스터에 넣기 전에 고지하고, 처분은 6-a 4항이 정한다 |
 
-대상이 여기 걸려 있으면 그 실행은 **아무 말도 하지 않은 것**이다. 특히 `ambiguous_package[]`의
-경로가 baseline 항목의 `path`와 겹치면 그 항목의 판정은 처음부터 흔들린다 — 클러스터에 넣기 전에
-고지하고, 처분은 6-a 4항이 정한다.
+대상이 여기 걸려 있으면 그 실행은 **아무 말도 하지 않은 것**이다.
 
 **다섯째 갈래는 그 JSON 밖에 있다 — 이 검사가 다루지 않는 규칙 id.** 지금 이 플러그인이 검사하는
 규칙은 `derived.context-isolation` 하나뿐이다(정본: `scripts/check_imports.py`의 `RULE_ID`).
@@ -156,20 +137,20 @@ baseline 항목의 `rule` 값이 그것이 아니면 **그 항목은 어떤 실�
 한 줄로 닫힌다 — 두 방향을 따로 계획하면 한쪽만 갚은 상태에서 "그 쌍은 끝났다"는 잘못된 판정이
 나온다.
 
-쌍은 위반 메시지가 그대로 말해 준다 — `컨텍스트 '<출발>'가 다른 컨텍스트 '<도착>'의 코드를 직접
-참조합니다`. `demoted[].message`에서 두 이름을 읽어 **정렬한 순서 없는 쌍**으로 만들고, 두 이름이
-1단계에서 읽은 선언 목록에 실재하는지 대조한다. **선언에 없는 이름이 나오면 비슷한 것에 끼워
-맞추지 않는다** — 그대로 고지하고 그 항목은 클러스터에 넣지 않는다.
+쌍은 `baseline.demoted[]`의 `from_context`·`to_context`가 준다(skill-protocol §6). 두 이름을
+**정렬한 순서 없는 쌍**으로 만들고, 두 이름이 1단계에서 읽은 선언 목록에 실재하는지 대조한다.
+메시지 문자열을 파싱하지 않는다. **선언에 없는 이름이 나오면 비슷한 것에 끼워 맞추지 않는다** —
+그대로 고지하고 그 항목은 클러스터에 넣지 않는다.
 
 지킬 규율:
 
 - **처방이 둘로 갈린다 — 그것을 먼저 판정한다.** 격리 위반은 코드가 경계를 무시한 것일 수도, 그
   결합이 실제로 필요한데 `### 관계` 표에 없는 것일 수도 있다. 후자라면 할 일은 **갚는 것이 아니라
-  여는 것**이고, 그 결정은 ADR이 필수이며(`skills/adr/SKILL.md` 3-b — 쌍이 열리면 그 두 컨텍스트
-  사이의 격리 검사가 영구히 꺼진다) 편집 자리는 adr 8단계가 짚는다. **이 스킬은 관계 표를 고치지
-  않는다**(불변 4) — 열기로 했으면 그 클러스터를 계획에서 빼고 무엇을 넘기는지 명시해 adr로
-  보낸다. 쌍이 열린 뒤 그 항목들이 `demoted[]`에서 사라지면 6단계 절차로 지우되, 8단계에는
-  **"관계를 열어 허용했다"**고 적는다(불변 2).
+  여는 것**이고, 그 결정은 ADR이 필수이며(쌍을 열면 격리 검사가 꺼진다 — skill-protocol §7) 편집
+  자리는 adr 8단계가 짚는다. **이 스킬은 관계 표를 고치지 않는다**(불변 4) — 열기로 했으면 그
+  클러스터를 계획에서 빼고 무엇을 넘기는지 명시해 adr로 보낸다. 쌍이 열린 뒤 그 항목들이
+  `demoted[]`에서 사라지면 6단계 절차로 지우되, 8단계에는 **"관계를 열어 허용했다"**고
+  적는다(불변 2).
 - **클러스터는 프로젝트를 넘지 않는다.** `check_imports.py`는 선언된 전 컨텍스트를 한 목록으로
   놓고 귀속시키므로(`_scopes`) **프로젝트가 서로 다른 두 컨텍스트의 쌍도 실제로 나온다.** 그런
   쌍이 나오면 한 클러스터로 묶지 않는다 — 빌드 명령과 소스 루트가 프로젝트마다 다르고, 5-c의
@@ -192,7 +173,7 @@ baseline 항목의 `rule` 값이 그것이 아니면 **그 항목은 어떤 실�
 두 축을 쓴다: **자주 만지는 곳 먼저**(이득이 크다), **참조가 적은 쌍부터**(안전하다).
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/collect_signals.py" docs/superdomain/DOMAIN.md --json
 ```
 
 - exit 0이면 `hotspots[]`(`path`·`commits`·`key` — 상위 20)와 `contexts[]`가 온도다. `key`는
@@ -247,9 +228,8 @@ grep -rln '<A의 패키지 접두>' "<프로젝트 경로>" --include='*.kt' --i
 
 - **두 번째 클러스터를 계획하지 않는다.** 남은 후보는 **목록까지**가 최대이고, 순서·방법·범위를
   적으면 그것이 빅뱅 계획이다.
-- **"알아서 진행해 주세요"는 속도의 요청이지 전 클러스터 위임이 아니다**(정본:
-  `skills/init/SKILL.md` 불변 1). 그 답을 받아도 클러스터 단위 승인은 그대로 받고, 대신 항목별
-  확인을 빠르게 돈다.
+- **"알아서 진행해 주세요"는 속도의 요청이지 전 클러스터 위임이 아니다**(skill-protocol §4). 그
+  답을 받아도 클러스터 단위 승인은 그대로 받고, 대신 항목별 확인을 빠르게 돈다.
 - **계획이 커지면 쪼갠다.** 신호 셋: 파일 20개를 넘는다, 컴파일이 중간에 한 번도 초록이 될 수 없다,
   한 문장 요약이 나오지 않는다.
 - 승인 없이는 **파일을 하나도 쓰지 않는다.**
@@ -304,7 +284,7 @@ cd "<프로젝트 경로>" && ./gradlew build -x test        # 또는 그 프로
 ### 6-a. 제거 전 — 부재 확인
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json
 ```
 
 넷을 본다. 하나라도 어긋나면 **항목을 지우지 않고 5단계로 돌아간다.**
@@ -336,30 +316,31 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md --json
 
 ### 6-b. 축소 — 전체 재작성 (append 아님)
 
-되돌릴 수단을 먼저 확보한다(`git status --short docs/domain/baseline.jsonl`로 커밋 여부를 확인하고,
+되돌릴 수단을 먼저 확보한다(`git status --short docs/superdomain/state/baseline.jsonl`로 커밋 여부를 확인하고,
 커밋 전이면 `mktemp`로 사본을 뜬다). 그다음 파일을 **통째로 다시 쓴다.**
 
-- 형식은 한 줄에 위반 하나, `{"rule": "<id>", "path": "<git 루트 상대>", "note": "<선택>"}`.
+- 형식은 한 줄에 위반 하나, `{"rule": "<id>", "path": "<프로젝트 루트 상대>", "note": "<선택>"}`.
   정렬은 **(rule, path)**.
 - **남길 줄은 원문 그대로 옮긴다** — `note`를 포함해 한 글자도 바꾸지 않는다.
 - **지우는 것은 6-a에서 부재를 확인한 항목뿐이다.** 매칭되지 않았다는 이유만으로 지우지 않는다
   (1단계의 두 번째 어긋남).
 - **항목을 새로 더하지 않는다.** 이번 작업이 만든 위반은 고칠 것이지 동결할 것이 아니다 — 동결은
   init의 권한이다.
-- **`path`는 git 루트 기준 상대경로이고 구분자는 `/`다.** 로더는 그 값을 위반의 표시 경로와 글자
-  그대로 대조하므로, 표기가 어긋난 줄은 아무것도 강등하지 못한 채 항목 수만 채운다.
+- **`path`는 프로젝트 루트(= git 루트, skill-protocol §1) 기준 상대경로이고 구분자는 `/`다.**
+  로더는 그 값을 위반의 표시 경로와 글자 그대로 대조하므로, 표기가 어긋난 줄은 아무것도 강등하지
+  못한 채 항목 수만 채운다.
 - **남길 줄이 하나도 없으면 빈 파일을 쓰지 않는다.** 그대로 7단계로 간다.
-- **건수를 인용한 파생물이 여기서 낡는다.** `docs/domain-summary.md`의 자유 서술이 동결 시점 건수를
+- **건수를 인용한 파생물이 여기서 낡는다.** `docs/superdomain/summary.md`의 자유 서술이 동결 시점 건수를
   문장에 박아 두었으면 축소한 지금 그 문장은 거짓이고, 이 파일은 SessionStart 훅이 통째로 주입하는
   유일한 산출물이라 낡은 숫자가 매 세션 사실로 읽힌다. 불변 4에 따라 이 스킬이 고치지 않는다 —
-  **`grep -n baseline docs/domain-summary.md`로 확인해 걸리면 새 건수와 함께 8단계 4항에 고지하고
+  **`grep -n baseline docs/superdomain/summary.md`로 확인해 걸리면 새 건수와 함께 8단계 4항에 고지하고
   `/superdomain:sync`를 권한다**(자유 서술이라 sync도 기계 대조는 하지 않고 사용자 확인으로
   넘긴다: sync 3-d).
 
 ### 6-c. 제거 후 — 보호가 걷힌 상태에서 다시 본다
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" DOMAIN.md
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md
 ```
 
 이제 그 항목들은 보호받지 않는다. **대상이 신규 위반으로 살아나면 6-a가 착시였다는 뜻이므로
@@ -386,7 +367,7 @@ baseline을 되돌리고 5단계로 간다.** exit 2가 나면 재작성이 파�
 ### 7-a. 파일을 지운다 — 빈 파일로 두지 않는다
 
 ```bash
-git rm docs/domain/baseline.jsonl     # 커밋 전이면 rm
+git rm docs/superdomain/state/baseline.jsonl     # 커밋 전이면 rm
 ```
 
 빈 baseline은 래칫이 있는 척하는 상태다. `check_imports.py`는 **파일 존재만으로** 강등 채널과
@@ -428,7 +409,7 @@ git rm docs/domain/baseline.jsonl     # 커밋 전이면 rm
 7. **커밋은 사용자가 한다.** 명령만 제안한다.
 
    ```bash
-   git add <고친 파일들>       # 6-b에서 축소만 했으면 docs/domain/baseline.jsonl도 함께
+   git add <고친 파일들>       # 6-b에서 축소만 했으면 docs/superdomain/state/baseline.jsonl도 함께
    git commit -m "refactor: <컨텍스트 A> ↔ <컨텍스트 B> 직접 참조 제거 — baseline N건 해소"
    ```
 

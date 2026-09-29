@@ -1,6 +1,6 @@
 """컨텍스트 격리 검사기 — DOMAIN.md가 선언한 도메인 경계의 유일한 코드 검증.
 
-**exit 계약: 0 = 위반 없음, 1 = 위반 발견, 2 = 해석 불가(검사를 세우지 못함) 또는 사용법 오류.**
+**exit 계약: 0 = 위반 없음, 1 = 위반 발견, 2 = 해석 불가(검사를 세우지 못함)·배치 오류·사용법 오류.**
 `parse_domain.py`와 의미가 다르다 — 저쪽의 1은 "해석 오류"다. 여기서 1은 정상 판정 결과이고,
 검사 자체가 성립하지 않은 경우만 2로 나간다. CI에서 두 코드를 같게 다루면 안 된다.
 
@@ -33,7 +33,7 @@ string 안의 `import`도 위반이 된다) — 시끄러운 실패이고, 사�
 같은 침묵을 만들므로, 대신 **선언을 세어 2건 이상이면 그 사실 자체를 고지한다**
 (`AmbiguousPackage`) — 조용한 오귀속을 시끄러운 고지로 바꾸는 값싼 수선이다.
 
-**브라운필드의 기존 부채는 별도 채널로 나간다.** `docs/domain/baseline.jsonl`이 있으면
+**브라운필드의 기존 부채는 별도 채널로 나간다.** `docs/superdomain/state/baseline.jsonl`이 있으면
 플래그 없이 읽어 매칭 위반을 `[기존 부채]`로 강등한다 — 리포트에는 남지만 exit 코드에는
 반영되지 않고 신규 위반만 1을 만든다. 매칭 키는 (규칙 id, 경로)뿐이고 그 대가는 푸터가 밝힌다.
 깨진 줄 하나면 어느 위반이 동결분인지 전체를 알 수 없으므로 **해석 불가(exit 2)로 다룬다** —
@@ -41,7 +41,7 @@ string 안의 `import`도 위반이 된다) — 시끄러운 실패이고, 사�
 
 같은 이유로 **아무것도 검사하지 않은 컨텍스트를 침묵으로 넘기지 않는다.** 이제 남은 코드 검증이
 이 하나뿐이라 "위반 0건"과 "검사할 소스가 0건"이 뭉뚱그려지면 플러그인이 통째로 조용해진다.
-두 층위로 나누어 전부 고지한다.
+네 층위로 나누어 전부 고지한다.
 
 | 층위 | 무엇이 없는가 | 출력 |
 |---|---|---|
@@ -64,6 +64,9 @@ from pathlib import Path
 # 다시 해석하지 않는다 — 해석이 두 곳에 있으면 두 결과가 갈라진다.
 from parse_domain import (LocatedError, context_packages, format_error, isolation_allowlist,
                           parse_domain)
+# 산출물 경로의 정본. baseline 경로를 여기서 다시 적지 않는다 — 동결하는 쪽(init)·줄이는 쪽
+# (migrate)·읽는 쪽(여기)이 같은 한 곳을 봐야 래칫이 성립한다.
+from layout import BASELINE_RELATIVE, DOMAIN_RELATIVE, LayoutError, from_domain_path
 
 SOURCE_SUFFIXES = (".kt", ".java")
 
@@ -84,9 +87,6 @@ LIMITATION_NOTE = (
 )
 ZERO_MATCH_REASON = "귀속된 소스 0건 — 컨텍스트 패키지와 실제 패키지의 불일치 가능성"
 
-# 동결된 기존 부채. 경로는 DOMAIN.md가 있는 디렉터리(= git 루트) 기준이라 위반의 표시 경로와
-# 같은 기준이고, 그래서 (규칙 id, 경로)로 바로 맞춰 볼 수 있다.
-BASELINE_RELATIVE = "docs/domain/baseline.jsonl"
 BASELINE_MATCH_NOTE = (
     "한계: 부채 매칭 키는 (규칙 id, 경로)뿐입니다 — 줄 번호를 키에 넣지 않아 리팩터링에는 견디는 "
     "대신, 같은 파일에서 같은 규칙을 어긴 추가 위반도 기존 부채로 함께 흡수됩니다. 그 파일의 "
@@ -109,7 +109,7 @@ class Import:
 @dataclass(frozen=True)
 class SourceFile:
     path: Path
-    display: str     # 리포트에 쓰는 경로 — DOMAIN.md의 디렉터리 기준 상대경로
+    display: str     # 리포트에 쓰는 경로 — 프로젝트 루트 기준 상대경로
     package: str     # 첫 `package` 선언 — 귀속에 실제로 쓴 값
     package_lines: tuple  # 모든 `package` 매칭의 줄 번호(2건 이상이면 귀속을 믿을 수 없다)
     imports: tuple
@@ -121,6 +121,10 @@ class Violation:
     line: int
     rule_id: str
     message: str
+    # 참조하는 쪽(소스의 소유 컨텍스트)과 참조되는 쪽(import 대상의 소유 컨텍스트). 소비자가
+    # 컨텍스트 쌍을 메시지 문자열에서 파싱하지 않도록 필드로 준다.
+    from_context: str = ""
+    to_context: str = ""
 
 
 @dataclass(frozen=True)
@@ -159,7 +163,7 @@ class AmbiguousPackage:
 class Baseline:
     """동결된 기존 부채 목록. 매칭 키는 (규칙 id, 경로)뿐이다 — 줄 번호는 리팩터링에 취약하다."""
 
-    display: str     # 리포트·오류에 쓰는 경로(DOMAIN.md 기준 상대)
+    display: str     # 리포트·오류에 쓰는 경로(프로젝트 루트 기준 상대)
     keys: frozenset  # {(rule_id, path)}
 
 
@@ -236,8 +240,9 @@ def _line_of(text, position) -> int:
 
 
 def _read_source(path, display):
+    # utf-8-sig: 선두 BOM이 남으면 첫 줄의 `package`가 `^\s*`에 걸리지 않아 파일이 통째로 귀속을 잃는다.
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError):
         return None
 
@@ -276,7 +281,7 @@ def _load_sources(root, base) -> tuple:
 # ---------------------------------------------------------------------------
 
 def _load_baseline(base) -> tuple:
-    """`docs/domain/baseline.jsonl`을 자동 감지한다 — (Baseline|None, [LocatedError]).
+    """`docs/superdomain/state/baseline.jsonl`을 자동 감지한다 — (Baseline|None, [LocatedError]).
 
     **플래그를 두지 않는다.** 파일이 있다는 것은 그 프로젝트가 상환 중이라는 선언이고, 그때
     부채와 신규를 가르지 않은 판정은 언제나 틀린 판정이다 — 켜고 끌 대상이 아니다.
@@ -285,7 +290,7 @@ def _load_baseline(base) -> tuple:
     if not path.is_file():
         return None, []
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except (OSError, UnicodeDecodeError):
         return None, [LocatedError(
             0, "baseline 파일을 읽지 못했습니다 — 인코딩(UTF-8)과 권한을 확인하세요",
@@ -410,7 +415,8 @@ def _judge(report, sources, scopes, allowlist) -> dict:
             report.violations.append(Violation(
                 source.display, imported.line, RULE_ID,
                 f"컨텍스트 '{owner}'가 다른 컨텍스트 '{target}'의 코드를 직접 참조합니다 — "
-                f"{imported.text} ('### 관계' 표에 이 쌍이 없습니다)"))
+                f"{imported.text} ('### 관계' 표에 이 쌍이 없습니다)",
+                owner, target))
     return members
 
 
@@ -441,15 +447,17 @@ def check(domain_path) -> Report:
     """DOMAIN.md 한 건을 해석하고 그 프로젝트들의 소스에서 컨텍스트 격리를 검사한다.
 
     **호출자는 report.errors가 비었는지 먼저 확인해야 한다.** 해석이 실패하면 검사가 서지
-    않으므로 위반 목록은 비어 있고, 그것은 '클린'과 다른 상태다.
+    않으므로 위반 목록은 비어 있고, 그것은 '클린'과 다른 상태다. 배치가 틀리면(옛 배치 포함)
+    `LayoutError`를 던진다 — 어디를 검사할지조차 정할 수 없는 상태라 리포트로 담지 않는다.
     """
+    layout = from_domain_path(domain_path)
     report = Report()
     domain = parse_domain(domain_path)
     if domain.errors:
         report.errors = list(domain.errors)
         return report
 
-    base = Path(domain_path).resolve().parent
+    base = layout.root
     report.baseline, baseline_errors = _load_baseline(base)
     if baseline_errors:
         report.errors = baseline_errors
@@ -485,7 +493,7 @@ def render(report) -> list:
     lines += [f"{v.path}:{v.line}: [{v.rule_id}] {v.message}" for v in report.violations]
     lines += [f"[기존 부채] {v.path}:{v.line}: [{v.rule_id}] {v.message}" for v in report.debt]
     lines += [warning.message for warning in report.zero_match]
-    lines.append(f"검사한 규칙 {report.checked}건 / 생략한 규칙 {len(report.skipped)}건")
+    lines.append(f"검사한 컨텍스트 {report.checked}개 / 생략 {len(report.skipped)}개")
     if report.baseline is not None:
         matched = len({(v.rule_id, v.path) for v in report.debt})
         lines.append(
@@ -534,11 +542,16 @@ def main(argv) -> int:
     as_json = "--json" in argv
     args = [arg for arg in argv if arg != "--json"]
     if len(args) != 1 or any(arg.startswith("--") for arg in args):
-        print("사용법: python3 check_imports.py <DOMAIN.md 경로> [--json]", file=sys.stderr)
+        print(f"사용법: python3 check_imports.py <프로젝트 루트>/{DOMAIN_RELATIVE} [--json]",
+              file=sys.stderr)
         return 2
 
     path = args[0]
-    report = check(path)
+    try:
+        report = check(path)
+    except LayoutError as error:
+        print(error, file=sys.stderr)
+        return 2
     if report.errors:
         for error in sorted(report.errors,
                             key=lambda e: (getattr(e, "path", "") or path, e.line)):

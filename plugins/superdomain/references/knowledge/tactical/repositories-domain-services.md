@@ -80,7 +80,8 @@ read_when: [model, apply, review, migrate]
 - 인터페이스 이름은 **의도**를 담는다. `SaveClaimRepository`·`SaveClaimPort`는 좋고
   `ClaimJpaGateway`는 구현이 이름으로 새어 나온 것이다.
 - **`generic`으로 분류한 컨텍스트는 이 분리를 하지 않아도 된다** — 스프링 데이터 인터페이스가
-  곧 리포지터리인 것이 그 분류의 기본값이다([[domain-classification]] R1).
+  곧 리포지터리인 것이 그 분류의 기본값이다
+  ([[domain-classification]]의 "분류가 정하는 것의 기본값" 절).
 - **이 규칙은 기계가 보지 않는다.** 컨텍스트 안의 방향을 검사하는 규칙은 없으므로 R7이 유일한
   방어선이다.
 
@@ -129,7 +130,7 @@ read_when: [model, apply, review, migrate]
 - 같은 업무 규칙이 두 서비스에 복제되어 있다.
 
 **이 플러그인에는 그런 규칙을 선언할 자리가 없다.** 기계 강제 규칙은 관계 표에서 파생되는
-`derived.context-isolation` 하나뿐이므로, 채택한다면 `docs/conventions/<key>.md`의 리뷰
+`derived.context-isolation` 하나뿐이므로, 채택한다면 `docs/superdomain/conventions/<key>.md`의 리뷰
 체크리스트로 적고 근거를 ADR에 남긴다.
 
 **켜기 전에 대안 배치를 먼저 정한다.** 금지를 세우면 서비스 간 공통 로직이 갈 곳이 필요해진다 —

@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from check_imports import (BASELINE_MATCH_NOTE, BASELINE_RELATIVE, LIMITATION_NOTE, RULE_ID,
                            SKIP_DIRS, SOURCE_SUFFIXES, SRC_DIR, ZERO_MATCH_REASON,
                            _owning_context, check, render)
+from layout import LayoutError
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -76,13 +77,14 @@ LEAKY = "app/src/main/kotlin/com/acme/claim/Leaky.kt"
 
 class CheckTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
-        self.domain_path = self.tmpdir / "DOMAIN.md"
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        # 시스템 temp에 만들고 삭제는 addCleanup에 건다 — setUp이 중간에 실패해도 정리된다.
+        # 저장소 안(tests/)에 두면 정리에 실패한 디렉터리가 작업 트리에 쌓인다.
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
+        self.domain_path = self.tmpdir / "docs/superdomain/DOMAIN.md"
 
     def domain(self, text):
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
         self.domain_path.write_text(text, encoding="utf-8")
         return self.domain_path
 
@@ -106,7 +108,7 @@ class CheckTestCase(unittest.TestCase):
         return self.src(relpath, "\n".join(lines) + "\n")
 
     def baseline(self, *lines):
-        """`docs/domain/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리."""
+        """`docs/superdomain/state/baseline.jsonl`을 쓴다 — 플래그 없이 자동 감지되는 자리."""
         path = self.tmpdir / BASELINE_RELATIVE
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
@@ -348,6 +350,12 @@ class TestContextIsolation(CheckTestCase):
         self.assertEqual(report.zero_match, [])
         self.assertEqual(report.skipped, [])
 
+    def test_violation_carries_both_contexts(self):
+        # evolve·migrate가 컨텍스트 쌍을 메시지 문자열에서 파싱하지 않아도 되게 한다.
+        self.leaky_tree()
+        violation = self.assert_violation(self.check(), count=1)
+        self.assertEqual((violation.from_context, violation.to_context), ("claim", "admin"))
+
 
 class TestSourceParsing(CheckTestCase):
     def test_kotlin_import_alias(self):
@@ -377,6 +385,36 @@ class TestSourceParsing(CheckTestCase):
         self.two_contexts()
         self.src("app/src/main/kotlin/Loose.kt", "import com.acme.admin.AdminUser\n\nclass Loose\n")
         self.assert_no_violation(self.check())
+
+
+class TestEncoding(CheckTestCase):
+    """저장 인코딩의 변형(BOM·CRLF)이 귀속과 줄 번호를 바꾸지 않는다."""
+
+    def test_bom_source_is_attributed_and_judged(self):
+        # 첫 줄에 BOM이 붙으면 `^\s*package`가 매칭되지 않아 파일이 어느 컨텍스트에도 귀속되지
+        # 않았다 — 위반이 어느 채널에도 나타나지 않는 침묵이다(2026-09-26 재현).
+        self.two_contexts()
+        self.src(LEAKY, "﻿package com.acme.claim\n\nimport com.acme.admin.AdminUser\n\n"
+                        "class Leaky\n")
+        violation = self.assert_violation(self.check(), needle="AdminUser", count=1)
+        self.assertEqual((violation.path, violation.line), (LEAKY, 3))
+
+    def test_crlf_source_keeps_line_numbers(self):
+        # 회귀 방지 — 수정 전에도 통과한다(캡처 그룹이 `\r`을 담지 않는다).
+        self.two_contexts()
+        self.src(LEAKY, "package com.acme.claim\r\n\r\nimport com.acme.admin.AdminUser\r\n\r\n"
+                        "class Leaky\r\n")
+        violation = self.assert_violation(self.check(), needle="AdminUser", count=1)
+        self.assertEqual(violation.line, 3)
+        self.assertNotIn("\r", violation.message)
+
+    def test_bom_baseline_is_read(self):
+        self.leaky_tree()
+        path = self.baseline(self.entry(RULE_ID, LEAKY))
+        path.write_text("﻿" + path.read_text(encoding="utf-8"), encoding="utf-8")
+        report = self.check()
+        self.assertEqual(report.errors, [])
+        self.assertEqual([(v.rule_id, v.path) for v in report.debt], [(RULE_ID, LEAKY)])
 
 
 class TestRawTextScanning(CheckTestCase):
@@ -611,7 +649,7 @@ class TestSilenceGuards(CheckTestCase):
         self.kt("com.acme.claim", "Claim", module="backend")
         report = self.check()
         lines = render(report)
-        self.assertIn("검사한 규칙 1건 / 생략한 규칙 1건", lines)
+        self.assertIn("검사한 컨텍스트 1개 / 생략 1개", lines)
         self.assertTrue(any(line.startswith("생략:") and "billing" in line for line in lines))
 
     def test_footer_states_the_limitation(self):
@@ -706,6 +744,12 @@ class TestBaseline(CheckTestCase):
         self.assertEqual(len(report.errors), 1, report.errors)
         self.assertEqual(report.errors[0].line, 1)
 
+    def test_demoted_debt_carries_both_contexts(self):
+        self.leaky_tree()
+        self.baseline(self.entry(RULE_ID, LEAKY))
+        debt = self.check().debt
+        self.assertEqual([(v.from_context, v.to_context) for v in debt], [("claim", "admin")])
+
 
 class TestCli(CheckTestCase):
     def run_cli(self, *args):
@@ -735,9 +779,22 @@ class TestCli(CheckTestCase):
         self.assertIn("분류 값 'bogus'", result.stderr)
 
     def test_exit_two_when_file_missing(self):
-        result = self.run_cli(str(self.tmpdir / "없는파일.md"))
+        # 배치는 맞지만(docs/superdomain/DOMAIN.md) 파일 자체를 쓰지 않는다 — LayoutError가
+        # 아니라 parse_domain의 "읽을 수 없습니다" 채널을 그대로 겨냥한다.
+        result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 2)
         self.assertIn("읽을 수 없습니다", result.stderr)
+
+    def test_exit_two_when_declaration_is_not_utf8(self):
+        # 해석 불가는 --json이어도 stdout을 비우고 stderr로만 말한다(test_exit_two_when_unresolvable).
+        # 트레이스백의 exit 1은 '위반'으로 읽히므로 CI가 원인을 잘못 짚는다.
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
+        self.domain_path.write_bytes(b"# \xc7\xd1\n")
+        result = self.run_cli(str(self.domain_path), "--json")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(result.stderr.startswith(f"{self.domain_path}:"), result.stderr)
+        self.assertIn("UTF-8로 읽을 수 없습니다", result.stderr)
 
     def test_usage_error(self):
         result = self.run_cli()
@@ -754,7 +811,7 @@ class TestCli(CheckTestCase):
                          ["ambiguous_package", "baseline", "checked", "inherited", "skipped",
                           "unreadable", "violations", "zero_match"])
         self.assertEqual(sorted(payload["violations"][0]),
-                         ["line", "message", "path", "rule_id"])
+                         ["from_context", "line", "message", "path", "rule_id", "to_context"])
         self.assertEqual(payload["violations"][0]["rule_id"], RULE_ID)
         self.assertEqual(payload["checked"], 2)
 
@@ -821,6 +878,31 @@ class TestCli(CheckTestCase):
         self.assertEqual(len(lines), 2, lines)
         self.assertIn("AAA.kt", lines[0])
         self.assertIn("BBB.kt", lines[1])
+
+
+class TestLayout(CheckTestCase):
+    """옛 배치는 읽지 않고 멈춘다 — 옛 자리의 baseline을 조용히 무시하면 동결분이 신규로 올라온다."""
+
+    def test_legacy_root_declaration_exits_two_with_commands(self):
+        legacy = self.tmpdir / "DOMAIN.md"
+        legacy.write_text(HEAD + CLAIM, encoding="utf-8")
+        result = subprocess.run([sys.executable, str(SCRIPT), str(legacy)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("git mv DOMAIN.md docs/superdomain/DOMAIN.md", result.stderr)
+
+    def test_baseline_left_at_the_old_place_is_refused(self):
+        self.leaky_tree()
+        legacy = self.tmpdir / "docs/domain/baseline.jsonl"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(self.entry(RULE_ID, LEAKY) + "\n", encoding="utf-8")
+        with self.assertRaises(LayoutError) as caught:
+            self.check()
+        self.assertIn("docs/domain/baseline.jsonl", str(caught.exception))
+
+    def test_baseline_constant_points_at_the_state_directory(self):
+        self.assertEqual(BASELINE_RELATIVE, "docs/superdomain/state/baseline.jsonl")
 
 
 if __name__ == "__main__":

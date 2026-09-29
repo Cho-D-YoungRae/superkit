@@ -1,6 +1,6 @@
 {
   "name": "superdomain",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "문서 기반 도메인 거버넌스(DDD) — 질문으로 도메인을 구체화하고, 사람과 Claude가 함께 읽는 문서로 고정하고, 컨텍스트 간 의존을 결정적으로 강제한다",
   "author": {
     "name": "Cho-D-YoungRae",
@@ -9,6 +9,7 @@
   },
   "homepage": "https://github.com/Cho-D-YoungRae/superdomain",
   "repository": "https://github.com/Cho-D-YoungRae/superdomain",
+  "license": "MIT",
   "keywords": [
     "ddd",
     "domain-driven-design",

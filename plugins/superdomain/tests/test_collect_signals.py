@@ -4,7 +4,9 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from collect_signals import (HOTSPOT_TOP, INTERPRETATION_NOTE, LIMITATION_NOTE, PATH_SAMPLES,
-                             CollectError, collect, payload, render)
+                             CollectError, _git, collect, payload, render)
+from layout import (BASELINE_RELATIVE, DOMAIN_RELATIVE, LEGACY_BASELINE, REVIEW_LOG_RELATIVE,
+                    LayoutError)
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -80,18 +82,16 @@ MULTI_DOMAIN = ("""# 모노레포 — Domain
 
 class SignalsTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.repo = self.tmpdir / "repo"
         self.repo.mkdir()
-        self.domain_path = self.repo / "DOMAIN.md"
+        self.domain_path = self.repo / DOMAIN_RELATIVE
         subprocess.run(["git", "-c", "init.defaultBranch=main", "init", "-q", str(self.repo)],
                        check=True, capture_output=True)
         for key, value in (("user.email", "t@example.com"), ("user.name", "T"),
                            ("commit.gpgsign", "false")):
             self.git("config", key, value)
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     # ---- 저장소 도우미 ----------------------------------------------------
 
@@ -106,7 +106,7 @@ class SignalsTestCase(unittest.TestCase):
         return path
 
     def domain(self, text=DOMAIN):
-        self.write("DOMAIN.md", text)
+        self.write(DOMAIN_RELATIVE, text)
 
     def kt(self, module, package, name, marker="1"):
         relpath = f"{module}/src/main/kotlin/{package.replace('.', '/')}/{name}.kt"
@@ -262,7 +262,7 @@ class UnattributedTest(SignalsTestCase):
 
     def test_project_outside_the_repository_is_announced(self):
         """저장소 밖 프로젝트는 영구 0건이다 — 사유 없이 조용히 빼면 '변경 없음'과 구분되지 않는다."""
-        self.write("DOMAIN.md", DOMAIN.replace("- 경로: .", "- 경로: ../바깥"))
+        self.write(DOMAIN_RELATIVE, DOMAIN.replace("- 경로: .", "- 경로: ../바깥"))
         self.commit("init")
 
         signals = self.collect()
@@ -289,7 +289,7 @@ class UnattributedTest(SignalsTestCase):
         self.assertEqual(len(orphan.samples), PATH_SAMPLES)
         self.assertEqual(orphan.files, 13)
         self.assertEqual(orphan.samples, sorted(orphan.samples))
-        self.assertEqual(orphan.samples[0], "DOMAIN.md")
+        self.assertEqual(orphan.samples[0], "docs/notes/n00.md")   # 'notes' < 'superdomain'
 
 
 # ---------------------------------------------------------------------------
@@ -374,7 +374,7 @@ CLAIM_KT = "claim/domain/src/main/kotlin/com/acme/claim/domain/Claim.kt"
 
 class ReviewLogTest(SignalsTestCase):
     def log(self, *lines):
-        self.write("docs/domain/review-log.jsonl", "".join(f"{line}\n" for line in lines))
+        self.write(REVIEW_LOG_RELATIVE, "".join(f"{line}\n" for line in lines))
 
     def test_counts_per_rule_with_file_and_review_spread(self):
         self.base()
@@ -412,8 +412,7 @@ class ReviewLogTest(SignalsTestCase):
 
         signals = self.collect()
         self.assertEqual(len(signals.review_log.broken), 1)
-        self.assertTrue(signals.review_log.broken[0].startswith(
-            "docs/domain/review-log.jsonl:2:"))
+        self.assertTrue(signals.review_log.broken[0].startswith(f"{REVIEW_LOG_RELATIVE}:2:"))
         self.assertEqual(signals.review_log.rules[0].count, 2)
         self.assertIn(signals.review_log.broken[0], signals.notices)
 
@@ -486,7 +485,7 @@ class ReviewLogTest(SignalsTestCase):
     def test_unreadable_file_is_announced_not_raised(self):
         """읽지 못한 입력은 예외로 터지지 않고 고지로 남는다 — 침묵도 중단도 아니다."""
         self.base()
-        path = self.write("docs/domain/review-log.jsonl",
+        path = self.write(REVIEW_LOG_RELATIVE,
                           review_line("a.one", "x.kt") + "\n")
         self.commit("log")
         path.chmod(0o000)
@@ -505,6 +504,14 @@ class ReviewLogTest(SignalsTestCase):
         self.assertFalse(signals.review_log.present)
         self.assertTrue(any("review-log.jsonl이 없습니다" in note for note in signals.notices))
 
+    def test_bom_on_first_line_is_not_a_broken_line(self):
+        self.base()
+        self.log("﻿" + review_line("a.one", CLAIM_KT))
+        self.commit("log")
+        log = self.collect().review_log
+        self.assertEqual(log.broken, [])
+        self.assertEqual([(entry.rule, entry.count) for entry in log.rules], [("a.one", 1)])
+
 
 # ---------------------------------------------------------------------------
 # 신호 ⑤ baseline 추이
@@ -519,7 +526,7 @@ def baseline_line(rule, path, note=None):
 
 class BaselineTest(SignalsTestCase):
     def baseline(self, *lines):
-        self.write("docs/domain/baseline.jsonl", "".join(f"{line}\n" for line in lines))
+        self.write(BASELINE_RELATIVE, "".join(f"{line}\n" for line in lines))
 
     def test_line_count_trend_over_commits(self):
         self.base()
@@ -561,7 +568,23 @@ class BaselineTest(SignalsTestCase):
 
         broken = self.collect().baseline.broken
         self.assertEqual(len(broken), 1)
-        self.assertTrue(broken[0].startswith("docs/domain/baseline.jsonl:2:"))
+        self.assertTrue(broken[0].startswith(f"{BASELINE_RELATIVE}:2:"))
+
+    def test_history_continues_across_the_layout_move(self):
+        # 0.2.x 자리에서 동결하고 0.3.0 자리로 옮긴 이력. --no-renames라 이동 커밋은
+        # 옛 경로 −N, 새 경로 +N으로 보이고, 둘을 함께 세면 누적이 끊기지 않는다.
+        self.base()
+        self.write(LEGACY_BASELINE, baseline_line("r", "a.kt") + "\n"
+                                    + baseline_line("r", "b.kt") + "\n")
+        self.commit("freeze at the old place")
+        (self.repo / BASELINE_RELATIVE).parent.mkdir(parents=True, exist_ok=True)
+        self.git("mv", LEGACY_BASELINE, BASELINE_RELATIVE)
+        self.commit("move to docs/superdomain")
+
+        baseline = self.collect().baseline
+        self.assertEqual([point.lines for point in baseline.history], [2, 2])
+        self.assertEqual([point.delta for point in baseline.history], [2, 0])
+        self.assertEqual(baseline.lines, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -596,7 +619,7 @@ class SinceTest(SignalsTestCase):
     def test_review_log_window_follows_since_date(self):
         self.base()
         claim = "claim/domain/src/main/kotlin/com/acme/claim/domain/Claim.kt"
-        self.write("docs/domain/review-log.jsonl",
+        self.write(REVIEW_LOG_RELATIVE,
                    review_line("old.rule", claim, date="2026-01-05") + "\n"
                    + review_line("new.rule", claim, date="2026-06-05") + "\n")
         self.commit("log", date="2026-06-01T00:00:00+00:00")
@@ -634,11 +657,13 @@ class SinceTest(SignalsTestCase):
 class NotCollectableTest(SignalsTestCase):
     def test_outside_git_repository(self):
         """저장소 밖이어야 하므로 tests/ 아래(플러그인 저장소 안)를 쓸 수 없다."""
-        outside = Path(tempfile.mkdtemp())
+        outside = Path(tempfile.mkdtemp()).resolve()
         try:
-            (outside / "DOMAIN.md").write_text(DOMAIN, encoding="utf-8")
+            declaration = outside / DOMAIN_RELATIVE
+            declaration.parent.mkdir(parents=True)
+            declaration.write_text(DOMAIN, encoding="utf-8")
             with self.assertRaises(CollectError) as caught:
-                collect(outside / "DOMAIN.md")
+                collect(declaration)
             self.assertIn("git", str(caught.exception))
         finally:
             shutil.rmtree(outside, ignore_errors=True)
@@ -661,10 +686,16 @@ class NotCollectableTest(SignalsTestCase):
         self.assertIn("git", str(caught.exception))
 
     def test_unresolvable_domain_document(self):
-        self.write("DOMAIN.md", BROKEN_DOMAIN)
+        self.write(DOMAIN_RELATIVE, BROKEN_DOMAIN)
         self.commit("broken")
         with self.assertRaises(CollectError):
             self.collect()
+
+    def test_legacy_layout_is_refused(self):
+        self.write("DOMAIN.md", DOMAIN)
+        self.commit("legacy")
+        with self.assertRaises(LayoutError):
+            collect(self.repo / "DOMAIN.md")
 
 
 class CliTest(SignalsTestCase):
@@ -675,34 +706,42 @@ class CliTest(SignalsTestCase):
 
     def test_usage_error_on_unknown_flag(self):
         self.base()
-        code, _, err = self.run_cli("DOMAIN.md", "--nope")
+        code, _, err = self.run_cli(DOMAIN_RELATIVE, "--nope")
         self.assertEqual(code, 2)
         self.assertIn("사용법", err)
 
     def test_usage_error_when_since_has_no_value(self):
         self.base()
-        code, _, err = self.run_cli("DOMAIN.md", "--since")
+        code, _, err = self.run_cli(DOMAIN_RELATIVE, "--since")
         self.assertEqual(code, 2)
         self.assertIn("사용법", err)
+
+    def test_exit_two_on_legacy_layout(self):
+        self.write("DOMAIN.md", DOMAIN)
+        self.commit("legacy")
+        code, out, err = self.run_cli("DOMAIN.md")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertIn("git mv DOMAIN.md docs/superdomain/DOMAIN.md", err)
 
     def test_exit_zero_on_collection(self):
         self.base()
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.commit("claim")
-        code, out, _ = self.run_cli("DOMAIN.md")
+        code, out, _ = self.run_cli(DOMAIN_RELATIVE)
         self.assertEqual(code, 0)
         self.assertIn("backend:claim", out)
 
     def test_exit_one_when_not_collectable(self):
         self.domain()
-        code, _, err = self.run_cli("DOMAIN.md")
+        code, _, err = self.run_cli(DOMAIN_RELATIVE)
         self.assertEqual(code, 1)
         self.assertRegex(err, r"DOMAIN\.md:\d+: ")
 
     def test_resolve_error_is_reported_with_path_and_line(self):
-        self.write("DOMAIN.md", BROKEN_DOMAIN)
+        self.write(DOMAIN_RELATIVE, BROKEN_DOMAIN)
         self.commit("broken")
-        code, _, err = self.run_cli("DOMAIN.md")
+        code, _, err = self.run_cli(DOMAIN_RELATIVE)
         self.assertEqual(code, 1)
         self.assertRegex(err, r"DOMAIN\.md:\d+: ")
 
@@ -710,7 +749,7 @@ class CliTest(SignalsTestCase):
         self.base()
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.commit("claim")
-        code, out, _ = self.run_cli("DOMAIN.md", "--json")
+        code, out, _ = self.run_cli(DOMAIN_RELATIVE, "--json")
         self.assertEqual(code, 0)
         data = json.loads(out)
         self.assertEqual(sorted(data), sorted([
@@ -734,7 +773,7 @@ class CliTest(SignalsTestCase):
         """`cochanges`·`baseline`은 위 케이스의 트리에서 비어 있어 항목 모양이 고정되지 않는다 —
         둘 다 채워진 트리에서 따로 못박는다. 주 소비자(evolve)가 키로 읽기 때문이다."""
         self.base()
-        self.write("docs/domain/baseline.jsonl",
+        self.write(BASELINE_RELATIVE,
                    json.dumps({"rule": "af.no-framework", "path": CLAIM_KT}) + "\n")
         self.kt("claim/domain", "com.acme.claim.domain", "Claim")
         self.kt("billing/domain", "com.acme.billing.domain", "Invoice")
@@ -759,7 +798,7 @@ class CliTest(SignalsTestCase):
 
     def test_json_review_rule_shape(self):
         self.base()
-        self.write("docs/domain/review-log.jsonl", review_line("a.one", CLAIM_KT) + "\n")
+        self.write(REVIEW_LOG_RELATIVE, review_line("a.one", CLAIM_KT) + "\n")
         self.commit("log")
         rule = payload(self.collect())["review_log"]["rules"][0]
         self.assertEqual(sorted(rule), sorted(
@@ -773,6 +812,17 @@ class CliTest(SignalsTestCase):
         for marker in ("수집 ①", "수집 ②", "수집 ③", "수집 ④", "수집 ⑤"):
             self.assertIn(marker, text)
         self.assertIn("evolution-signals.md", text)
+
+
+class GitInvocationTest(unittest.TestCase):
+    def test_git_output_is_decoded_as_utf8_regardless_of_locale(self):
+        # text=True만 주면 로케일 인코딩(예: Windows cp949)으로 디코딩해 한글 경로에서
+        # UnicodeDecodeError 트레이스백이 난다 — 산출 불가 계약(exit 1 + 사유 줄)이 깨진다.
+        with mock.patch("collect_signals.subprocess.run") as run:
+            run.return_value = subprocess.CompletedProcess([], 0, "", "")
+            _git(".", "status")
+        kwargs = run.call_args.kwargs
+        self.assertEqual((kwargs.get("encoding"), kwargs.get("errors")), ("utf-8", "replace"))
 
 
 if __name__ == "__main__":

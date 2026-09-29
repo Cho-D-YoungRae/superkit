@@ -1,5 +1,7 @@
 # superdomain 도메인 집중 재편 Implementation Plan
 
+> **보관 문서.** 현행 정본은 `references/governance/`와 최신 스펙(`2026-09-28-superdomain-layout-and-fixes-design.md`)이다. 이 문서의 경로·절차·지시를 실행하지 않는다 — 체크박스가 비어 있어도 완료된 작업이다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** superarchitect에서 아키텍처(스타일·레이어·모듈 구성)를 전부 들어내고 도메인(DDD·컨텍스트 경계·컨텍스트 간 의존)에 집중하는 superdomain으로 재편한다.

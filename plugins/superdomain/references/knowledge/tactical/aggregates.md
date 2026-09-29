@@ -102,7 +102,7 @@ read_when: [model, apply, review]
 - [ ] 상태를 바꾸는 public setter가 있는가? setter는 불변식을 우회하는 가장 흔한 경로다.
 - [ ] `proposed` 상태의 불변식을 이미 구현했는가? 확정 전에는 구현하지 않는다.
 
-`scripts/check_invariants.py`가 이 체크리스트를 두 지점에서 거든다 — `docs/domain/<컨텍스트>.md`의
+`scripts/check_invariants.py`가 이 체크리스트를 두 지점에서 거든다 — `docs/superdomain/contexts/<컨텍스트>.md`의
 `INV-<CONTEXT>-NNN`과 테스트의 `@Tag("INV-...")`를 대조해 **confirmed인데 태그가 없으면 위반**,
 **`proposed`인데 태그가 있으면 경고**(넷째 항목)를 낸다. 문서에 그 항목을 채우는 것은
 `/superdomain:model`이고 구현·태깅은 `/superdomain:apply`다.
@@ -124,7 +124,8 @@ read_when: [model, apply, review]
 - [ ] 애그리거트 타입에 영속·직렬화 애너테이션이 붙어 있는가?
 - [ ] 애그리거트 타입이 프레임워크 타입을 필드나 시그니처에 노출하는가?
 - [ ] 영속 엔티티를 도메인 엔티티로 그대로 쓰고 싶은가? → 예외를 만들기 전에 그 컨텍스트의
-      분류가 맞는지 먼저 본다([[domain-classification]] R2, [[persistence]]).
+      분류가 맞는지 먼저 본다([[domain-classification]]의 "기본값이 순수 도메인 모델인 근거" 절,
+      [[persistence]]).
 
 ## 사례
 

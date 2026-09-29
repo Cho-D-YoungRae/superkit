@@ -3,6 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from check_invariants import BLOCKED_HEAD, LIMITATION_NOTE, check, render
+from layout import LayoutError
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
@@ -78,15 +79,16 @@ def skeleton():
 
 class InvariantTestCase(unittest.TestCase):
     def setUp(self):
-        self.tmpdir = Path(tempfile.mkdtemp(dir=TESTS_DIR, prefix="tmp"))
-        self.domain_path = self.tmpdir / "DOMAIN.md"
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        # 시스템 temp에 만들고 삭제는 addCleanup에 건다 — setUp이 중간에 실패해도 정리된다.
+        # 저장소 안(tests/)에 두면 정리에 실패한 디렉터리가 작업 트리에 쌓인다.
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="superdomain-")).resolve()
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
+        self.domain_path = self.tmpdir / "docs/superdomain/DOMAIN.md"
 
     # ---- 트리 구성 -------------------------------------------------------
 
     def domain(self, text=MONO_DOMAIN):
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
         self.domain_path.write_text(text, encoding="utf-8")
         return self.domain_path
 
@@ -97,10 +99,7 @@ class InvariantTestCase(unittest.TestCase):
         return path
 
     def doc(self, name, body):
-        return self.src(f"docs/domain/{name}.md", body)
-
-    def consolidated(self, body):
-        return self.src("docs/domain.md", body)
+        return self.src(f"docs/superdomain/contexts/{name}.md", body)
 
     def tagged(self, *ids, relpath="src/test/kotlin/com/acme/ClaimTest.kt",
               form='@Tag("{id}")'):
@@ -250,7 +249,7 @@ class TestTableContract(InvariantTestCase):
 
     def test_undecodable_document_is_error_not_silence(self):
         """읽지 못한 문서를 '불변식 0건'으로 넘기면 그 컨텍스트가 검사에서 통째로 사라진다."""
-        path = self.tmpdir / "docs/domain/claim.md"
+        path = self.tmpdir / "docs/superdomain/contexts/claim.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"# claim \xff\xfe Domain\n")
         report = self.check()
@@ -403,32 +402,33 @@ class TestStatus(InvariantTestCase):
 # ---------------------------------------------------------------------------
 
 class TestPlacement(InvariantTestCase):
-    def test_consolidated_domain_md_is_read_for_single_context(self):
-        self.domain()
-        self.empty_tests()
-        self.consolidated(domain_doc(row("INV-CLAIM-001", "proposed")))
-        report = self.check()
-        self.assertEqual(self.messages(report), [])
-        self.assertEqual([i.id for i in report.invariants], ["INV-CLAIM-001"])
-        self.assertTrue(report.invariants[0].path.endswith("docs/domain.md"),
-                        report.invariants[0].path)
-
-    def test_same_context_in_both_places_is_error(self):
+    def test_single_context_lives_in_contexts_too(self):
+        # 0.3.0부터 단일 컨텍스트 특례(docs/domain.md)는 없다 — 컨텍스트가 하나여도 같은 자리다.
         self.domain()
         self.empty_tests()
         self.doc("claim", domain_doc(row("INV-CLAIM-001", "proposed")))
-        self.consolidated(domain_doc(row("INV-CLAIM-002", "proposed")))
         report = self.check()
-        self.assert_error(report, "중복 배치")
-        self.assertEqual(report.invariants, [])
+        self.assertEqual(self.messages(report), [])
+        self.assertEqual([i.path for i in report.invariants],
+                         ["docs/superdomain/contexts/claim.md"])
 
-    def test_consolidated_with_two_contexts_is_error(self):
-        self.domain(HYPHEN_DOMAIN)
+    def test_legacy_consolidated_document_is_a_layout_error(self):
+        self.domain()
         self.empty_tests()
-        self.consolidated(domain_doc(row("INV-CORE-001", "proposed"), title="core"))
-        report = self.check()
-        self.assert_error(report, "docs/domain.md")
-        self.assertEqual(report.invariants, [])
+        self.src("docs/domain.md", domain_doc(row("INV-CLAIM-001", "confirmed")))
+        with self.assertRaises(LayoutError) as caught:
+            self.check()
+        self.assertIn("docs/domain.md", str(caught.exception))
+
+    def test_legacy_context_document_left_behind_is_a_layout_error(self):
+        # 옛 자리의 confirmed 불변식이 검사에서 조용히 빠지지 않는다.
+        self.domain()
+        self.empty_tests()
+        self.src("docs/domain/claim.md", domain_doc(row("INV-CLAIM-001", "confirmed")))
+        result = subprocess.run([sys.executable, str(SCRIPT), str(self.domain_path)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("이행이 끝나지 않았습니다", result.stderr)
 
     def test_undeclared_domain_file_is_warning_and_is_not_collected(self):
         self.domain()
@@ -453,6 +453,8 @@ class TestPlacement(InvariantTestCase):
         self.assertEqual(self.messages(report), [])
         self.assertEqual(report.warnings, [])
         self.assertTrue(any("claim" in n for n in report.notices), report.notices)
+        self.assertTrue(any("docs/superdomain/contexts/claim.md" in n for n in report.notices),
+                        report.notices)
 
 
 # ---------------------------------------------------------------------------
@@ -481,7 +483,7 @@ class TestVerdict(InvariantTestCase):
         violation = report.violations[0]
         self.assertEqual(violation.invariant_id, "INV-CLAIM-002")
         self.assertEqual(violation.line, FIRST_ROW_LINE + 1)
-        self.assertTrue(violation.path.endswith("domain/claim.md"), violation.path)
+        self.assertTrue(violation.path.endswith("contexts/claim.md"), violation.path)
         self.assertIn("confirmed", violation.message)
 
     def test_orphan_tag_is_warning_at_tag_line(self):
@@ -638,6 +640,28 @@ class TestTagScan(InvariantTestCase):
         self.assertEqual(self.messages(report), [])
         self.assertEqual(report.violations, [])
         self.assertEqual(report.test_sources, 1)
+
+    def test_bom_documents_and_sources_are_read(self):
+        # `## 불변식`을 첫 줄에 둔다 — BOM이 남으면 그 줄이 `^##`에 걸리지 않아 표를 못 찾고,
+        # 불변식 0건 고지와 고아 태그 경고만 남은 채 위반 없이 통과한다. 그래서 대조 건수를 본다.
+        self.domain()
+        body = domain_doc(row("INV-CLAIM-001", "confirmed")).split("\n", 2)[2]
+        self.assertTrue(body.startswith("## 불변식\n"), body)
+        self.doc("claim", "﻿" + body)
+        path = self.tagged("INV-CLAIM-001")
+        # 소스 쪽 BOM은 관측 결과를 바꾸지 않는다(RE_TAG는 줄 머리에 묶이지 않는다) — 읽기
+        # 실패로 번지지 않는지만 본다.
+        path.write_text("﻿" + path.read_text(encoding="utf-8"), encoding="utf-8")
+        report = self.check()
+        self.assert_clean(report)
+        self.assertEqual([item.id for item in report.invariants], ["INV-CLAIM-001"])
+        self.assertEqual(report.checked, 1)
+        self.assertEqual(report.warnings, [], self.warnings(report))
+        self.assertEqual(report.unreadable, [])
+
+    def test_limitation_note_admits_tags_in_comments(self):
+        # 주석 처리된 테스트의 태그도 존재로 센다 — 그 사실을 한계 고지가 말해야 한다.
+        self.assertIn("주석", LIMITATION_NOTE)
 
 
 # ---------------------------------------------------------------------------
@@ -805,6 +829,18 @@ class TestCli(InvariantTestCase):
         self.domain(BROKEN_DOMAIN)
         result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+
+    def test_exit_two_when_declaration_is_not_utf8(self):
+        # 해석 불가는 exit 2다 — 트레이스백의 exit 1이면 '위반·검사 불능'으로 읽힌다.
+        # --json이어도 해석 불가는 stdout을 비우고 stderr로만 말한다(check_imports와 같다).
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
+        self.domain_path.write_bytes(b"# \xc7\xd1\n")
+        self.empty_tests()
+        result = self.run_cli(str(self.domain_path), "--json")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(result.stderr.startswith(f"{self.domain_path}:"), result.stderr)
+        self.assertIn("UTF-8로 읽을 수 없습니다", result.stderr)
 
     def test_exit_two_on_usage_error(self):
         self.assertEqual(self.run_cli().returncode, 2)
