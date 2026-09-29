@@ -126,5 +126,7 @@ def test_schema_history_documents_current_version():
     version = int(MANAGED_START_RE.search(read("AGENTS.md.tmpl")).group(1))
     arch = (TEMPLATES.parent / "ARCHITECTURE.md").read_text(encoding="utf-8")
     assert "스키마 버전 이력" in arch
-    history = arch[arch.index("스키마 버전 이력"):]
+    start = arch.index("스키마 버전 이력")
+    end = arch.find("\n## ", start)  # 이력 절 안에서만 찾는다 — 뒤 절의 **vN** 표기로 통과하지 않게
+    history = arch[start:] if end == -1 else arch[start:end]
     assert f"**v{version}**" in history, "schema_version을 올리면 ARCHITECTURE.md '스키마 버전 이력'에 변경 요약을 남긴다"
