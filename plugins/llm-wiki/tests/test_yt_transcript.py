@@ -249,3 +249,39 @@ def test_fetch_rejects_pure_playlist_url(yt_transcript, monkeypatch, capsys):
     code = yt_transcript.main(["https://www.youtube.com/playlist?list=PLx"])
     assert code == 1  # 자막 없음(exit 2)으로 오안내하지 않는다
     assert "재생목록" in capsys.readouterr().err
+
+
+def test_pick_track_prefers_video_language_over_dubbed_audio(yt_transcript):
+    # 실측(K56nNuBEd0c): 자동 더빙 영상은 더빙 오디오마다 `<lang>-orig` ASR이 붙는다 — ko-orig는 원어가 아니라
+    # 한국어 AI 더빙의 음성 인식이다. 영상 원어(info.language)의 원어 트랙을 langs보다 먼저 고른다.
+    dub_ko = "https://yt.test/timedtext?lang=ko&kind=asr&variant=dub"
+    dub_ja = "https://yt.test/timedtext?lang=ja&kind=asr&variant=dub"
+    info = {
+        "language": "en-US",
+        "automatic_captions": {
+            "en-orig": _fmts(ORIG_EN), "en": _fmts(ORIG_EN),
+            "ko-orig": _fmts(dub_ko), "ko": _fmts(dub_ko) + _fmts(TRANS_KO),
+            "ja-orig": _fmts(dub_ja), "ja": _fmts(dub_ja),
+        },
+    }
+    assert yt_transcript.pick_track(info, ["ko", "en"]) == ("en", ORIG_EN + "&fmt=vtt", "auto")
+
+
+def test_pick_track_detects_translation_by_tlang_without_orig_keys(yt_transcript):
+    # 원어가 번역 언어 목록에 없으면(예: 광둥어 yue) `-orig` 표지 없이 원어와 기계 번역(tlang=)이 섞여 온다
+    orig_yue = "https://yt.test/timedtext?lang=yue&kind=asr"
+    info = {
+        "automatic_captions": {
+            "yue": _fmts(orig_yue),
+            "ko": _fmts(orig_yue + "&tlang=ko"),
+            "en": _fmts(orig_yue + "&tlang=en"),
+        },
+    }
+    assert yt_transcript.pick_track(info, ["ko", "en"]) == ("yue", orig_yue + "&fmt=vtt", "auto")
+    only_translated = {"automatic_captions": {"ko": _fmts(orig_yue + "&tlang=ko")}}
+    assert yt_transcript.pick_track(only_translated, ["ko"]) == ("ko", orig_yue + "&tlang=ko&fmt=vtt", "auto-translated")
+
+
+def test_ydl_opts_do_not_fail_on_missing_formats(yt_transcript):
+    # 자막만 쓰므로 영상 포맷이 없다는 이유로 추출 전체가 실패하면 안 된다
+    assert yt_transcript.YDL_OPTS["ignore_no_formats_error"] is True

@@ -34,7 +34,7 @@ user-invocable: false
    uv run "${CLAUDE_SKILL_DIR}/scripts/yt_transcript.py" "<URL>" --langs ko,en
    ```
 
-2. stdout(frontmatter + `[mm:ss]` 문단 트랜스크립트)을 `raw/sources/YYYY-MM-DD-<제목-slug>.md`로 저장한다. 자막 선택은 원어 우선이다 — 수동 자막(langs → 원어) → 원어 자동 자막 → 기계 번역(최후). frontmatter `kind`가 `auto-translated`면 기계 번역 자막이므로 분석 노트에 그 사실을 밝힌다.
+2. stdout(frontmatter + `[mm:ss]` 문단 트랜스크립트)을 `raw/sources/YYYY-MM-DD-<제목-slug>.md`로 저장한다. 자막 선택은 원어 우선이다 — 수동 자막(langs → 원어) → 원어 자동 자막(영상 원어 트랙이 자동 더빙 트랙보다 먼저) → 기계 번역(최후). frontmatter `kind`가 `auto-translated`면 기계 번역 자막이므로 분석 노트에 그 사실을 밝힌다.
 3. **exit 2 = 자막 없음**: stderr 안내를 사용자에게 그대로 전달하고, 수동 대안(영상 설명란·발표 자료·관련 블로그를 대신 인제스트)을 제안한다. Whisper 등 음성 인식은 이 플러그인 범위 외다.
 4. **exit 1 = 추출 오류**: 유튜브 쪽 변경으로 yt-dlp가 낡았을 수 있다 — `uv run --upgrade-package yt-dlp "${CLAUDE_SKILL_DIR}/scripts/yt_transcript.py" …`로 한 번만 재시도하고, 그래도 실패하면 stderr를 전달한다. 재생목록 URL 자체(`/playlist?list=…`)는 지원 범위 외(exit 1) — 영상 URL을 하나씩 넘기게 한다.
 
