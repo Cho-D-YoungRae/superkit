@@ -1,9 +1,9 @@
-schema_version: 1
+schema_version: 2
 language: {{LANGUAGE}}
 obsidian: {{OBSIDIAN}}
 link_style: {{LINK_STYLE}}    # markdown | wikilink
 search: none                  # none | qmd
 ingest:
   pdf_direct_max_pages: 30    # 이하면 PDF 직접 참조, 초과면 청킹
-  pdf_chunk_pages: 20         # 목차 없을 때 고정 분할 단위
+  pdf_chunk_pages: 20         # 청크 목표 쪽수 — 고정 분할 단위이자 목차 구간 병합 상한
   youtube_sub_langs: [{{YT_LANGS}}]

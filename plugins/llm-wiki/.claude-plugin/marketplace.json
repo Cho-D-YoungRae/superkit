@@ -1,6 +1,7 @@
 {
   "name": "llm-wiki",
   "owner": { "name": "Cho-D-YoungRae", "url": "https://github.com/Cho-D-YoungRae" },
+  "description": "LLM이 유지보수하는 개인 위키(Karpathy llm-wiki 패턴) 플러그인 마켓플레이스",
   "plugins": [
     {
       "name": "llm-wiki",

@@ -1,23 +1,22 @@
 ---
+name: wiki-lint
 description: 위키 정합성 점검 — 기계 검사(wiki_check) + LLM 판단 검사 → 리포트
-argument-hint: ""
 ---
 
 # /llm-wiki:wiki-lint
 
 ## 1. 위키 루트
 
-현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다.
+현재 디렉토리부터 상위로 `.llm-wiki/config.yaml`을 Read 도구로 확인해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다. 파일 읽기·찾기는 Read·Glob·Grep 도구로 하고, Bash는 `cd` 없이 명령 하나에 절대 경로로 쓴다 — `cd`·`&&`로 이은 복합 명령은 사용자 권한 확인을 부른다.
 
 ## 2. 기계 검사
 
-위키 루트에서 실행:
-
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --format json
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --root "<위키 루트>" --format json
 ```
 
 - exit 0 = clean, exit 1 = findings(JSON의 `findings` 배열). 결과를 검사 항목별로 요약한다.
+- `raw-unreferenced` 중 "미인제스트 원본"은 인자 없는 `/llm-wiki:wiki-ingest`로 처리하도록 권고하고, "인제스트 기록은 있으나 참조 없음"은 페이지 `sources[]` 누락(드리프트)이나 retire 미완료로 보고 수정 후보에 넣는다. `log-sha`(sha 없는 ingest 항목)는 재인제스트 중복 검사가 그 소스를 못 찾는다는 뜻이다 — log는 append-only이므로 고치지 말고 리포트에 알린다.
 - uv가 없으면 설치 안내(`brew install uv` 등)를 출력하고, 기계 검사 없이 §3만으로 진행하되 리포트에 그 사실을 명시한다.
 
 ## 3. LLM 판단 검사 — 전수 조사 금지
