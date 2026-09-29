@@ -34,6 +34,7 @@ README.md ARCHITECTURE.md LICENSE
 - 커맨드는 `commands/`가 아니라 `skills/<이름>/SKILL.md`에 둔다(공식 권장 형식, `name`은 디렉토리명과 동일). `commands/`에 같은 이름을 만들지 않는다 — 충돌 동작이 문서화돼 있지 않다.
 - 워크플로 스킬에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`(웹·HTML은 `web-extract/SKILL.md`), 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
 - 스크립트 출력 경계(stdout·캐시만)를 절대 넘지 않는다. 서드파티 의존은 지연 임포트(테스트가 의존 없이 순수 함수를 로드한다).
+- 스킬 지시문에서 파일 읽기·검색은 Read·Glob·Grep 도구로, Bash는 `cd` 없이 절대 경로의 단일 명령으로 쓴다 — `cd … &&` 복합 명령·셸 변수·플래그 붙은 `cp`는 사용자 권한 확인을 부른다(ARCHITECTURE ADR-8, `tests/test_skills.py`가 검사).
 - **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커와 `config.yaml.tmpl`의 `schema_version`을 함께 증가시키고, `ARCHITECTURE.md` "스키마 버전 이력"에 변경 요약 한 줄을 추가하며(두 가지 모두 `tests/test_templates.py`가 검사), `skills/wiki-init/SKILL.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
 - 문서 동기화: 원칙·구조 변경 시 README.md와 ARCHITECTURE.md를 같은 변경에서 함께 수정한다.
 

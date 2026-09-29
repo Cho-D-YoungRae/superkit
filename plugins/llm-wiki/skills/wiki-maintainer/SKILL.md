@@ -12,14 +12,15 @@ user-invocable: false
 
 ## 세션 시작
 
-`.llm-wiki/config.yaml` → `purpose.md` → `wiki/log.md` 최근 항목(`grep '^## \[' wiki/log.md | tail -n 10`) 순으로 읽는다.
+`.llm-wiki/config.yaml` → `purpose.md` → `wiki/log.md` 최근 항목(Grep 도구로 `^## \[` 헤딩을 뽑아 마지막 10개) 순으로 읽는다.
 
 ## 플러그인 보강
 
+- 도구 사용: 파일 읽기·찾기는 Read·Glob·Grep 도구로 한다. Bash는 `cd` 없이 명령 하나에 위키 파일을 절대 경로로 가리킨다 — `cd`·`&&`로 이은 복합 명령과 셸 변수는 사용자 권한 확인을 부른다.
 - 기계 lint(읽기 전용, exit 1 = 발견):
 
   ```bash
-  uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --format md
+  uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --root "<위키 루트>" --format md
   ```
 
 - 통계: 같은 스크립트에 `--stats` (타입별 페이지 수·소스 수·마지막 lint 날짜).

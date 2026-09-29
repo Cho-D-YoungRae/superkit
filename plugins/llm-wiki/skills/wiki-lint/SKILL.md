@@ -7,14 +7,12 @@ description: 위키 정합성 점검 — 기계 검사(wiki_check) + LLM 판단 
 
 ## 1. 위키 루트
 
-현재 디렉토리에서 상위로 `.llm-wiki/config.yaml`을 탐색해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다. 이후 모든 Bash 명령은 `cd "<위키 루트>" && …` 형태로 실행하고 파일 경로는 위키 루트 기준으로 쓴다.
+현재 디렉토리부터 상위로 `.llm-wiki/config.yaml`을 Read 도구로 확인해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다. 파일 읽기·찾기는 Read·Glob·Grep 도구로 하고, Bash는 `cd` 없이 명령 하나에 절대 경로로 쓴다 — `cd`·`&&`로 이은 복합 명령은 사용자 권한 확인을 부른다.
 
 ## 2. 기계 검사
 
-위키 루트에서 실행:
-
 ```bash
-uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --format json
+uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --root "<위키 루트>" --format json
 ```
 
 - exit 0 = clean, exit 1 = findings(JSON의 `findings` 배열). 결과를 검사 항목별로 요약한다.

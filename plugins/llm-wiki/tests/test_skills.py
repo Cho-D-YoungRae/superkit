@@ -37,3 +37,17 @@ def test_slash_commands_are_exactly_the_four_workflows():
 
 def test_no_legacy_commands_directory():
     assert not (ROOT / "commands").exists(), "commands/와 skills/에 같은 이름이 있으면 충돌 동작이 문서화돼 있지 않다"
+
+
+# 실행 점검에서 `cd <위키> && cat …`·셸 변수·플래그 붙은 cp 같은 복합 명령이 사용자의 권한 확인을 불렀다.
+# 스킬은 위키 파일을 절대 경로로 가리키고, 읽기·검색은 Read·Glob·Grep 도구로 한다(ARCHITECTURE ADR-8).
+@pytest.mark.parametrize("path", SKILL_FILES, ids=lambda p: p.parent.name)
+def test_skills_do_not_prescribe_cd_chains(path):
+    assert 'cd "<위키 루트>" &&' not in path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=lambda p: p.parent.name)
+def test_wiki_check_invocations_pass_root(path):
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if "uv run" in line and "wiki_check.py" in line:
+            assert '--root "<위키 루트>"' in line, f"{path.parent.name}: cd 대신 --root로 위키를 가리킨다 — {line.strip()}"
