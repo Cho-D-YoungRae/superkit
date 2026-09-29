@@ -1,5 +1,7 @@
 # superarchitect Phase 3 (도메인) Implementation Plan
 
+> **보관 문서.** 현행 정본은 `references/governance/`와 최신 스펙(`2026-09-28-superdomain-layout-and-fixes-design.md`)이다. 이 문서의 경로·절차·지시를 실행하지 않는다 — 체크박스가 비어 있어도 완료된 작업이다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 질문 주도 도메인 모델링을 플러그인에 넣는다 — domain 문서 표준(domain-doc-template), model 스킬(인터뷰·이벤트 스토밍·미팅 정리), apply 스킬(문서→코드 inside-out), check_invariants.py(불변식 ID ↔ 테스트 태그 결정적 대조), event-storming 성숙화, 그리고 Phase 2가 열어 둔 도메인 훅(arch-reviewer C3 완화·review의 구현 상태 블록·aggregates R4)의 마감.

@@ -37,7 +37,7 @@
 - `check_imports.py --json`의 위반·강등 부채에 `from_context`·`to_context`.
 - SessionStart 훅이 옛 배치를 보면 이행 안내 한 줄을 낸다.
 - 정본 `skill-protocol.md`(스킬 공통 규약·라우팅)와 `derived-artifacts.md`(파생물·선언 편집).
-- MIT `LICENSE`, CI(`unittest`).
+- MIT `LICENSE`, CI(`unittest`, INDEX 최신성).
 
 ### Fixed
 

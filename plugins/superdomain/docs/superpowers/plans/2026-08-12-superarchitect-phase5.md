@@ -1,5 +1,7 @@
 # superarchitect Phase 5 (유지·이행) Implementation Plan
 
+> **보관 문서.** 현행 정본은 `references/governance/`와 최신 스펙(`2026-09-28-superdomain-layout-and-fixes-design.md`)이다. 이 문서의 경로·절차·지시를 실행하지 않는다 — 체크박스가 비어 있어도 완료된 작업이다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 시간이 지나도 선언과 현실이 어긋나지 않게 한다 — sync(드리프트 대조), evolve(신호 수집·해석→제안+ADR 초안), migrate(baseline 클러스터 단위 점진 이행), collect_signals.py, 그리고 §4.3 규칙 8의 baseline 래칫 실배선(동결=init, 소비=check_imports·생성 테스트, 축소=migrate).

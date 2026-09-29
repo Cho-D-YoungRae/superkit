@@ -1,5 +1,7 @@
 # superarchitect 최종 완료 기준(§14) Implementation Plan
 
+> **보관 문서.** 현행 정본은 `references/governance/`와 최신 스펙(`2026-09-28-superdomain-layout-and-fixes-design.md`)이다. 이 문서의 경로·절차·지시를 실행하지 않는다 — 체크박스가 비어 있어도 완료된 작업이다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax.
 
 **Goal:** 스펙 §14의 네 기준(설치·노출 / e2e 시나리오 / 형태 커버리지 / README 완비)을 실측·문서로 닫고, 전체 브랜치 최종 리뷰로 v1을 마감한다.

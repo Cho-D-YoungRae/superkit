@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # ubuntu-latest는 3.9 빌드가 없는 이미지로 옮겨 갈 수 있어 3.9가 있는 러너로 고정한다.
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests
+      - name: INDEX is up to date
+        run: |
+          python3 scripts/build_index.py
+          git diff --exit-code references/INDEX.md
