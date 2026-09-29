@@ -66,11 +66,17 @@
    (이미 옮긴 사본이면) 지운다.
 2. 나온 `mkdir -p`와 `git mv`를 그대로 실행한다. `docs/domain.md`(단일 컨텍스트 문서)가 있었다면
    목적지의 `<컨텍스트 이름>`을 `DOMAIN.md`의 유일한 `## 컨텍스트:` 이름으로 바꿔 실행한다.
-3. 옮긴 문서 안의 경로 참조를 고친다.
+3. 옛 경로를 가리키는 참조를 저장소 전체에서 찾아 고친다. 모노레포면 하위 프로젝트의 CLAUDE.md·
+   문서·코드 주석에도 있다.
 
    ```bash
-   git grep -nE 'docs/decisions|docs/domain/|docs/domain-summary\.md|docs/domain\.md|\(DOMAIN\.md\)|\.\./DOMAIN\.md|\.\./decisions/|\.\./domain/|\.\./domain\.md' -- docs CLAUDE.md
+   git grep -nE 'docs/decisions/|docs/domain/|docs/domain-summary\.md|docs/domain\.md|\(DOMAIN\.md\)|\.\./DOMAIN\.md|\.\./decisions/|\.\./domain/|\.\./domain\.md' -- .
    ```
+
+   잡힌 줄은 세 갈래로 나눈다. **링크**(`[…](…)`)와 **지금 읽히는 지시**(어느 디렉터리의
+   CLAUDE.md든, README, 코드 주석)는 아래 규칙대로 새 경로로 고친다. **기록물** — `accepted` ADR
+   본문의 서술, 이미 끝난 계획·설계 문서의 작업 서술 — 은 그 시점의 사실이라 그대로 두고 링크만
+   고친다. `docs/decisions.md`처럼 이름만 비슷한 다른 파일은 대상이 아니다.
 
    `docs/decisions/` → `docs/superdomain/adr/`, `docs/domain/` → `docs/superdomain/contexts/`,
    `docs/domain-summary.md` → `docs/superdomain/summary.md`. `DOMAIN.md`에서 ADR을 가리키던 상대
@@ -83,7 +89,10 @@
 
    CLAUDE.md에 0.2.x `init`이 제안한 한 줄(도메인 경계·요약 경로)을 넣었다면
    `docs/superdomain/DOMAIN.md`·`docs/superdomain/summary.md`로 고친다. pre-commit 훅·CI가
-   스크립트에 넘기는 인자도 `docs/superdomain/DOMAIN.md`로 바꾼다.
+   스크립트에 넘기는 인자도 `docs/superdomain/DOMAIN.md`로 바꾼다. 옮긴 `summary.md`의 마지막 줄
+   `상세: DOMAIN.md`는 `상세: docs/superdomain/DOMAIN.md`로 고친다(0.3.0 생성 형식 —
+   `references/governance/derived-artifacts.md` §2). 매 세션 주입되는 파일이라 옛 경로가 남으면
+   안 된다.
 4. 파서와 두 검사를 새 경로로 돌려 이행 전과 결과가 같은지 확인한다.
 
    ```bash
