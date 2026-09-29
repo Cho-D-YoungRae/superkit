@@ -80,7 +80,8 @@ read_when: [model, apply, review, migrate]
 - 인터페이스 이름은 **의도**를 담는다. `SaveClaimRepository`·`SaveClaimPort`는 좋고
   `ClaimJpaGateway`는 구현이 이름으로 새어 나온 것이다.
 - **`generic`으로 분류한 컨텍스트는 이 분리를 하지 않아도 된다** — 스프링 데이터 인터페이스가
-  곧 리포지터리인 것이 그 분류의 기본값이다([[domain-classification]] R1).
+  곧 리포지터리인 것이 그 분류의 기본값이다
+  ([[domain-classification]]의 "분류가 정하는 것의 기본값" 절).
 - **이 규칙은 기계가 보지 않는다.** 컨텍스트 안의 방향을 검사하는 규칙은 없으므로 R7이 유일한
   방어선이다.
 
