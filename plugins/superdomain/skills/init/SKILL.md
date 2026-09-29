@@ -1,19 +1,15 @@
 ---
 name: init
 description: >
-  프로젝트의 도메인 경계를 선언으로 세운다 — 질문을 통해 바운디드 컨텍스트를 식별하고,
+  프로젝트의 도메인 경계를 선언으로 세운다 — 질문으로 바운디드 컨텍스트를 식별하고,
   core/supporting/generic으로 분류하고, 각 컨텍스트가 사는 패키지와 컨텍스트 간 관계(직접 참조
-  allow-list)를 확정해 루트 `DOMAIN.md`와 파생물(`docs/superdomain/summary.md`·컨텍스트 맵·ADR)을
-  만든다. 기존 코드의 컨텍스트 격리 위반은 실측해 **동결할지 묻고**, 동결하면
-  `docs/superdomain/state/baseline.jsonl`을 만든다. 사용자가 "도메인 초기화", "컨텍스트 경계 잡아줘",
-  "도메인 셋업", "바운디드 컨텍스트 나눠줘", "domain init", "/superdomain:init"을 요청할 때, 새
-  프로젝트에 도메인 기준을 세울 때, 다른 스킬이 `DOMAIN.md` 부재를 발견했을 때, 그리고
-  `/superdomain:evolve`가 경계 재획정이나 `- 패키지:` 변경을 넘겨 왔을 때 반드시 사용.
-  **`DOMAIN.md`의 결정 넷 중 `### 관계` 표의 쌍·`- 분류:`·`- 패턴:` 하나만 바꾸는 결정이면 이
-  스킬이 아니다** — 편집 자리를 짚는 것은 `/superdomain:adr`이다. 여기로 오는 것은 경계 자체를
-  다시 긋는 경우와 `- 패키지:`다(귀속 범위가 뒤집힌다). 일상적 검토는 `/superdomain:review`,
-  드리프트 대조·정정은 `/superdomain:sync`, 동결된 격리 위반 상환은 `/superdomain:migrate`,
-  불변식·애그리거트 문서는 `/superdomain:model`이다.
+  allow-list)를 확정해 `docs/superdomain/DOMAIN.md`와 파생물(`summary.md`·컨텍스트 맵·ADR)을
+  만든다. 기존 코드의 컨텍스트 격리 위반은 실측해 동결할지 묻고, 동결하면
+  `docs/superdomain/state/baseline.jsonl`을 만든다. 사용자가 "도메인 초기화", "컨텍스트 경계
+  잡아줘", "도메인 셋업", "바운디드 컨텍스트 나눠줘", "domain init", "/superdomain:init"을 요청할
+  때, 새 프로젝트에 도메인 기준을 세울 때, 컨텍스트를 신설·병합·분리하거나 `- 패키지:`를 바꿀
+  때, 다른 스킬이 선언 부재를 알렸을 때 사용한다. `- 분류:`·`- 패턴:`·`### 관계` 쌍만 바꾸는
+  결정은 이 스킬이 아니다 — 편집 자리를 짚는 것은 `/superdomain:adr`이다.
 ---
 
 # 도메인 경계 선언 초기화

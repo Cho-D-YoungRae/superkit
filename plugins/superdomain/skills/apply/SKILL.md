@@ -1,19 +1,16 @@
 ---
 name: apply
 description: >
-  domain 문서의 confirmed 항목을 코드로 옮긴다 — check_invariants.py가 지목한 "확정됐는데
-  구현되지 않은" 불변식을 작업 목록으로 받아, 도메인 코어(애그리거트·값 객체와 불변식을 강제하는
+  domain 문서의 confirmed 불변식을 코드로 옮긴다 — check_invariants.py가 지목한 "확정됐는데
+  구현되지 않은" 불변식을 작업 목록으로 받아 도메인 코어(애그리거트·값 객체와 불변식을 강제하는
   로직) → 불변식마다 `@Tag("INV-<CONTEXT>-NNN")` 테스트 → 필요한 최소한의 퍼사드·포트 순서로
-  inside-out 구현하고, check_invariants·check_imports 두 결정적 게이트에 더해 새로 쓴 테스트
-  실행과 대상 프로젝트 컴파일까지 초록을 확인한다.
-  사용자가 "도메인 문서 적용", "불변식 구현", "확정된 불변식 코드로", "도메인 모델 코드로
-  옮겨줘", "apply domain", "implement invariants", "/superdomain:apply"를 요청할 때,
-  `/superdomain:model` 세션에서 항목을 confirmed로 확정한 직후, 또는 검사·리뷰가 "confirmed
-  불변식에 대응 테스트 태그가 없습니다"를 보고했을 때 사용한다. proposed 항목은 구현하지 않으며
-  불변식을 끌어내 확정하는 인터뷰는 `/superdomain:model`이 맡는다. 컨텍스트·분류·패키지·관계
-  선언을 세우거나 바꾸는 일에는 쓰지 않고(`/superdomain:init`), 선언과 디스크의 어긋남을
-  대조·처분하는 일에도 쓰지 않는다(`/superdomain:sync`). 변경분을 검토하고 리포트만 내는 일은
-  `/superdomain:review`다.
+  inside-out 구현하고, check_invariants·check_imports 두 결정적 게이트에 더해 새 테스트 실행과
+  대상 프로젝트 컴파일까지 초록을 확인한다. 사용자가 "도메인 문서 적용", "불변식 구현", "확정된
+  불변식 코드로", "도메인 모델 코드로 옮겨줘", "apply domain", "implement invariants",
+  "/superdomain:apply"를 요청할 때, `/superdomain:model`에서 항목을 confirmed로 확정한 직후, 또는
+  검사·리뷰가 "confirmed 불변식에 대응 테스트 태그가 없습니다"를 보고했을 때 사용한다. proposed
+  항목은 구현하지 않는다 — 불변식을 끌어내 확정하는 일은 `/superdomain:model`이다. 변경분을
+  검토하고 리포트만 내는 일은 `/superdomain:review`다.
 ---
 
 # domain 문서를 코드로

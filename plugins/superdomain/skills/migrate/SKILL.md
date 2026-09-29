@@ -1,21 +1,16 @@
 ---
 name: migrate
 description: >
-  동결된 컨텍스트 격리 위반을 점진 상환한다 — `docs/superdomain/state/baseline.jsonl`의 항목을 **컨텍스트
-  쌍(A↔B) 단위**로 클러스터링하고, collect_signals의 핫스팟과 참조 fan-in을 근거로 우선순위를
-  매겨 **한 번에 한 클러스터만** 계획을 제시하고, 승인받은 뒤 경계를 넘는 참조를 실제로 끊는
-  코드 변경을 수행하고, `check_imports.py` 두 실행으로 해소를 실측한 뒤 baseline에서 그 항목을
-  지운다. baseline이 비면 파일을 지우고 상환 완료 ADR로 닫는다. 사용자가 "부채 갚기",
-  "baseline 줄이기", "격리 위반 정리", "컨텍스트 결합 끊기", "마이그레이션", "레거시 구조 정리",
-  "migrate", "/superdomain:migrate"를 요청할 때, `docs/superdomain/state/baseline.jsonl`이 있는
-  프로젝트에서 동결된 부채를 실제로 줄이려 할 때, 또는 `/superdomain:evolve`가 "baseline
-  감소가 정체됐다"고 보고했을 때 사용한다. **baseline을 줄이는 유일한 스킬**이며(동결은
-  `/superdomain:init`, `check_imports.py`는 읽기만 한다) 빅뱅 리팩터링 계획은 제시하지
-  않는다. 선언과 디스크의 드리프트를 대조·처분하는 일은 `/superdomain:sync`, 컨텍스트·분류·
-  패키지 선언 자체를 세우거나 바꾸는 일은 `/superdomain:init`, 관계 표를 열 근거를 남기는
-  일은 `/superdomain:adr`, 변경분을 검토하고 리포트만 내는 일은 `/superdomain:review`,
-  도메인 문서의 불변식을 코드와 태그 테스트로 옮기는 일은 `/superdomain:apply`다.
-  `docs/superdomain/state/baseline.jsonl`이 없으면 이 스킬은 할 일이 없다.
+  동결된 컨텍스트 격리 위반을 점진 상환한다 — `docs/superdomain/state/baseline.jsonl`의 항목을
+  컨텍스트 쌍(A↔B) 단위로 클러스터링하고, collect_signals의 핫스팟과 참조 fan-in으로 우선순위를
+  매겨 한 번에 한 클러스터만 계획을 제시하고, 승인받은 뒤 경계를 넘는 참조를 실제로 끊고,
+  `check_imports.py` 두 실행으로 해소를 실측한 뒤 baseline에서 그 항목을 지운다. baseline이 비면
+  파일을 지우고 상환 완료 ADR로 닫는다. 사용자가 "부채 갚기", "baseline 줄이기", "격리 위반
+  정리", "컨텍스트 결합 끊기", "마이그레이션", "레거시 구조 정리", "migrate",
+  "/superdomain:migrate"를 요청할 때, 또는 `/superdomain:evolve`가 baseline 감소 정체를 보고했을 때
+  사용한다. baseline을 줄이는 유일한 스킬이다(동결은 `/superdomain:init`). baseline 파일이 없으면
+  할 일이 없다. superdomain 0.2.x 산출물을 새 배치로 옮기는 일에는 쓰지 않는다 — 그것은
+  CHANGELOG의 이행 절차다.
 ---
 
 # 동결된 격리 위반을 점진 상환

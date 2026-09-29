@@ -3,17 +3,14 @@ name: review
 description: >
   변경분을 선언된 도메인 경계에 비추어 검토한다 — 결정적 검사 둘(컨텍스트 격리를 보는
   check_imports.py, confirmed 불변식의 테스트 태그 존재를 보는 check_invariants.py)을 먼저
-  돌리고 남은 의미론(경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 정합·관계 유형
+  돌리고 남은 의미론(경계 누수·유비쿼터스 언어 불일치·애그리거트 우회·불변식 합정·관계 유형
   위반)만 domain-reviewer 서브에이전트에 위임해, 항목마다 규칙 id 또는 semantic 태그,
   분류(위반|누락|드리프트|추가 논의), 심각도, 근거, 수정 제안을 담은 리포트를 내고
-  `docs/superdomain/state/review-log.jsonl`에 append한다. 코드는 고치지 않는다 — 제안까지다. 사용자가
-  "도메인 리뷰", "이 변경 검토해줘", "도메인 관점에서 봐줘", "리뷰해줘"(도메인 맥락),
-  "domain review", "review this change", "/superdomain:review"를 요청할 때, PR·커밋 전
-  점검을 원할 때, 작업 트리나 브랜치·커밋 범위의 변경이 선언을 어겼는지 확인하고 싶을 때
-  사용한다. 확정된 불변식을 코드와 태그 테스트로 옮기는 일에는 쓰지 않는다
-  (`/superdomain:apply`). 결정 문서와 실제 코드의 드리프트를 대조하고 정정하는 일에도 쓰지
-  않는다(`/superdomain:sync`). 컨텍스트·분류·관계 선언 자체를 세우거나 바꾸는 일에도 쓰지
-  않는다(`/superdomain:init`) — 이 스킬은 `DOMAIN.md`를 읽기만 하고 절대 고치지 않는다.
+  `docs/superdomain/state/review-log.jsonl`에 append한다. 코드는 고치지 않는다. 사용자가 "도메인
+  리뷰", "이 변경 검토해줘", "도메인 관점에서 봐줘", "리뷰해줘"(도메인 맥락), "domain review",
+  "review this change", "/superdomain:review"를 요청할 때, PR·커밋 전 점검을 원할 때 사용한다.
+  선언과 디스크의 드리프트 대조는 `/superdomain:sync`, 확정된 불변식 구현은 `/superdomain:apply`다
+  — 이 스킬은 `DOMAIN.md`를 읽기만 한다.
 ---
 
 # 변경분 도메인 검토

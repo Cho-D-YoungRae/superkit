@@ -2,18 +2,16 @@
 name: adr
 description: >
   도메인 구조 결정을 MADR 형식의 `docs/superdomain/adr/yyyy-MM-dd-slug.md`로 남긴다 — 인터뷰로
-  문제 상황·결정·실제로 검토된 대안·결과를 받아 `proposed`로 쓰고, 오늘 날짜와 slug로 파일명을
-  정하고, 승인(`accepted`)과 대체(`superseded`) 전이를 신·구 ADR 양방향 링크로 처리하며,
-  결정이 SSOT 변경을 함의하면 `DOMAIN.md`의 관계 표·분류·패키지 라벨 중 어디를 고쳐야 하는지
-  짚고 파서 게이트 재실행을 권한다. 사용자가 "ADR 써줘", "ADR 작성", "결정 기록",
-  "아키텍처 결정 남겨줘", "이 결정 문서로 남겨", "ADR 승인", "ADR 대체", "supersede", "adr",
-  "architecture decision record", "/superdomain:adr"을 요청할 때, 되돌리는 비용이 큰
-  경계·관계·기술 선택을 방금 확정했을 때, 두 컨텍스트의 직접 참조를 `### 관계` 표로 열려는데 그
-  근거를 가리킬 문서가 없을 때, 또는 다른 superdomain 스킬이 "이 결정은 ADR로
-  남기세요"라고 안내했을 때 사용한다. 이미 `accepted`된 ADR의 내용을 고쳐 쓰는 일에는 쓰지
-  않는다 — 정정은 수정이 아니라 새 ADR이다. 경계를 다시 긋는 인터뷰(컨텍스트 신설·병합·분리)에도
-  쓰지 않는다(`/superdomain:init`) — 그 밖의 선언 변경은 여기서 고칠 자리를 짚고 사용자가
-  편집한다. 이 스킬이 쓰는 파일은 `decisions/` 아래의 ADR뿐이고 `DOMAIN.md`는 읽기만 한다.
+  문제 상황·결정·실제로 검토된 대안·결과를 받아 `proposed`로 쓰고, 승인(`accepted`)과
+  대체(`superseded`) 전이를 신·구 ADR 양방향 링크로 처리하며, 결정이 선언을 바꾸면 `DOMAIN.md`의
+  `- 분류:`·`- 패턴:`·`### 관계` 표 중 어디를 고칠지 짚고 파서 게이트 재실행을 권한다(편집은
+  사용자가 한다). 사용자가 "ADR 써줘", "ADR 작성", "결정 기록", "아키텍처 결정 남겨줘",
+  "이 결정 문서로 남겨", "ADR 승인", "ADR 대체", "supersede", "adr",
+  "architecture decision record", "/superdomain:adr"을 요청할 때, 되돌리는 비용이 큰 경계·관계·
+  기술 선택을 방금 확정했을 때, 두 컨텍스트의 직접 참조를 `### 관계` 표로 열려는데 근거 문서가
+  없을 때, 또는 다른 superdomain 스킬이 ADR을 안내했을 때 사용한다. 경계 재획정(컨텍스트
+  신설·병합·분리)과 `- 패키지:` 변경은 `/superdomain:init`이다. 이미 `accepted`된 ADR의 내용을
+  고쳐 쓰는 일에는 쓰지 않는다 — 정정은 새 ADR이다.
 ---
 
 # 도메인 결정 기록 (ADR)
