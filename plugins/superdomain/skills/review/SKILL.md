@@ -26,7 +26,7 @@ argument-hint: "[domain|code] [경로 | 커밋 범위 | 전체]"
 | 커밋 범위(`A..B`) | 변경 검토 | 그 범위의 커밋 변경(작업 트리 변경과 새 파일은 넣지 않는다) |
 | `전체` | 전체 점검 | 프로젝트 전체 |
 
-변경 목록은 이렇게 구한다. 경로가 있으면 명령 끝에 `-- <경로>`를 붙이고, 커밋 범위면 `<BASE>` 대신 `A..B`를 쓰고 새 파일 목록은 만들지 않는다.
+변경 목록은 이렇게 구한다. 경로가 있으면 `diff`·`ls-files` 명령 끝에 `-- <경로>`를 붙인다. 커밋 범위면 기준 브랜치와 BASE는 구하지 않고, `<BASE>` 대신 `A..B`를 쓰며, 새 파일 목록은 만들지 않는다.
 
 ```bash
 git symbolic-ref --quiet --short refs/remotes/origin/HEAD   # 기준 브랜치 (예: origin/main)
@@ -35,13 +35,13 @@ git diff --name-status <BASE>                                # 추적 중인 파
 git ls-files --others --exclude-standard                     # 아직 추적하지 않는 새 파일
 ```
 
-- `origin/HEAD`가 없으면 기준 브랜치를 추측하지 말고 사용자에게 묻는다.
+- 대상이 없거나 경로일 때 `origin/HEAD`가 없으면 기준 브랜치를 추측하지 말고 사용자에게 묻는다(커밋 범위·`전체`에는 기준 브랜치가 필요 없다).
 - `전체`가 아닌데 변경이 없으면 알리고 끝낸다.
 
 ## 2. 관점 결정
 
 - 관점이 `domain`이면 도메인만, `code`면 컨벤션만, 없으면 둘 다 본다.
-- `docs/DOMAIN.md`가 없으면 도메인 리뷰를 건너뛰고 `/superdomain:domain`을 안내한다.
+- `docs/DOMAIN.md`가 없으면 도메인 리뷰를 건너뛰고 `/superdomain:domain`을 안내한다. `docs/superdomain/DOMAIN.md`가 있으면(0.3.x 배치) `${CLAUDE_PLUGIN_ROOT}/CHANGELOG.md`의 「이행 절차 (0.3.x → 0.4.0)」 절을 안내한다.
 - 대상에 삭제되지 않은 `.kt`·`.java` 파일이 없으면 컨벤션 리뷰를 건너뛰고 그 사실을 알린다.
 - 두 관점이 모두 건너뛰어지면 이유를 알리고 끝낸다.
 
@@ -51,7 +51,7 @@ git ls-files --others --exclude-standard                     # 아직 추적하�
 
 `대상`에는 리뷰어가 직접 실행할 수 있는 명령만 넣는다. 리뷰어는 git을 `diff`·`log`·`show`로만 쓴다.
 
-- 변경을 보는 명령: 대상이 없거나 경로면 `git diff <BASE>`(경로가 있으면 `-- <경로>`), 커밋 범위면 `git diff A..B`.
+- 변경을 보는 명령: 대상이 없거나 경로면 `git -C <프로젝트 루트> diff <BASE>`(경로가 있으면 `-- <경로>`), 커밋 범위면 `git -C <프로젝트 루트> diff A..B`. 리뷰어는 세션의 현재 디렉터리에서 실행하므로 `-C`로 git 루트를 고정한다.
 - 파일 목록에는 상태를 붙인다. 추적하지 않는 새 파일은 `새 파일 — 파일 전체가 변경`으로, 삭제된 파일은 `삭제됨`으로 적는다.
 - convention-reviewer에게는 삭제된 파일을 빼고 `.kt`·`.java` 파일만 넘긴다.
 
@@ -72,7 +72,7 @@ DOMAIN.md: <절대 경로>
 프로젝트 루트: <절대 경로>
 DOMAIN.md: <절대 경로 | 없음>
 기준 문서: ${CLAUDE_PLUGIN_ROOT}/skills/conventions/conventions.md
-대상: <변경을 보는 git 명령과 .kt·.java 파일 목록, 또는 "프로젝트 전체">
+대상: <변경을 보는 git 명령과 상태를 붙인 .kt·.java 파일 목록, 또는 "프로젝트 전체">
 ```
 
 ## 4. 합치기
@@ -96,7 +96,7 @@ DOMAIN.md: <절대 경로 | 없음>
 ```
 
 - 코드 수정은 사용자가 요청할 때만 한다. 요청받으면 Critical부터 고친다.
-- 리뷰어의 지적이 틀렸다고 보이면 근거와 함께 그렇게 말한다. 그대로 따르지 않는다.
+- 지적된 위치의 코드를 확인해 리뷰어의 지적이 틀렸다고 보이면 근거와 함께 그렇게 말하고, 그대로 따르지 않는다. 이 스킬이 새 지적을 더하지는 않는다.
 - DOMAIN.md를 고쳐야 하면 `/superdomain:domain`을, 결정을 남겨야 하면 `/superdomain:adr`을 안내한다.
 
 ## 하지 않는 것

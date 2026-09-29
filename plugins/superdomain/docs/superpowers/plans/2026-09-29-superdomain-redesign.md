@@ -1217,3 +1217,13 @@ git log --oneline -1
 3. `conventions` 스킬이 Kotlin·Java 파일을 다룰 때만 걸리는지 본다.
 4. imstargg에서 `/superdomain:review`를 돌려 두 리뷰어가 병렬로 돌고 한 리포트로 합쳐지는지 본다.
 5. 연습 저장소에서 `/superdomain:domain`으로 DOMAIN.md를 만들고 정의 검토가 도는지 본다.
+
+## 구현 중 바뀐 것
+
+실행 중 리뷰에서 나온 판정으로 아래는 위 Task 블록과 다르게 구현됐다. 기준은 스펙이고, 이유는 각 커밋 메시지에 있다.
+
+- Task 2: domain SKILL.md 1단계는 모드와 상관없이 맥락을 먼저 읽는다(스펙 §5.1). — 5c6c869
+- Task 3: convention-reviewer는 「다른 도메인은 ID로 참조한다」를 검토한다. 제외 범위는 도메인 귀속·관계 표 정합·DOMAIN.md 수정 판단뿐이다. 검증 grep 패턴은 '프로젝트 규칙을 따'가 맞다. — 8ec66c8
+- Task 4: 경로 인자는 전체 점검이 아니라 기본 변경을 그 경로로 거르는 조건이다(스펙 §5.2). 리뷰어에게는 리뷰어가 실행할 수 있는 `git diff` 명령과 상태(새 파일·삭제됨)를 붙인 파일 목록을 넘긴다. — 4ef57e6
+- Task 6: README의 로컬 개발 안내는 "SKILL.md를 포함해 플러그인 파일을 고쳤다면 `/reload-plugins`로 반영한다"이고, 구조 검증에 marketplace.json이 들어간다. — 1a766da
+- 최종 리뷰: 0.3.x 배치를 만난 domain·review의 이행 안내, 리뷰어 git 명령의 `-C <프로젝트 루트>`, 부분 조정 ADR의 상태, ADR 링크 표기 `[<파일명>](<파일명>.md)` 등을 반영했다.
