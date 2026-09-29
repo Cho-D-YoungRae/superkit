@@ -5,7 +5,10 @@
 # ///
 """위키 결정적 lint — llm-wiki 플러그인. 읽기 전용(어떤 파일도 쓰지 않는다).
 
-usage: uv run wiki_check.py [--format md|json] [--stats | --pending]
+usage: uv run wiki_check.py [--root PATH] [--format md|json] [--stats | --pending]
+
+--root: 위키 루트(또는 그 안의 경로). 생략하면 현재 디렉토리에서 위로 찾는다. 스킬은 이 옵션에 절대 경로를
+  넘긴다 — `cd <위키> && …` 복합 명령은 사용자 권한 확인을 부르기 쉽다.
 
 검사: broken-link / link-style / orphan / index-missing / index-ghost /
 frontmatter / source-missing / collision / log-format / log-sha / raw-unreferenced
@@ -510,6 +513,7 @@ class _Parser(argparse.ArgumentParser):
 
 def main(argv: list[str] | None = None) -> int:
     parser = _Parser(description="llm-wiki 결정적 lint (읽기 전용)")
+    parser.add_argument("--root", help="위키 루트 또는 그 안의 경로(기본: 현재 디렉토리에서 위로 탐색)")
     parser.add_argument("--format", choices=("md", "json"), default="md")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--stats", action="store_true", help="검사 없이 통계만 출력")
@@ -518,7 +522,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    root = find_wiki_root(Path.cwd())
+    root = find_wiki_root(Path(args.root).resolve() if args.root else Path.cwd())
     if root is None:
         print(
             "llm-wiki 위키가 아닙니다(.llm-wiki/config.yaml을 찾지 못함). /llm-wiki:wiki-init 으로 생성하세요.",

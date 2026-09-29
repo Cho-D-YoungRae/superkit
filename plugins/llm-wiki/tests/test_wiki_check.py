@@ -499,3 +499,19 @@ def test_pending_and_stats_are_mutually_exclusive(wiki_check, capsys):
         wiki_check.main(["--stats", "--pending"])
     assert exc.value.code == 1
     assert "not allowed with" in capsys.readouterr().err  # 인식 못 한 인자 오류가 아니라 상호배타 오류
+
+
+def test_root_option_works_from_any_cwd(wiki_check, wiki, tmp_path):
+    # 스킬이 `cd <위키> && …` 복합 명령 없이 절대 경로로 부를 수 있게(복합 명령은 권한 확인을 부른다)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    code, out = run(wiki_check, elsewhere, ["--root", str(wiki), "--format", "json"])
+    assert code == 0 and json.loads(out)["findings"] == []
+    code, out = run(wiki_check, elsewhere, ["--root", str(wiki / "wiki" / "concepts"), "--stats", "--format", "json"])
+    assert code == 0 and json.loads(out)["total_pages"] == 3  # 위키 안 하위 경로를 줘도 루트를 찾는다
+
+
+def test_root_option_rejects_non_wiki(wiki_check, tmp_path, capsys):
+    code, _ = run(wiki_check, tmp_path, ["--root", str(tmp_path)])
+    assert code == 1
+    assert "위키가 아닙니다" in capsys.readouterr().err
