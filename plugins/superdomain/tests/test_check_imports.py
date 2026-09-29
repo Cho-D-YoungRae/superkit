@@ -785,6 +785,17 @@ class TestCli(CheckTestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("읽을 수 없습니다", result.stderr)
 
+    def test_exit_two_when_declaration_is_not_utf8(self):
+        # 해석 불가는 --json이어도 stdout을 비우고 stderr로만 말한다(test_exit_two_when_unresolvable).
+        # 트레이스백의 exit 1은 '위반'으로 읽히므로 CI가 원인을 잘못 짚는다.
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
+        self.domain_path.write_bytes(b"# \xc7\xd1\n")
+        result = self.run_cli(str(self.domain_path), "--json")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(result.stderr.startswith(f"{self.domain_path}:"), result.stderr)
+        self.assertIn("UTF-8로 읽을 수 없습니다", result.stderr)
+
     def test_usage_error(self):
         result = self.run_cli()
         self.assertEqual(result.returncode, 2)

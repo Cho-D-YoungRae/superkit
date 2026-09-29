@@ -17,6 +17,10 @@ from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).resolve().parent.parent / "scripts" / "session_summary.sh"
 
+sys.path.insert(0, str(SCRIPT_PATH.parent))
+import layout
+import parse_domain
+
 
 class TestSessionSummary(unittest.TestCase):
     """Test session_summary.sh upward traversal and git boundary detection."""
@@ -228,6 +232,18 @@ class TestSessionSummary(unittest.TestCase):
         stdout, returncode = self._run_script(repo)
         self.assertEqual((stdout, returncode), ("", 0))
 
+    def test_new_declaration_is_not_mistaken_for_a_legacy_root(self):
+        # 상향 탐색이 docs/superdomain/을 지날 때 그 안의 DOMAIN.md는 새 선언이다 — 마커가
+        # 같다고 옛 루트 선언으로 읽으면, 요약이 아직 없는 새 배치에서 거짓 이행 안내가 나온다.
+        repo = self._repo()
+        domain = repo / "docs" / "superdomain" / "DOMAIN.md"
+        domain.parent.mkdir(parents=True)
+        domain.write_text("# x\n<!-- superdomain:template v1 -->\n")
+        contexts = domain.parent / "contexts"
+        contexts.mkdir()
+        stdout, returncode = self._run_script(contexts)
+        self.assertEqual((stdout, returncode), ("", 0))
+
     def test_unreadable_summary_is_silent(self):
         if hasattr(os, "geteuid") and os.geteuid() == 0:
             self.skipTest("root는 권한과 무관하게 읽는다")
@@ -239,6 +255,19 @@ class TestSessionSummary(unittest.TestCase):
         self.addCleanup(summary.chmod, 0o644)
         stdout, returncode = self._run_script(repo)
         self.assertEqual((stdout, returncode), ("", 0))
+
+    def test_shell_copies_match_the_layout_module(self):
+        # 셸은 layout.py를 import할 수 없어 경로·마커를 글자로 베껴 둔다. 한쪽만 바뀌면 훅이
+        # 조용히 다른 자리를 보거나 옛 배치를 못 알아보므로, 베낀 글자가 정본과 같은지 잠근다.
+        # 주석이 대신 통과시키지 않도록 코드에 쓰인 모양(따옴표로 감싼 피연산자) 그대로 찾는다.
+        script = SCRIPT_PATH.read_text(encoding="utf-8")
+        for copied in (f'"$dir/{layout.SUMMARY_RELATIVE}"',
+                       f'"$dir/{layout.LEGACY_SUMMARY}"',
+                       f'"$dir/{layout.LEGACY_DOMAIN}"',
+                       f"*/{layout.DOMAIN_DIR})",
+                       f"'{parse_domain.MARKER_TEMPLATE}'",
+                       f"'{layout._GENERATED_MARKER}'"):
+            self.assertTrue(copied in script, f"훅에 {copied}가 없습니다 — layout.py와 갈라졌습니다")
 
     def test_hook_command_path_is_quoted(self):
         hooks = json.loads((SCRIPT_PATH.parent.parent / "hooks" / "hooks.json").read_text())

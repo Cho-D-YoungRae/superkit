@@ -214,6 +214,22 @@ class TestFreeTextIsolation(DomainTextCase):
         d = self._parse_text(text)
         self.assertHasError(d, "닫히지 않은 코드 펜스")
 
+    def test_backtick_in_info_string_does_not_open_a_fence(self):
+        # CommonMark: 백틱 펜스의 정보 문자열에는 백틱이 올 수 없다 — "```inline``` 표기"는
+        # 인라인 코드로 시작하는 문장이다. 펜스로 열면 뒤의 컨텍스트 절이 오류 없이 사라진다.
+        text = (MINIMAL + "\n### 근거\n```inline``` 표기를 문장 머리에 썼다.\n\n"
+                "## 컨텍스트: billing\n- 분류: supporting\n\n"
+                "## 컨텍스트 맵\n```mermaid\ngraph LR\n```\n")
+        d = self._parse_text(text)
+        self.assertEqual(self._messages(d), [])
+        self.assertEqual([c.name for c in d.contexts], ["claim", "billing"])
+
+    def test_backtick_in_tilde_info_string_still_opens_a_fence(self):
+        # 물결 펜스의 정보 문자열에는 백틱이 와도 된다 — 이쪽은 여전히 펜스다.
+        d = self._parse_text(MINIMAL + "~~~ `예시`\n- 패키지: x.y\n~~~\n")
+        self.assertEqual(d.errors, [])
+        self.assertEqual(d.contexts[0].packages, [])
+
 
 class TestParenComments(DomainTextCase):
     """라벨 값 뒤의 괄호 주석은 값에서 제거된다(기존 파서에서 이관한 동작)."""
@@ -476,6 +492,15 @@ class TestRetiredLabels(DomainTextCase):
 
 
 class TestEncoding(DomainTextCase):
+    def test_non_utf8_file_is_error_not_exception(self):
+        # cp949로 저장된 선언 — 트레이스백으로 죽으면 exit 1(위반)과 구별되지 않는다.
+        path = self._write("")
+        path.write_bytes(MINIMAL.encode("utf-8") + "한".encode("cp949"))
+        d = parse_domain(path)
+        self.assertHasError(d, "UTF-8로 읽을 수 없습니다")
+        self.assertFalse(any("/superdomain:init" in m for m in self._messages(d)),
+                         self._messages(d))
+
     def test_bom_before_marker_on_first_line_is_accepted(self):
         # 제목 줄을 빼 마커가 첫 줄이 되게 한다. BOM이 `^\s*<!--`를 깨뜨리면 '형식이 올바르지
         # 않은 마커'로 거부된다 — 윈도우 에디터로 저장한 문서가 이유 없이 막힌다.
@@ -830,6 +855,17 @@ class TestCli(DomainTextCase):
         result = self.run_cli(str(path))
         self.assertEqual(result.returncode, 1)
         self.assertIn("읽을 수 없습니다", result.stderr)
+
+    def test_exit_one_on_non_utf8_file(self):
+        path = self._write("", name=self.LAYOUT)
+        path.write_bytes(b"# \xc7\xd1\n")
+        result = self.run_cli(str(path))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        # 줄 번호는 읽지 못한 첫 바이트가 있는 줄이다 — 어디를 다시 저장할지 짚는다.
+        self.assertTrue(result.stderr.startswith(f"{path}:1: "), result.stderr)
+        self.assertIn("UTF-8로 읽을 수 없습니다", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_exit_two_outside_the_layout(self):
         result = self.run_cli(str(FIXTURES / "full.md"))

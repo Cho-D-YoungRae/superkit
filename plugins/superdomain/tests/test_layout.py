@@ -61,12 +61,47 @@ class TestNewLayout(LayoutTestCase):
         from_domain_path(self.root / DOMAIN_RELATIVE)
 
     def test_team_owned_domain_folder_without_heading_is_not_a_leftover(self):
-        # 마커 있는 옛 root DOMAIN.md가 없고 docs/domain/ 문서에도 소유 신호(## 불변식)가
-        # 없으면 팀이 따로 쓰는 폴더로 본다 — superdomain 소유가 확실한 것만 잔여물이다.
+        # 마커 있는 옛 root DOMAIN.md가 없고 docs/domain/ 문서에도 소유 신호(## 불변식 제목과
+        # INV ID)가 없으면 팀이 따로 쓰는 폴더로 본다 — superdomain 소유가 확실한 것만 잔여물이다.
         self.write(DOMAIN_RELATIVE, MARKED)
         self.write("docs/domain/team-notes.md", "# 팀 노트\n")
         self.assertEqual(legacy_leftovers(self.root), [])
         from_domain_path(self.root / DOMAIN_RELATIVE)
+
+    def test_team_doc_with_invariants_heading_but_no_ids_is_not_a_leftover(self):
+        # `## 불변식`만으로는 팀 문서와 가를 수 없다 — 한국어 DDD 문서에 흔한 제목이다. 그것만
+        # 보고 막으면 팀이 자기 문서를 치우기 전까지 모든 스크립트·스킬 게이트가 멈춘다.
+        # INV 행이 없으면 옮겨서 지킬 불변식도 없다.
+        self.write(DOMAIN_RELATIVE, MARKED)
+        self.write("docs/domain/order.md", "# 주문\n\n## 불변식\n\n- 주문 금액은 0보다 크다\n")
+        self.write("docs/domain.md", "# 도메인\n\n## 불변식\n\n팀 규칙은 위키에 있다.\n")
+        self.assertEqual(legacy_leftovers(self.root), [])
+        from_domain_path(self.root / DOMAIN_RELATIVE)
+
+    def test_invariants_heading_with_an_id_is_a_leftover(self):
+        # 제목과 INV 행이 함께 있으면 superdomain 컨텍스트 문서다 — 하이픈·밑줄이 든 컨텍스트
+        # 이름도 같다(좁은 ID 정규식이 놓치면 그 문서의 불변식이 검사에서 조용히 빠진다).
+        self.write(DOMAIN_RELATIVE, MARKED)
+        self.write("docs/domain/core-api.md",
+                   "# core-api\n\n## 불변식\n\n| ID | 서술 | 상태 |\n|---|---|---|\n"
+                   "| INV-CORE-API-001 | 키는 유일하다 | confirmed |\n")
+        self.write("docs/domain/order_mgmt.md",
+                   "# order_mgmt\n\n## 불변식\n\n| ID | 서술 | 상태 |\n|---|---|---|\n"
+                   "| INV-ORDER_MGMT-001 | 주문은 비어 있지 않다 | proposed |\n")
+        self.write("docs/domain.md",
+                   "# claim\n\n## 불변식\n\n| ID | 서술 | 상태 |\n|---|---|---|\n"
+                   "| INV-CLAIM-001 | 금액은 0보다 크다 | proposed |\n")
+        self.assertEqual(legacy_leftovers(self.root), [
+            ("docs/domain.md", "docs/superdomain/contexts/<컨텍스트 이름>.md"),
+            ("docs/domain/core-api.md", "docs/superdomain/contexts/core-api.md"),
+            ("docs/domain/order_mgmt.md", "docs/superdomain/contexts/order_mgmt.md"),
+        ])
+
+    def test_id_without_invariants_heading_is_not_a_leftover(self):
+        # ID만 언급한 팀 문서(회의록 등)도 소유 신호가 아니다 — 두 신호가 함께 있어야 한다.
+        self.write(DOMAIN_RELATIVE, MARKED)
+        self.write("docs/domain/notes.md", "# 회의록\n\nINV-CLAIM-001을 다시 논의했다.\n")
+        self.assertEqual(legacy_leftovers(self.root), [])
 
     def test_domain_summary_without_generated_header_is_not_a_leftover(self):
         # docs/domain-summary.md도 마찬가지 — 생성 헤더가 없으면 팀 문서로 본다.
@@ -130,7 +165,9 @@ class TestLegacyLayout(LayoutTestCase):
     def test_leftover_after_partial_migration_is_refused(self):
         # 옛 자리에 남은 컨텍스트 문서를 조용히 무시하면 check_invariants가 confirmed 불변식을 놓친다.
         self.write(DOMAIN_RELATIVE, MARKED)
-        self.write("docs/domain/claim.md", "# claim\n\n## 불변식\n")
+        self.write("docs/domain/claim.md",
+                   "# claim\n\n## 불변식\n\n| ID | 서술 | 상태 |\n|---|---|---|\n"
+                   "| INV-CLAIM-001 | 금액은 0보다 크다 | confirmed |\n")
         self.write("docs/domain/baseline.jsonl", "{}\n")
         message = self.raises(self.root / DOMAIN_RELATIVE)
         self.assertIn("이행이 끝나지 않았습니다", message)

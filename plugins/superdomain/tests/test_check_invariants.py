@@ -642,11 +642,22 @@ class TestTagScan(InvariantTestCase):
         self.assertEqual(report.test_sources, 1)
 
     def test_bom_documents_and_sources_are_read(self):
+        # `## 불변식`을 첫 줄에 둔다 — BOM이 남으면 그 줄이 `^##`에 걸리지 않아 표를 못 찾고,
+        # 불변식 0건 고지와 고아 태그 경고만 남은 채 위반 없이 통과한다. 그래서 대조 건수를 본다.
         self.domain()
-        self.doc("claim", "﻿" + domain_doc(row("INV-CLAIM-001", "confirmed")))
+        body = domain_doc(row("INV-CLAIM-001", "confirmed")).split("\n", 2)[2]
+        self.assertTrue(body.startswith("## 불변식\n"), body)
+        self.doc("claim", "﻿" + body)
         path = self.tagged("INV-CLAIM-001")
+        # 소스 쪽 BOM은 관측 결과를 바꾸지 않는다(RE_TAG는 줄 머리에 묶이지 않는다) — 읽기
+        # 실패로 번지지 않는지만 본다.
         path.write_text("﻿" + path.read_text(encoding="utf-8"), encoding="utf-8")
-        self.assert_clean(self.check())
+        report = self.check()
+        self.assert_clean(report)
+        self.assertEqual([item.id for item in report.invariants], ["INV-CLAIM-001"])
+        self.assertEqual(report.checked, 1)
+        self.assertEqual(report.warnings, [], self.warnings(report))
+        self.assertEqual(report.unreadable, [])
 
     def test_limitation_note_admits_tags_in_comments(self):
         # 주석 처리된 테스트의 태그도 존재로 센다 — 그 사실을 한계 고지가 말해야 한다.
@@ -818,6 +829,18 @@ class TestCli(InvariantTestCase):
         self.domain(BROKEN_DOMAIN)
         result = self.run_cli(str(self.domain_path))
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+
+    def test_exit_two_when_declaration_is_not_utf8(self):
+        # 해석 불가는 exit 2다 — 트레이스백의 exit 1이면 '위반·검사 불능'으로 읽힌다.
+        # --json이어도 해석 불가는 stdout을 비우고 stderr로만 말한다(check_imports와 같다).
+        self.domain_path.parent.mkdir(parents=True, exist_ok=True)
+        self.domain_path.write_bytes(b"# \xc7\xd1\n")
+        self.empty_tests()
+        result = self.run_cli(str(self.domain_path), "--json")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(result.stderr.startswith(f"{self.domain_path}:"), result.stderr)
+        self.assertIn("UTF-8로 읽을 수 없습니다", result.stderr)
 
     def test_exit_two_on_usage_error(self):
         self.assertEqual(self.run_cli().returncode, 2)

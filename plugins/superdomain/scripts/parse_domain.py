@@ -139,6 +139,8 @@ RE_TEMPLATE_MARKER = re.compile(
 # 코드 펜스(``` 또는 ~~~, 3개 이상, 들여쓰기 3칸까지). 여는 줄 뒤에는 정보 문자열(```mermaid)이
 # 올 수 있고, 닫는 줄은 같은 문자로 여는 줄 이상의 길이여야 하며 뒤에 아무것도 없어야 한다.
 # 펜스 안은 헤딩·라벨·표가 아니다 — 예시로 적은 선언이 진짜 선언을 덮어쓰지 않게 한다.
+# 백틱 펜스의 정보 문자열에는 백틱이 올 수 없다(CommonMark) — "```inline``` 표기"는 인라인 코드로
+# 시작하는 문장이지 펜스가 아니다. 물결 펜스에는 이 제한이 없다.
 RE_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})(.*)$")
 
 # 패키지 세그먼트 하나의 문법(구 `resolve_rules.RE_PACKAGE_SEGMENT`에서 이관).
@@ -414,7 +416,7 @@ def _parse_document(text: str) -> Domain:
                 fence = None
             i += 1
             continue
-        if m_fence:
+        if m_fence and not (m_fence.group(1)[0] == "`" and "`" in m_fence.group(2)):
             fence = (m_fence.group(1)[0], len(m_fence.group(1)), lineno)
             i += 1
             continue
@@ -726,6 +728,14 @@ def parse_domain(path) -> Domain:
             0,
             f"'{path.name}' 파일을 읽을 수 없습니다. 경로를 확인하거나 "
             f"/superdomain:init으로 초기화하세요.",
+        )])
+    except UnicodeDecodeError as error:
+        # 파일은 있다 — 초기화 안내는 틀린 처방이다. 트레이스백으로 죽으면 exit 1이 되어
+        # check_imports·check_invariants에서 '위반'과 구별되지 않으므로 해석 오류로 돌려준다.
+        return Domain(errors=[ParseError(
+            error.object[:error.start].count(b"\n") + 1,
+            f"'{path.name}' 파일을 UTF-8로 읽을 수 없습니다 — 다른 인코딩(cp949 등)으로 "
+            f"저장된 것 같습니다. UTF-8로 다시 저장하세요.",
         )])
 
     domain = _parse_document(text)
