@@ -151,7 +151,8 @@ init을 뺀 모든 스킬의 0단계다. init에는 3의 중단만 적용되고,
 | `docs/superdomain/state/baseline.jsonl`의 부채를 줄인다 | `migrate` |
 
 **선언 변경의 경로를 한 문장으로:** 선언을 바꾸는 결정은 `adr`이 편집 자리를 짚고, 경계
-재획정과 `- 패키지:` 변경만 `init`이 받는다. `sync`는 드리프트 처분으로 확정받은 편집을,
+재획정과 `- 패키지:` 변경만 `init`이 받는다. `sync`는 드리프트 처분으로 확정받은 편집(코드가 이미
+옮겨 간 `- 패키지:`를 선언이 따라가는 것 포함 — 패키지를 새로 설계하는 변경은 `init`)을,
 `evolve`는 수락된 제안을 반영한다. 나머지 스킬(model·apply·review·migrate)은 `DOMAIN.md`를 읽기만 한다.
 
 ## 10. description 작성 규칙

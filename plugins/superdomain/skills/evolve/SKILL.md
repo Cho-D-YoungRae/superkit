@@ -325,7 +325,8 @@ git worktree remove <임시 경로>
 - **편집 전에 원문과 변경안을 나란히 보여주고 확정을 받는다.** 표의 한 줄이어도 그렇다. 파일·줄
   번호·바뀔 값을 그대로 제시한다.
 - **바꾸는 것은 수락된 제안이 지목한 값뿐이다.** 게이트를 통과시킬 목적으로 다른 결정 값을
-  건드리지 않는다. 경계는 `${CLAUDE_PLUGIN_ROOT}/references/governance/derived-artifacts.md` §4다.
+  건드리지 않는다. 고쳐도 되는 것과 안 되는 것의 경계는
+  `${CLAUDE_PLUGIN_ROOT}/references/governance/derived-artifacts.md` §4다.
 - **경계를 다시 긋는 제안은 여기서 편집하지 않는다.** 결합 급증에서 나온 병합·분리, 분류 판정이
   컨텍스트 분할로 이어지는 경우가 그렇다 — 경계·분류·패키지·관계를 새로 정해야 하므로 무엇을
   넘기는지 명시하고 `init`으로 보낸다(신설도 같은 경로다). **넘긴 항목은 9-b에서 재생성하지
@@ -336,6 +337,10 @@ git worktree remove <임시 경로>
 
 `DOMAIN.md`를 한 글자라도 고쳤으면 `derived-artifacts.md` §5를 그대로 따른다. **init으로 넘긴
 항목은 재생성하지 않는다**(9-a) — 두 스킬이 같은 구역을 두 번 쓰면 안 된다.
+
+편집 전 수치는 5단계의 현재 트리 실행이다 — 돌리지 않았으면 9-a 편집 전에
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_imports.py" docs/superdomain/DOMAIN.md --json`을 한 번
+돌려 둔다.
 
 ## 10. 마무리 보고
 
