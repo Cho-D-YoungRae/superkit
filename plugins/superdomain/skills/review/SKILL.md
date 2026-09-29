@@ -12,37 +12,48 @@ argument-hint: "[domain|code] [경로 | 커밋 범위 | 전체]"
 
 ## 1. 대상 결정
 
-작업 기준은 git 루트다(`git rev-parse --show-toplevel`). 인자(`$ARGUMENTS`)를 해석한다.
+작업 기준은 git 루트다(`git rev-parse --show-toplevel`). 아래 git 명령은 모두 git 루트에서 실행하고, 경로는 git 루트 기준으로 쓴다.
 
-| 인자 | 모드 | 대상 |
+인자(`$ARGUMENTS`)는 앞에서부터 읽는다.
+
+- 첫 토큰이 정확히 `domain`이나 `code`면 관점이다(2절). 그다음 토큰이 대상이다.
+- 대상이 `전체`면 전체 점검이고, `..`가 들어 있으면 커밋 범위, 그 밖은 경로다. 없는 경로면 사용자에게 묻는다.
+
+| 대상 | 모드 | 보는 것 |
 |---|---|---|
-| 없음 | 변경 검토 | 기준 브랜치와의 merge-base 이후의 모든 변경(커밋된 것 + 커밋하지 않은 것) |
-| 커밋 범위(`A..B`) | 변경 검토 | 그 범위의 변경 |
-| 경로 | 전체 점검 | 그 경로 아래 파일 |
+| 없음 | 변경 검토 | 기준 브랜치와의 merge-base 이후의 모든 변경(커밋된 것 + 커밋하지 않은 것 + 새 파일) |
+| 경로 | 변경 검토 | 위 변경 중 그 경로 아래의 것 |
+| 커밋 범위(`A..B`) | 변경 검토 | 그 범위의 커밋 변경(작업 트리 변경과 새 파일은 넣지 않는다) |
 | `전체` | 전체 점검 | 프로젝트 전체 |
 
-기준 브랜치와 변경 목록은 이렇게 구한다.
+변경 목록은 이렇게 구한다. 경로가 있으면 명령 끝에 `-- <경로>`를 붙이고, 커밋 범위면 `<BASE>` 대신 `A..B`를 쓰고 새 파일 목록은 만들지 않는다.
 
 ```bash
 git symbolic-ref --quiet --short refs/remotes/origin/HEAD   # 기준 브랜치 (예: origin/main)
 git merge-base HEAD <기준 브랜치>                            # BASE
-git diff --name-only <BASE>                                  # 추적 중인 파일의 변경 (커밋 + 작업 트리)
+git diff --name-status <BASE>                                # 추적 중인 파일의 변경과 상태 (A·M·D·R)
 git ls-files --others --exclude-standard                     # 아직 추적하지 않는 새 파일
 ```
 
 - `origin/HEAD`가 없으면 기준 브랜치를 추측하지 말고 사용자에게 묻는다.
-- 변경 검토인데 변경이 없으면 알리고 끝낸다.
+- `전체`가 아닌데 변경이 없으면 알리고 끝낸다.
 
 ## 2. 관점 결정
 
-- 인자에 `domain`이 있으면 도메인만, `code`가 있으면 컨벤션만, 없으면 둘 다 본다.
+- 관점이 `domain`이면 도메인만, `code`면 컨벤션만, 없으면 둘 다 본다.
 - `docs/DOMAIN.md`가 없으면 도메인 리뷰를 건너뛰고 `/superdomain:domain`을 안내한다.
-- 대상에 `.kt`·`.java` 파일이 없으면 컨벤션 리뷰를 건너뛰고 그 사실을 알린다.
+- 대상에 삭제되지 않은 `.kt`·`.java` 파일이 없으면 컨벤션 리뷰를 건너뛰고 그 사실을 알린다.
 - 두 관점이 모두 건너뛰어지면 이유를 알리고 끝낸다.
 
 ## 3. 리뷰어 호출
 
 두 리뷰어를 **한 메시지에서 동시에** Agent 도구로 호출한다. `model`은 지정하지 않는다(에이전트 파일에 정해져 있다). 세션 대화는 넘기지 않고 아래만 넘긴다.
+
+`대상`에는 리뷰어가 직접 실행할 수 있는 명령만 넣는다. 리뷰어는 git을 `diff`·`log`·`show`로만 쓴다.
+
+- 변경을 보는 명령: 대상이 없거나 경로면 `git diff <BASE>`(경로가 있으면 `-- <경로>`), 커밋 범위면 `git diff A..B`.
+- 파일 목록에는 상태를 붙인다. 추적하지 않는 새 파일은 `새 파일 — 파일 전체가 변경`으로, 삭제된 파일은 `삭제됨`으로 적는다.
+- convention-reviewer에게는 삭제된 파일을 빼고 `.kt`·`.java` 파일만 넘긴다.
 
 `superdomain:domain-reviewer`:
 
@@ -51,7 +62,7 @@ git ls-files --others --exclude-standard                     # 아직 추적하�
 프로젝트 루트: <절대 경로>
 DOMAIN.md: <절대 경로>
 기준 문서: ${CLAUDE_PLUGIN_ROOT}/skills/domain/domain-guide.md
-대상: <변경을 보는 git 명령과 파일 목록, 또는 점검할 경로>
+대상: <변경을 보는 git 명령과 상태를 붙인 파일 목록, 또는 "프로젝트 전체">
 ```
 
 `superdomain:convention-reviewer`:
@@ -61,7 +72,7 @@ DOMAIN.md: <절대 경로>
 프로젝트 루트: <절대 경로>
 DOMAIN.md: <절대 경로 | 없음>
 기준 문서: ${CLAUDE_PLUGIN_ROOT}/skills/conventions/conventions.md
-대상: <변경을 보는 git 명령과 .kt·.java 파일 목록, 또는 점검할 경로>
+대상: <변경을 보는 git 명령과 .kt·.java 파일 목록, 또는 "프로젝트 전체">
 ```
 
 ## 4. 합치기
