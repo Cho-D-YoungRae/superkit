@@ -1,6 +1,6 @@
 ---
 name: domain-reviewer
-description: 도메인 정의(docs/DOMAIN.md)나 코드 변경을 도메인 경계 관점에서 검토하는 읽기 전용 리뷰어. superdomain의 review·domain 스킬이 호출한다.
+description: 도메인 정의(docs/superdomain/DOMAIN.md)나 코드 변경을 도메인 경계 관점에서 검토하는 읽기 전용 리뷰어. superdomain의 review·domain 스킬이 호출한다.
 model: opus
 tools: Read, Grep, Glob, Bash
 disallowedTools: Agent

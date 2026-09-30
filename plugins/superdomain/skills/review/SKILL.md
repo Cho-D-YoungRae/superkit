@@ -1,6 +1,6 @@
 ---
 name: review
-description: 커밋·PR 전에 변경이 도메인 정의(docs/DOMAIN.md)와 코딩 컨벤션을 따르는지 검토할 때, 도메인이 너무 커지거나 경계가 흐려지지 않았는지 점검할 때 사용한다. "도메인 리뷰", "컨벤션 리뷰", "superdomain 리뷰" 같은 요청이 해당한다. 버그·보안 중심의 일반 코드 리뷰에는 쓰지 않는다.
+description: 커밋·PR 전에 변경이 도메인 정의(docs/superdomain/DOMAIN.md)와 코딩 컨벤션을 따르는지 검토할 때, 도메인이 너무 커지거나 경계가 흐려지지 않았는지 점검할 때 사용한다. "도메인 리뷰", "컨벤션 리뷰", "superdomain 리뷰" 같은 요청이 해당한다. 버그·보안 중심의 일반 코드 리뷰에는 쓰지 않는다.
 argument-hint: "[domain|code] [경로 | 커밋 범위 | 전체]"
 ---
 
@@ -41,7 +41,7 @@ git ls-files --others --exclude-standard                     # 아직 추적하�
 ## 2. 관점 결정
 
 - 관점이 `domain`이면 도메인만, `code`면 컨벤션만, 없으면 둘 다 본다.
-- `docs/DOMAIN.md`가 없으면 도메인 리뷰를 건너뛰고 `/superdomain:domain`을 안내한다. `docs/superdomain/DOMAIN.md`가 있으면(0.3.x 배치) `${CLAUDE_PLUGIN_ROOT}/CHANGELOG.md`의 「이행 절차 (0.3.x → 0.4.0)」 절을 안내한다.
+- `docs/superdomain/DOMAIN.md`가 없으면 도메인 리뷰를 건너뛰고 `/superdomain:domain`을 안내한다. 파일이 `## 컨텍스트:` 절이 있는 0.3.x 형식이면 도메인 리뷰를 건너뛰고 `/superdomain:domain`으로 새 형식으로 다시 쓰자고 안내한다(컨벤션 리뷰는 그대로 한다).
 - 대상에 삭제되지 않은 `.kt`·`.java` 파일이 없으면 컨벤션 리뷰를 건너뛰고 그 사실을 알린다.
 - 두 관점이 모두 건너뛰어지면 이유를 알리고 끝낸다.
 
