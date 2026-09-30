@@ -92,8 +92,8 @@ renewal.canRenew(clock.instant())             // application
 
 ## 정적 호출은 컴포넌트로 감싼다 `필수`
 `UUID.randomUUID()`나 `Random`처럼 결과가 매번 달라지는 정적 호출은 컴포넌트로 감싸 주입받는다. 반환값은 문자열보다 타입(`UUID`)으로 둔다.
-- 이유: 테스트에서 값을 고정할 수 있다.
-- 테스트: 모킹하지 않고, 감싼 컴포넌트를 상속해 고정 값을 돌려주는 가짜로 바꿔 끼운다(Kotlin은 `kotlin("plugin.spring")`이 `@Component` 클래스를 열어 두므로 상속할 수 있다).
+- 이유: 정적 메서드는 테스트에서 모킹하기 어렵다. 일반 모킹이나 상속으로는 대체할 수 없어 정적 모킹 같은 별도 도구가 필요하고, 그마저 막히는 경우가 있다. 컴포넌트로 감싸면 테스트에서 값을 고정할 수 있다.
+- 테스트: 감싼 컴포넌트를 모킹하거나, 상속해 고정 값을 돌려주는 가짜로 바꿔 끼운다(Kotlin은 `kotlin("plugin.spring")`이 `@Component` 클래스를 열어 두므로 상속할 수 있다).
 
 ```kotlin
 @Component
@@ -113,12 +113,14 @@ class UuidHolder {
 |---|---|
 | 엔티티 | `XxxEntity` |
 | Spring Data 리포지토리 | `XxxJpaRepository` (커스텀: `XxxJpaRepositoryCustom`, 구현: `XxxJpaRepositoryCustomImpl`) |
-| `@Embeddable` 값 | `XxxEmbedded` |
+| `@Embeddable` 값 | `XxxEmbeddable` |
 | 조회 전용 결과 | `XxxProjection` |
 
-## 외부 자원은 인터페이스 뒤에 둔다 `필수`
-외부 API, 메시지 큐, 파일 저장소, 알림 같은 외부 자원은 application 계층에 인터페이스를 두고, 구현은 infrastructure에 둔다.
+## 외부 자원은 인터페이스 뒤에 둔다 `지향`
+외부 API, 메시지 큐, 파일 저장소, 알림 같은 외부 자원은 application 계층에 인터페이스를 두고, 구현은 infrastructure에 두는 것을 지향한다. 단순하게 가려면 인터페이스 없이 구체 클래스로 감싸도 된다(예: `XxxJpaRepository`를 쓰는 application의 `XxxRepository`).
 - 이유: application 코드가 특정 기술에 묶이지 않고, 테스트에서는 이 인터페이스만 대역으로 바꾸면 된다.
+- 구현이 둘 이상이거나 바뀔 가능성이 크면(메시지 큐, 알림 채널 등) 인터페이스를 둔다.
+- 인터페이스가 없어도 테스트에서는 감싼 클래스를 모킹하거나 실제 자원으로 검증할 수 있다.
 
 ```kotlin
 interface OrderEventPublisher { fun publish(event: OrderPaid) }     // application
@@ -126,7 +128,7 @@ class SqsOrderEventPublisher(...) : OrderEventPublisher { ... }     // infrastru
 ```
 
 ## 모킹은 외부 자원에만 쓴다 `필수`
-외부 자원(HTTP 클라이언트, DB, 메시지 큐 등)만 모킹한다. 도메인 객체와 내부 컴포넌트는 실제 객체를 쓰고, 값을 고정해야 하는 컴포넌트는 `Clock.fixed`나 상속한 가짜로 바꿔 끼운다.
+외부 자원(HTTP 클라이언트, DB, 메시지 큐 등)만 모킹한다. 도메인 객체와 내부 컴포넌트는 실제 객체를 쓰고, 시간은 `Clock.fixed`로 고정한다.
 - 이유: 모킹이 많을수록 테스트가 구현에 묶여 리팩터링 때 깨지고, 실제 동작은 검증하지 못한다.
 - DB는 모킹할 수 있지만, application 리포지토리는 실제 DB로 검증하는 것을 지향한다. 모킹(stub-and-verify)은 호출만 검증하므로 실제 동작과 어긋날 수 있다.
-- 예외: 컨트롤러 슬라이스 테스트는 application 계층을 모킹해도 된다.
+- 예외: 정적 호출을 감싼 컴포넌트는 모킹하거나 상속한 가짜로 바꿔 끼워도 된다(「정적 호출은 컴포넌트로 감싼다」). 컨트롤러 슬라이스 테스트는 application 계층을 모킹해도 된다.
