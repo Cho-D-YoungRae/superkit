@@ -52,7 +52,7 @@ claude plugin install superdomain@superdomain
 
 | 경로 | 무엇 |
 |---|---|
-| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치·외부 접점과 도메인 간 관계 |
+| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치(선택: 개념·외부 접점·규칙·미정)와 도메인 간 관계 |
 | `docs/superdomain/adr/yyyy-MM-dd-slug.md` | 결정 기록 |
 
 `domain`·`adr` 스킬은 동의를 받아 대상 CLAUDE.md에 두 경로를 가리키는 포인터 줄을 추가할 수 있다. ADR 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아보고 제안한다.
