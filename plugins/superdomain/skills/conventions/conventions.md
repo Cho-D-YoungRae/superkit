@@ -70,6 +70,7 @@ val stats = WinRateStatistics.create(rows)      // 계산
 presentation(컨트롤러, 요청·응답 DTO) → application(서비스, application 리포지토리) → domain 방향으로만 참조한다. 아래 계층은 위 계층을 모른다. application은 요청 DTO나 HTTP 타입처럼 presentation의 타입을 받거나 돌려주지 않고, domain은 application을 모른다.
 - 예: 컨트롤러가 요청 DTO를 도메인 입력 타입(`NewOrder`)으로 바꿔 서비스에 넘기고, 서비스가 돌려준 결과로 응답 DTO를 만든다. 입력 경로가 여럿이면(바로 주문, 장바구니 주문) 같은 입력 타입으로 맞춰 뒷단을 하나로 둔다.
 - 요청 값으로 값 타입을 만들다 실패하면(`IllegalArgumentException`) 그 변환 단계에서 400으로 바꾼다. 도메인 로직 안에서 난 표준 예외는 선검증을 빠뜨린 프로그래밍 오류이므로 그대로 둔다.
+- infrastructure(JPA 엔티티, 외부 자원의 구현)는 이 방향 밖에 둔다. application은 인터페이스나 감싼 클래스로 infrastructure를 쓰고(→ 「외부 자원은 인터페이스 뒤에 둔다」), infrastructure는 application의 인터페이스를 구현하려고 application·domain을 참조할 수 있다.
 - 이유: 화면이나 API가 바뀌어도 application과 domain은 그대로 두고, 같은 유스케이스를 배치·워커 같은 다른 입구에서도 쓸 수 있다.
 
 ## 자명하지 않은 규칙은 KDoc으로 남긴다 `지향`
