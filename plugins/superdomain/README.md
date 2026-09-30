@@ -59,11 +59,7 @@ claude plugin install superdomain@superdomain
 
 ## 언어 범위
 
-도메인 정의·도메인 리뷰·ADR은 언어와 무관하다. 코딩 컨벤션과 컨벤션 리뷰는 Kotlin·Java(Spring·JPA) 전용이다. 대상 프로젝트의 CLAUDE.md에 다른 규칙이 있으면 그 규칙이 우선한다. 컨벤션이 맞지 않는 프로젝트에서는 그 프로젝트에서 플러그인을 끈다.
-
-## 이전 버전에서 올라왔다면
-
-0.3.x에서 올라오면 파일 위치는 그대로이고 DOMAIN.md를 새 형식으로 다시 쓴다. 0.4.0 배치(`docs/DOMAIN.md`·`docs/adr/`)에서 올라오면 두 경로를 `docs/superdomain/` 아래로 옮긴다. 자세한 절차는 [CHANGELOG](CHANGELOG.md)의 0.4.1 이행 절차에 있다.
+도메인 정의·도메인 리뷰·ADR은 언어와 무관하다. 코딩 컨벤션의 규칙은 백엔드 애플리케이션 전반에 적용되지만, 컨벤션 스킬과 컨벤션 리뷰는 Kotlin·Java(Spring·JPA) 파일에서 동작하고 예시도 Kotlin으로 적었다. 대상 프로젝트의 CLAUDE.md에 다른 규칙이 있으면 그 규칙이 우선한다. 컨벤션이 맞지 않는 프로젝트에서는 그 프로젝트에서 플러그인을 끈다.
 
 ## 저장소 구조
 
@@ -75,6 +71,7 @@ skills/
   adr/                   SKILL.md, adr-template.md
   conventions/           SKILL.md, conventions.md (코딩 컨벤션)
 agents/                  domain-reviewer.md, convention-reviewer.md
+evals/                   스킬 평가 정의와 예제 프로젝트(skill-creator로 실행)
 docs/superpowers/        설계 스펙과 구현 계획
 ```
 
