@@ -1,6 +1,6 @@
 {
   "name": "superdomain",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "도메인 정의(DOMAIN.md), 도메인·코딩 컨벤션 리뷰, ADR로 도메인 로직이 드러나는 코드를 돕는다",
   "author": {
     "name": "Cho-D-YoungRae",

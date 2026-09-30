@@ -3,6 +3,45 @@
 이 플러그인의 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다. 1.0.0 전에는
 마이너 버전이 호환되지 않는 변경을 담을 수 있다.
 
+## 0.4.1 — 2026-09-30
+
+0.4.0을 보정한다. 산출물 위치를 0.3.x와 같은 `docs/superdomain/`으로 되돌려, 0.3.x에서 올라올 때 파일을 옮기지 않아도 된다. 경로가 바뀌는 것은 0.4.0 배치(`docs/DOMAIN.md`·`docs/adr/`)로 이미 옮긴 프로젝트뿐이다.
+
+### Changed
+
+- 산출물 위치: `docs/DOMAIN.md` → `docs/superdomain/DOMAIN.md`, `docs/adr/` → `docs/superdomain/adr/`. 플러그인이 관리하는 문서를 한 폴더에 모은다.
+- 0.3.x 판정: `domain`·`review`가 위치 대신 형식(`## 컨텍스트:` 절)으로 0.3.x 파일을 알아보고, 새 형식으로 다시 쓰자고 안내한다. `domain`은 다시 쓴 뒤 남은 0.3.x 산출물을 지우자고 제안한다.
+- `adr`: 쓸 결정의 기준을 "되돌리기 비싼 기술·도메인 결정"에서 "비싸거나 중요한 결정"으로 넓혔다. 작업을 마칠 때 그런 결정이 있었으면 먼저 기록을 제안한다.
+- CLAUDE.md 포인터: `domain`·`adr`이 동의를 받아 결정 기록 줄(`- 결정 기록: docs/superdomain/adr/ …`)도 추가한다. 이 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아본다.
+- 컨벤션 「외부 자원은 인터페이스 뒤에 둔다」: `필수` → `지향`. 인터페이스 없이 구체 클래스로 감싸도 된다.
+- 컨벤션 「정적 호출은 컴포넌트로 감싼다」: 이유를 "정적 메서드는 테스트에서 모킹하기 어렵다"로 고치고, 감싼 컴포넌트는 모킹해도 된다고 적었다. 「모킹은 외부 자원에만 쓴다」도 이에 맞췄다.
+- 컨벤션 「JPA 클래스 이름」: `@Embeddable` 클래스는 `XxxEmbedded` → `XxxEmbeddable`.
+- `domain`: 용어집 관련 문구를 뺐다.
+
+### 이행 절차
+
+플러그인을 먼저 올린다: `claude plugin marketplace update superdomain` 다음 `claude plugin update superdomain@superdomain`. 프로젝트 범위로 설치했다면 그 프로젝트 디렉터리에서 `--scope project`를 붙인다. 적용하려면 세션을 다시 시작한다.
+
+0.3.x에서 올라오는 경우 — 0.4.0의 이행 절차 대신 이것을 따른다. 대상 프로젝트의 git 루트에서:
+
+1. `/superdomain:domain`으로 `docs/superdomain/DOMAIN.md`를 새 형식으로 다시 쓴다. `docs/superdomain/contexts/*.md`의 불변식 중 핵심은 도메인의 "규칙"으로 옮긴다.
+2. `docs/superdomain/conventions/`의 팀 규약을 먼저 프로젝트 CLAUDE.md로 옮긴 뒤, `docs/superdomain/`의 `summary.md`, `contexts/`, `state/`, `conventions/`를 지운다(1단계를 마치면 스킬이 제안한다). ADR이 `../contexts/<이름>.md`를 가리키고 있었다면 그 링크를 지우거나 `../DOMAIN.md`의 해당 도메인 절로 바꾼다.
+3. CLAUDE.md 등에서 지운 파일을 가리키는 참조를 고친다.
+
+   ```bash
+   git grep -nE 'summary\.md|superdomain/(contexts|state|conventions)'
+   ```
+
+0.4.0 배치로 이미 옮긴 경우:
+
+1. `mkdir -p docs/superdomain` 다음 `git mv docs/DOMAIN.md docs/superdomain/DOMAIN.md`
+2. ADR이 있으면 `git mv docs/adr docs/superdomain/adr`. ADR 안의 `../DOMAIN.md` 링크는 그대로 맞는다.
+3. CLAUDE.md의 포인터 줄 등 옛 경로를 가리키는 참조를 고친다.
+
+   ```bash
+   git grep -nE 'docs/(DOMAIN\.md|adr/)'
+   ```
+
 ## 0.4.0 — 2026-09-30
 
 플러그인을 도메인 정의·리뷰·ADR에 집중하도록 다시 설계했다. 설계는
