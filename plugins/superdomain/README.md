@@ -2,9 +2,9 @@
 
 도메인 로직이 드러나는 코드를 돕는 Claude Code 플러그인.
 
-- 도메인마다 역할·기능·관계를 `docs/DOMAIN.md` 한 파일에 정의한다.
+- 도메인마다 역할·기능·관계를 `docs/superdomain/DOMAIN.md` 한 파일에 정의한다.
 - 변경이 도메인 정의와 코딩 컨벤션을 따르는지 리뷰한다.
-- 되돌리기 비싼 결정을 ADR로 남긴다.
+- 비싸거나 중요한 결정을 ADR로 남기고, 작업을 마칠 때 기록할 결정이 있으면 제안한다.
 
 아키텍처를 문서로 정하지 않는다. 대신 코드가 권장 방식(코딩 컨벤션)을 따르는지 리뷰로 확인한다. 스크립트가 없어서 Claude Code 말고는 설치할 것이 없다.
 
@@ -33,7 +33,7 @@ claude plugin install superdomain@superdomain
 |---|---|
 | `/superdomain:domain` | 도메인을 처음 정의하거나, 도메인을 추가·분리·병합하거나, 역할·관계를 바꿀 때 |
 | `/superdomain:review` | 커밋·PR 전에 변경이 도메인 정의와 코딩 컨벤션을 따르는지 볼 때, 도메인이 너무 커지지 않았는지 점검할 때 |
-| `/superdomain:adr` | 되돌리기 비싼 기술·도메인 결정을 기록하거나, ADR을 승인·대체할 때 |
+| `/superdomain:adr` | 비싸거나 중요한 결정을 기록하거나, ADR을 승인·대체할 때. 작업을 마칠 때 기록할 결정이 있으면 먼저 제안한다 |
 | `/superdomain:conventions` | Kotlin·Java 코드를 쓸 때 코딩 컨벤션을 적용한다. `.kt`·`.java` 작업에서 자동으로 걸린다 |
 
 `review`의 인자는 `[domain|code] [경로 | 커밋 범위 | 전체]`다. 인자가 없으면 현재 브랜치의 변경과 커밋하지 않은 변경을 두 관점으로 모두 본다.
@@ -51,18 +51,18 @@ claude plugin install superdomain@superdomain
 
 | 경로 | 무엇 |
 |---|---|
-| `docs/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치와 도메인 간 관계 |
-| `docs/adr/yyyy-MM-dd-slug.md` | 결정 기록 |
+| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치와 도메인 간 관계 |
+| `docs/superdomain/adr/yyyy-MM-dd-slug.md` | 결정 기록 |
 
-`domain` 스킬은 동의를 받아 대상 CLAUDE.md에 DOMAIN.md를 가리키는 한 줄을 추가할 수 있다.
+`domain`·`adr` 스킬은 동의를 받아 대상 CLAUDE.md에 두 경로를 가리키는 포인터 줄을 추가할 수 있다. ADR 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아보고 제안한다.
 
 ## 언어 범위
 
 도메인 정의·도메인 리뷰·ADR은 언어와 무관하다. 코딩 컨벤션과 컨벤션 리뷰는 Kotlin·Java(Spring·JPA) 전용이다. 대상 프로젝트의 CLAUDE.md에 다른 규칙이 있으면 그 규칙이 우선한다. 컨벤션이 맞지 않는 프로젝트에서는 그 프로젝트에서 플러그인을 끈다.
 
-## 0.3.x에서 올라왔다면
+## 이전 버전에서 올라왔다면
 
-산출물 위치와 형식이 바뀌었다. [CHANGELOG](CHANGELOG.md)의 0.4.0 이행 절차를 따른다.
+0.3.x에서 올라오면 파일 위치는 그대로이고 DOMAIN.md를 새 형식으로 다시 쓴다. 0.4.0 배치(`docs/DOMAIN.md`·`docs/adr/`)에서 올라오면 두 경로를 `docs/superdomain/` 아래로 옮긴다. 자세한 절차는 [CHANGELOG](CHANGELOG.md)의 0.4.1 이행 절차에 있다.
 
 ## 저장소 구조
 
