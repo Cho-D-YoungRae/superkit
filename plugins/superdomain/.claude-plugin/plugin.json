@@ -1,7 +1,7 @@
 {
   "name": "superdomain",
-  "version": "0.3.0",
-  "description": "문서 기반 도메인 거버넌스(DDD) — 질문으로 도메인을 구체화하고, 사람과 Claude가 함께 읽는 문서로 고정하고, 컨텍스트 간 의존을 결정적으로 강제한다",
+  "version": "0.4.0",
+  "description": "도메인 정의(DOMAIN.md), 도메인·코딩 컨벤션 리뷰, ADR로 도메인 로직이 드러나는 코드를 돕는다",
   "author": {
     "name": "Cho-D-YoungRae",
     "email": "yrc9229@gmail.com",
@@ -14,10 +14,11 @@
     "ddd",
     "domain-driven-design",
     "bounded-context",
-    "context-mapping",
-    "governance",
+    "code-review",
+    "conventions",
     "adr",
-    "claude-code-plugin",
+    "kotlin",
+    "spring",
     "korean"
   ]
 }
