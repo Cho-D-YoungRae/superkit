@@ -1,0 +1,8 @@
+sharing: shared-drive
+secrets_mode: plaintext
+environments: [prod]
+policies:
+  mutating:
+    prod: confirm
+hooks:
+  change_reminder: true

@@ -1,0 +1,8 @@
+sharing: local
+secrets_mode: none
+environments: [prod]
+policies:
+  mutating:
+    prod: confirm
+hooks:
+  change_reminder: true
