@@ -1,7 +1,0 @@
-spring:
-  datasource:
-    url: jdbc:h2:mem:commerce
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: create-drop

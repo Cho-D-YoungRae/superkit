@@ -71,7 +71,6 @@ skills/
   adr/                   SKILL.md, adr-template.md
   conventions/           SKILL.md, conventions.md (코딩 컨벤션)
 agents/                  domain-reviewer.md, convention-reviewer.md
-evals/                   스킬 평가 정의와 예제 프로젝트(skill-creator로 실행)
 docs/superpowers/        설계 스펙과 구현 계획
 ```
 
