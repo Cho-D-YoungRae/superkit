@@ -70,7 +70,7 @@ description: 비싸거나 중요한 결정을 docs/superdomain/adr/에 ADR(결�
 ## 6. 후속 제안
 
 - 결정이 도메인 정의(역할·기능·분류·코드·규칙·관계)를 바꾸면 `/superdomain:domain`으로 DOMAIN.md를 고치자고 안내한다. DOMAIN.md는 이 스킬이 직접 고치지 않는다.
-- ADR을 쓴 뒤 대상 CLAUDE.md에 아래 포인터 줄이 없으면 추가할지 묻고, 동의하면 추가한다. CLAUDE.md가 없으면 만들지 않고 줄을 제안만 한다. 이 줄이 있으면 다음 세션에서도 작업을 마칠 때 기록할 결정이 있었는지 돌아보게 된다.
+- ADR을 쓴 뒤 대상 지침 파일에 아래 포인터 줄이 없으면 추가할지 묻고, 동의하면 추가한다. 대상 지침 파일은 프로젝트 루트의 AGENTS.md다. 루트에 CLAUDE.md나 `.claude/CLAUDE.md`가 있으면 그 파일이다(그때 Claude Code는 AGENTS.md를 읽지 않는다). 대상 파일이 없으면 만들지 않고 줄을 제안만 한다. 이 줄이 있으면 다음 세션에서도 작업을 마칠 때 기록할 결정이 있었는지 돌아보게 된다.
 
   ```
   - 결정 기록: docs/superdomain/adr/ (비싸거나 중요한 결정을 내린 작업을 마치면 /superdomain:adr로 기록할지 제안한다)

@@ -14,19 +14,21 @@
 Claude Code 세션 안에서:
 
 ```
-/plugin marketplace add Cho-D-YoungRae/superdomain
-/plugin install superdomain@superdomain
+/plugin marketplace add Cho-D-YoungRae/superkit
+/plugin install superdomain@superkit
 ```
 
 터미널에서:
 
 ```bash
-claude plugin marketplace add Cho-D-YoungRae/superdomain
+claude plugin marketplace add Cho-D-YoungRae/superkit
 ```
 
 ```bash
-claude plugin install superdomain@superdomain
+claude plugin install superdomain@superkit
 ```
+
+superdomain은 [superkit](../../README.md) 마켓플레이스로 배포된다. 0.5.1 이하를 `superdomain@superdomain`으로 설치했다면 그 마켓플레이스를 지우고(`claude plugin marketplace remove superdomain`) 위 명령으로 다시 설치한다.
 
 ## 스킬
 
@@ -55,16 +57,16 @@ claude plugin install superdomain@superdomain
 | `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치(선택: 개념·외부 접점·규칙·미정)와 도메인 간 관계 |
 | `docs/superdomain/adr/yyyy-MM-dd-slug.md` | 결정 기록 |
 
-`domain`·`adr` 스킬은 동의를 받아 대상 CLAUDE.md에 두 경로를 가리키는 포인터 줄을 추가할 수 있다. ADR 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아보고 제안한다.
+`domain`·`adr` 스킬은 동의를 받아 대상 지침 파일에 두 경로를 가리키는 포인터 줄을 추가할 수 있다. 대상은 프로젝트 루트의 AGENTS.md이고, 루트에 CLAUDE.md나 `.claude/CLAUDE.md`가 있으면 그 파일이다(그때 Claude Code는 AGENTS.md를 읽지 않는다). ADR 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아보고 제안한다.
 
 ## 언어 범위
 
-도메인 정의·도메인 리뷰·ADR은 언어와 무관하다. 코딩 컨벤션의 규칙은 백엔드 애플리케이션 전반에 적용되지만, 컨벤션 스킬과 컨벤션 리뷰는 Kotlin·Java(Spring·JPA) 파일에서 동작하고 예시도 Kotlin으로 적었다. 대상 프로젝트의 CLAUDE.md에 다른 규칙이 있으면 그 규칙이 우선한다. 컨벤션이 맞지 않는 프로젝트에서는 그 프로젝트에서 플러그인을 끈다.
+도메인 정의·도메인 리뷰·ADR은 언어와 무관하다. 코딩 컨벤션의 규칙은 백엔드 애플리케이션 전반에 적용되지만, 컨벤션 스킬과 컨벤션 리뷰는 Kotlin·Java(Spring·JPA) 파일에서 동작하고 예시도 Kotlin으로 적었다. 대상 프로젝트의 지침 파일(AGENTS.md·CLAUDE.md)에 다른 규칙이 있으면 그 규칙이 우선한다. 컨벤션이 맞지 않는 프로젝트에서는 그 프로젝트에서 플러그인을 끈다.
 
 ## 저장소 구조
 
 ```
-.claude-plugin/          plugin.json, marketplace.json — 이 저장소가 플러그인이자 마켓플레이스다
+.claude-plugin/          plugin.json (마켓플레이스는 superkit 루트의 .claude-plugin/marketplace.json)
 skills/
   domain/                SKILL.md, domain-guide.md (DOMAIN.md 형식과 경계·분류 판단 기준)
   review/                SKILL.md
@@ -79,19 +81,15 @@ docs/superpowers/        설계 스펙과 구현 계획
 ## 로컬 개발
 
 ```bash
-claude --plugin-dir /path/to/superdomain
+claude --plugin-dir /path/to/superkit/plugins/superdomain
 ```
 
 스킬은 `/superdomain:<스킬명>`으로 노출된다. SKILL.md를 포함해 플러그인 파일을 고쳤다면 `/reload-plugins`로 반영한다.
 
-구조 검증:
+구조 검증(이 디렉터리에서):
 
 ```bash
 claude plugin validate --strict .claude-plugin/plugin.json
-```
-
-```bash
-claude plugin validate --strict .claude-plugin/marketplace.json
 ```
 
 ```bash

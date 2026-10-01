@@ -3,6 +3,16 @@
 이 플러그인의 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다. 1.0.0 전에는
 마이너 버전이 호환되지 않는 변경을 담을 수 있다.
 
+## 0.6.0 — 2026-10-01
+
+superkit 모노레포로 옮겼고, 사용자 프로젝트의 지침 파일로 AGENTS.md를 쓴다.
+
+### Changed
+
+- 배포 위치: [superkit](https://github.com/Cho-D-YoungRae/superkit) 마켓플레이스로 옮겼다. 설치 ID가 `superdomain@superdomain`에서 `superdomain@superkit`으로 바뀌므로, 옛 마켓플레이스를 지우고 다시 설치해야 한다.
+- `domain`·`adr`이 포인터 줄을 넣는 대상 지침 파일: 프로젝트 루트의 AGENTS.md다. 루트에 CLAUDE.md나 `.claude/CLAUDE.md`가 있으면 Claude Code가 AGENTS.md를 읽지 않으므로 그 파일에 넣는다.
+- `domain`·`conventions`·convention-reviewer가 프로젝트 규칙을 읽을 때 AGENTS.md와 CLAUDE.md를 모두 본다.
+
 ## 0.5.1 — 2026-10-01
 
 skill-creator 기준으로 스킬을 검토해, 스킬이 불려야 할 때 불리도록 설명을 다듬고 이전 버전 대응을 뺐다.
