@@ -1,0 +1,30 @@
+{
+  "name": "superdomain",
+  "owner": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com",
+    "url": "https://github.com/Cho-D-YoungRae"
+  },
+  "metadata": {
+    "description": "superdomain 배포용 Claude Code 마켓플레이스 — 저장소 자체가 플러그인이자 마켓플레이스다"
+  },
+  "plugins": [
+    {
+      "name": "superdomain",
+      "source": "./",
+      "description": "도메인 정의(DOMAIN.md), 도메인·코딩 컨벤션 리뷰, ADR로 도메인 로직이 드러나는 코드를 돕는다",
+      "keywords": [
+        "ddd",
+        "domain-driven-design",
+        "bounded-context",
+        "code-review",
+        "conventions",
+        "adr",
+        "kotlin",
+        "spring",
+        "korean"
+      ],
+      "category": "workflow"
+    }
+  ]
+}
