@@ -1,0 +1,29 @@
+name: infra
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/infra/**"
+      - ".github/workflows/infra.yml"
+  pull_request:
+    paths:
+      - "plugins/infra/**"
+      - ".github/workflows/infra.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 테스트
+        run: bash plugins/infra/tests/run_tests.sh

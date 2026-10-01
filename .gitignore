@@ -1,0 +1,17 @@
+### macOS ###
+.DS_Store
+
+### Python ###
+__pycache__/
+*.py[cod]
+.venv/
+
+### Logs ###
+*.log
+
+### Claude Code (로컬 전용 설정·세션 작업 디렉터리) ###
+.claude/settings.local.json
+.claude/worktrees/
+
+### Superpowers (로컬 스크래치) ###
+.superpowers/

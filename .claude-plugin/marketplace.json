@@ -1,0 +1,34 @@
+{
+  "name": "superkit",
+  "owner": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com",
+    "url": "https://github.com/Cho-D-YoungRae"
+  },
+  "metadata": {
+    "description": "Cho-D-YoungRae의 에이전트 플러그인 모음 — 도메인 정의, 용어사전, 인프라 하네스"
+  },
+  "plugins": [
+    {
+      "name": "superdomain",
+      "source": "./plugins/superdomain",
+      "description": "도메인 정의(DOMAIN.md), 도메인·코딩 컨벤션 리뷰, ADR로 도메인 로직이 드러나는 코드를 돕는다",
+      "keywords": ["ddd", "domain-driven-design", "bounded-context", "code-review", "conventions", "adr", "kotlin", "spring", "korean"],
+      "category": "workflow"
+    },
+    {
+      "name": "superglossary",
+      "source": "./plugins/superglossary",
+      "description": "프로젝트별 용어사전을 관리하고 일관된 용어 사용을 돕는다",
+      "keywords": ["glossary", "terminology", "naming", "korean"],
+      "category": "workflow"
+    },
+    {
+      "name": "infra",
+      "source": "./plugins/infra",
+      "description": "인프라 하네스(인벤토리·변경기록·직접 제어)를 구성하고 운영한다",
+      "keywords": ["infrastructure", "inventory", "runbook", "secrets", "kubernetes", "korean"],
+      "category": "workflow"
+    }
+  ]
+}

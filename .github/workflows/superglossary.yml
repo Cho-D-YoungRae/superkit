@@ -1,13 +1,22 @@
-name: CI
+name: superglossary
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
+    paths:
+      - "plugins/superglossary/**"
+      - ".github/workflows/superglossary.yml"
   pull_request:
+    paths:
+      - "plugins/superglossary/**"
+      - ".github/workflows/superglossary.yml"
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/superglossary
     strategy:
       fail-fast: false
       matrix:

@@ -1,0 +1,51 @@
+name: marketplace
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: 마켓플레이스 항목과 플러그인 매니페스트 대조
+        shell: python
+        run: |
+          import json, pathlib, sys
+
+          root = pathlib.Path(".")
+          errors = []
+          catalog = json.loads((root / ".claude-plugin/marketplace.json").read_text(encoding="utf-8"))
+          for entry in catalog["plugins"]:
+              source = root / entry["source"]
+              manifest_path = source / ".claude-plugin/plugin.json"
+              if not manifest_path.is_file():
+                  errors.append(f"{entry['name']}: {manifest_path} 없음")
+                  continue
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              if manifest.get("name") != entry["name"]:
+                  errors.append(f"{entry['name']}: plugin.json name이 {manifest.get('name')!r}")
+              if not manifest.get("version"):
+                  errors.append(f"{entry['name']}: plugin.json에 version 없음")
+              if "version" in entry:
+                  errors.append(f"{entry['name']}: version은 plugin.json에만 적는다")
+          listed = {pathlib.Path(e["source"]).name for e in catalog["plugins"]}
+          on_disk = {p.parent.parent.name for p in root.glob("plugins/*/.claude-plugin/plugin.json")}
+          if listed != on_disk:
+              errors.append(f"마켓플레이스 목록 {sorted(listed)}과 plugins/ {sorted(on_disk)}가 다름")
+          # CLAUDE.md가 하나라도 있으면 Claude Code가 AGENTS.md를 읽지 않는다.
+          ignored = ("tests/fixtures/",)
+          for name in ("CLAUDE.md", "CLAUDE.local.md"):
+              for path in root.rglob(name):
+                  if ".git/" not in path.as_posix() and not any(part in path.as_posix() for part in ignored):
+                      errors.append(f"{path}: 지침 파일은 AGENTS.md만 쓴다")
+          for line in errors:
+              print(f"✗ {line}")
+          sys.exit(1 if errors else 0)
