@@ -1,0 +1,17 @@
+{
+  "name": "superglossary",
+  "owner": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com"
+  },
+  "metadata": {
+    "description": "Cho-D-YoungRae의 Claude Code 플러그인 마켓플레이스"
+  },
+  "plugins": [
+    {
+      "name": "superglossary",
+      "source": "./",
+      "description": "프로젝트별 용어사전을 관리하고 일관된 용어 사용을 돕는 Claude Code 플러그인"
+    }
+  ]
+}
