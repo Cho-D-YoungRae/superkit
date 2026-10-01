@@ -3,6 +3,7 @@
 도메인 로직이 드러나는 코드를 돕는 Claude Code 플러그인.
 
 - 도메인마다 역할·기능·관계를 `docs/superdomain/DOMAIN.md` 한 파일에 정의한다.
+- 외부 시스템과 맞닿은 도메인을 구분해 외부의 복잡성을 가두고, 도메인 사이 의존을 한 방향으로 유지한다.
 - 변경이 도메인 정의와 코딩 컨벤션을 따르는지 리뷰한다.
 - 비싸거나 중요한 결정을 ADR로 남기고, 작업을 마칠 때 기록할 결정이 있으면 제안한다.
 
@@ -51,7 +52,7 @@ claude plugin install superdomain@superdomain
 
 | 경로 | 무엇 |
 |---|---|
-| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치와 도메인 간 관계 |
+| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치(선택: 개념·외부 접점·규칙·미정)와 도메인 간 관계 |
 | `docs/superdomain/adr/yyyy-MM-dd-slug.md` | 결정 기록 |
 
 `domain`·`adr` 스킬은 동의를 받아 대상 CLAUDE.md에 두 경로를 가리키는 포인터 줄을 추가할 수 있다. ADR 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아보고 제안한다.
