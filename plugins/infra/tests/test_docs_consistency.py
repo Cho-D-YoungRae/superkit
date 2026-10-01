@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-CLAUDE_MD = PLUGIN_ROOT / "CLAUDE.md"
+AGENTS_MD = PLUGIN_ROOT / "AGENTS.md"
 README = PLUGIN_ROOT / "README.md"
 SPEC = PLUGIN_ROOT / "docs" / "superpowers" / "specs" / "2026-07-19-infra-plugin-design.md"
 PLANS_DIR = PLUGIN_ROOT / "docs" / "superpowers" / "plans"
@@ -33,15 +33,15 @@ class TestSkillCount(unittest.TestCase):
         self.assertEqual(set(found), {actual},
                          f"{label}의 표기 {found}가 실제 {actual}종과 다르다")
 
-    def test_claude_md_matches_reality(self):
-        self._assert_all_match(CLAUDE_MD, "CLAUDE.md")
+    def test_agents_md_matches_reality(self):
+        self._assert_all_match(AGENTS_MD, "AGENTS.md")
 
     def test_readme_matches_reality(self):
         self._assert_all_match(README, "README.md")
 
 
-DOCS = ((CLAUDE_MD, "CLAUDE.md"), (README, "README.md"))
-"""D16의 검사 대상 문서 — 스펙이 `CLAUDE.md`·`README.md` 양쪽을 지목한다.
+DOCS = ((AGENTS_MD, "AGENTS.md"), (README, "README.md"))
+"""D16의 검사 대상 문서 — 스펙이 기여자 지침 파일(스펙 당시 `CLAUDE.md`, 지금은 `AGENTS.md`)·`README.md` 양쪽을 지목한다.
 
 한쪽만 검사하면 규약이 자기모순이 된다: 실제로 README가 'D1~D14'와 plan 4건 중 2건만
 열거한 채로 통과했다. 새 항목을 추가할 때도 반드시 두 문서를 함께 돌린다.
@@ -79,13 +79,13 @@ def actual_template_count():
 class TestTemplateCount(unittest.TestCase):
     """'골격 N종' 표기가 templates/ 실제 파일 수와 같아야 한다."""
 
-    def test_claude_md_matches_reality(self):
+    def test_agents_md_matches_reality(self):
         found = [int(x) for x in re.findall(r"골격\s*(\d+)종",
-                                            CLAUDE_MD.read_text(encoding="utf-8"))]
-        self.assertTrue(found, "CLAUDE.md에 '골격 N종' 표기가 없다")
+                                            AGENTS_MD.read_text(encoding="utf-8"))]
+        self.assertTrue(found, "AGENTS.md에 '골격 N종' 표기가 없다")
         actual = actual_template_count()
         self.assertEqual(set(found), {actual},
-                         f"CLAUDE.md의 표기 {found}가 실제 {actual}종과 다르다")
+                         f"AGENTS.md의 표기 {found}가 실제 {actual}종과 다르다")
 
 
 def actual_fixture_names():
@@ -93,14 +93,14 @@ def actual_fixture_names():
 
 
 class TestFixtureList(unittest.TestCase):
-    """CLAUDE.md·README.md가 언급하는 harness-* fixture 이름이 **모두** 실제와
+    """AGENTS.md·README.md가 언급하는 harness-* fixture 이름이 **모두** 실제와
     일치해야 한다. 일부만 열거해도 실패한다 — fixture를 언급하는 이상 전부
     열거해야 새 fixture 추가나 이름 변경 같은 드리프트를 놓치지 않는다.
     """
 
     def test_docs_list_every_fixture(self):
         actual = actual_fixture_names()
-        for path, label in ((CLAUDE_MD, "CLAUDE.md"), (README, "README.md")):
+        for path, label in DOCS:
             with self.subTest(doc=label):
                 found = set(re.findall(r"(harness-\w+)`?\(",
                                        path.read_text(encoding="utf-8")))
@@ -123,19 +123,19 @@ def actual_test_method_count():
 
 
 class TestTotalTestCount(unittest.TestCase):
-    """CLAUDE.md의 '전체 테스트(N개)' 표기가 실제 테스트 메서드 수와 같아야
+    """AGENTS.md의 '전체 테스트(N개)' 표기가 실제 테스트 메서드 수와 같아야
     한다. 스위트를 실행해 세면 이 테스트 자신의 존재가 카운트에 영향을 주는
     재귀 문제가 생긴다 — 대신 tests/test_*.py의 'def test_' 메서드를 정적으로
     센다(unittest가 discover하는 개수와 일치).
     """
 
-    def test_claude_md_matches_reality(self):
+    def test_agents_md_matches_reality(self):
         found = [int(x) for x in re.findall(r"전체\s*테스트\((\d+)개\)",
-                                            CLAUDE_MD.read_text(encoding="utf-8"))]
-        self.assertTrue(found, "CLAUDE.md에 '전체 테스트(N개)' 표기가 없다")
+                                            AGENTS_MD.read_text(encoding="utf-8"))]
+        self.assertTrue(found, "AGENTS.md에 '전체 테스트(N개)' 표기가 없다")
         actual = actual_test_method_count()
         self.assertEqual(set(found), {actual},
-                         f"CLAUDE.md의 표기 {found}가 실제 {actual}개와 다르다")
+                         f"AGENTS.md의 표기 {found}가 실제 {actual}개와 다르다")
 
 
 if __name__ == "__main__":

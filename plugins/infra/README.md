@@ -7,10 +7,11 @@ sync/audit/secrets), 엔티티 템플릿, 검증 스크립트, hook으로 구성
 ## 빠른 시작
 
 ```bash
-git clone <저장소 URL> ~/infra-plugin
 mkdir -p ~/infra-workspace && cd ~/infra-workspace
-claude --plugin-dir ~/infra-plugin
-# 대화창: "인프라 하네스 만들어줘" → 이후 자연어로 등록·조회·조작
+claude
+# 대화창: /plugin marketplace add Cho-D-YoungRae/superkit
+#         /plugin install infra@superkit
+#         "인프라 하네스 만들어줘" → 이후 자연어로 등록·조회·조작
 ```
 
 설치 상세와 요구 사항은 [3. 설치](#3-설치)를 참고한다.
@@ -39,7 +40,7 @@ claude --plugin-dir ~/infra-plugin
 - **플러그인(이 저장소, `infra`)** = 재사용 도구. `.claude-plugin/plugin.json`, `skills/`,
   `templates/`, `scripts/`, `hooks/`, `tests/`로 구성되며, 코드·문서 그 자체는 어떤 인프라
   정보도 담지 않는다.
-- **하네스 인스턴스** = 실제 데이터가 담기는 전용 저장소 1개(`harness.yaml` + `CLAUDE.md` +
+- **하네스 인스턴스** = 실제 데이터가 담기는 전용 저장소 1개(`harness.yaml` + `AGENTS.md` +
   인벤토리·변경기록·의사결정 등). 이 플러그인의 `init` 스킬이 그 저장소를 스캐폴딩한다.
   저장소 이름은 자유(예: `infra-workspace`)이며 플러그인 이름과 무관하다.
 
@@ -58,7 +59,7 @@ prometheus·victoria-metrics 같은 설치 컴포넌트를 다룬다.
 ```
 <하네스 저장소>/                # 이름 자유, 외부 비공개 필수
 ├── harness.yaml               # 정책 데이터 — sharing/secrets_mode/environments/policies/hooks(+secrets_recipients, D11)
-├── CLAUDE.md                  # 하네스 소개·규약(플러그인의 CLAUDE.md와 다름)
+├── AGENTS.md                  # 하네스 소개·규약(플러그인의 AGENTS.md와 다름)
 ├── .claude/settings.json      # secrets/ 읽기 차단(permissions.deny)
 ├── .claude/settings.local.json # 같은 차단 — git 루트에서 로드되어 하위 디렉터리 세션도 보호(D15)
 ├── .gitignore                 # secrets/ 제외(git 전환 대비 선등록)
@@ -95,26 +96,26 @@ manifest·GitOps 레포 참조로 넘긴다(원칙 4 — 하네스는 상태를 
 
 ### 표준 설치
 
+infra는 [superkit](../../README.md) 마켓플레이스로 배포된다. Claude Code 세션 안에서:
+
 ```bash
-git clone <저장소 URL> ~/infra-plugin
-mkdir -p ~/infra-workspace && cd ~/infra-workspace   # 하네스로 쓸 디렉터리
-claude --plugin-dir ~/infra-plugin
+/plugin marketplace add Cho-D-YoungRae/superkit
+/plugin install infra@superkit
 ```
 
-`--plugin-dir`에는 `.claude-plugin/plugin.json`이 있는 저장소 루트의 절대 경로를 준다.
-같은 이름의 설치된 플러그인이 있어도 `--plugin-dir`로 띄운 쪽이 우선한다.
+### 저장소에서 직접 로드
 
-위 경로가 현재의 정식 설치 방법이다.
+```bash
+git clone https://github.com/Cho-D-YoungRae/superkit.git ~/superkit
+mkdir -p ~/infra-workspace && cd ~/infra-workspace   # 하네스로 쓸 디렉터리
+claude --plugin-dir ~/superkit/plugins/infra
+```
+
+`--plugin-dir`에는 `.claude-plugin/plugin.json`이 있는 플러그인 디렉터리의 절대 경로를 준다.
+같은 이름의 설치된 플러그인이 있어도 `--plugin-dir`로 띄운 쪽이 우선한다.
 
 > **언어**: 스킬 본문과 산출 문서는 한국어다. 영어권 사용자 대응(i18n)은 별도 작업으로
 > 예정돼 있으며, 그 전까지는 한국어를 읽을 수 있는 환경을 전제한다.
-
-### 사내·개인 marketplace에 등록해 배포하려면
-
-이 저장소는 marketplace를 운영하지 않지만, 사용자가 **자신의** 사내·개인 marketplace에
-이 플러그인을 등록해 팀에 배포할 수는 있다. 그 경우 팀원은 저장소를 직접 내려받지 않고
-세션 안에서 `/plugin` 명령으로 marketplace 추가와 `infra` 플러그인 설치를 진행한다.
-(marketplace 자체를 구성하는 작업은 이 저장소의 범위 밖이다.)
 
 ### 개발 루프
 
@@ -136,13 +137,12 @@ claude --plugin-dir ~/infra-plugin
    아니라 별도 디렉토리를 쓴다 — 하네스는 중앙 1개다).
 
    ```bash
-   git clone <저장소 URL> ~/infra-plugin
    mkdir -p ~/infra-workspace && cd ~/infra-workspace
-   claude --plugin-dir ~/infra-plugin
+   claude   # infra 플러그인이 설치되어 있어야 한다(§3)
    ```
 
 2. 대화창에 "인프라 하네스 만들어줘"라고 요청한다. `init` 스킬이 로컬에 설치된 CLI를
-   자동으로 스캔한 뒤 확인 인터뷰를 거쳐 `harness.yaml`·`CLAUDE.md`·`providers/` 등 하네스
+   자동으로 스캔한 뒤 확인 인터뷰를 거쳐 `harness.yaml`·`AGENTS.md`·`providers/` 등 하네스
    골격을 만든다.
 
    > **인터뷰에서 먼저 정하는 것 — 공유·시크릿 모드.** `init`은 하네스를 어떻게 보관·공유할지
@@ -473,7 +473,7 @@ encrypted`로 전환하고 `secrets` 스킬로 `secrets_recipients`(팀원 공�
 
 이 저장소를 **수정**하려는 경우:
 
-- [`CLAUDE.md`](CLAUDE.md) — 저장소를 수정하는 세션용 지침(테스트 명령, python3 stdlib
+- [`AGENTS.md`](AGENTS.md) — 저장소를 수정하는 세션용 지침(테스트 명령, python3 stdlib
   전용·hook exit 0·SKILL.md description 형식 같은 비자명 제약).
 - [`docs/superpowers/specs/2026-07-19-infra-plugin-design.md`](docs/superpowers/specs/2026-07-19-infra-plugin-design.md)
   — 불변 원칙 10개, 데이터 스키마, 확정 결정 D1~D16.

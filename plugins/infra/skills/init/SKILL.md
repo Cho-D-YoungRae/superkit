@@ -37,7 +37,8 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
   1. `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/audit.py --root <발견된 경로>` 를 실행한다.
   2. 실패·경고를 그대로 보고한다.
   3. 표준 구조(디렉토리 `providers/ inventory/ inventory/components/ access/ changes/
-     decisions/ runbooks/`, `.claude/settings.json`, `.gitignore`, `CLAUDE.md`)와 실제
+     decisions/ runbooks/`, `.claude/settings.json`, `.gitignore`, 지침 파일 `AGENTS.md` — 하네스에
+     `CLAUDE.md`가 이미 있으면 그 파일)와 실제
      디렉토리를 비교해 누락된 디렉토리·템플릿이 있으면 "감사/확장 모드"로 보완 생성을
      제안한다. **기존 파일·데이터는 절대 덮어쓰지 않는다.**
   4. 감사 결과에 `[보호]` 실패·경고가 있으면 **보완을 제안한다**. 특히
@@ -97,7 +98,9 @@ description: 인프라 하네스 저장소(서버·k8s·컴포넌트 인벤토�
   `secrets_mode: encrypted`면 주석 처리된 `secrets_format`/`secrets_recipients` 블록의
   주석을 해제하고 §4에서 확인한 팀원 age 공개키 + recovery 수신자로 채운다(D11) —
   값(개인키·시크릿)은 여기서 만들지 않고 공개키만 기록한다.
-- `CLAUDE.md` (`harness-CLAUDE.md` 템플릿).
+- `AGENTS.md` (`harness-AGENTS.md` 템플릿) — 하네스 지침 파일. 하네스 디렉터리에 `CLAUDE.md`·
+  `.claude/CLAUDE.md`·`CLAUDE.local.md` 중 하나라도 이미 있으면 Claude Code가 `AGENTS.md`를 읽지
+  않으므로, `AGENTS.md`를 만들지 않고 템플릿 내용을 기존 `CLAUDE.md`에 덧붙일지 사용자에게 묻는다.
 - `.claude/settings.json` (`settings.json` 템플릿을 **그대로** 복사 — `Read(/secrets/**)`
   와 `Read(./secrets/**)` deny 규칙을 병기해 앵커 문법 차이에 대비).
 - `.claude/settings.local.json` (`settings.local.json` 템플릿을 **그대로** 복사 — 같은 deny
