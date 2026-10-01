@@ -76,9 +76,9 @@ def bump(version):
     print()
     print("다음 단계를 잊지 마세요:")
     print(f"  1. CHANGELOG.md의 [Unreleased] → [{version}] - <YYYY-MM-DD> 정리")
-    print("  2. develop → main PR 병합")
-    print(f"  3. git tag v{version} && git push --tags")
-    print(f"  4. gh release create v{version}")
+    print("  2. 작업 브랜치 → main PR 병합")
+    print("  3. main에서 이 플러그인 디렉토리로 이동해 claude plugin tag --push"
+          f" (태그: superglossary--v{version})")
 
 
 def main():

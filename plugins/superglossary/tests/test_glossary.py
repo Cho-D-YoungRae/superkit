@@ -447,11 +447,16 @@ class LintScopeTest(TempDirCase):
         g.run(["add", "회원", "member", "--avoid", "customer,user"], self.data_dir)
 
     def test_explicit_glossary_files_are_skipped(self):
-        # check 스킬은 git diff 파일을 그대로 넘기므로 add 직후엔 사전 파일이 대상에 섞인다
+        # check 스킬은 git diff 파일을 그대로 넘기므로 init·add 직후엔 사전 파일과 init이 만든 AGENTS.md가 대상에 섞인다
         paths = [os.path.join(self.data_dir, "glossary.json"),
                  os.path.join(self.data_dir, "core.md"),
-                 os.path.join(self.dir, ".claude", "CLAUDE.md")]
+                 os.path.join(self.dir, "AGENTS.md")]
         self.assertEqual(g.run(["lint", *paths], self.data_dir), "이상 없음")
+
+    def test_only_the_managed_block_of_an_instruction_file_is_skipped(self):
+        agents_md = os.path.join(self.dir, "AGENTS.md")
+        write_file(agents_md, load_file(agents_md) + "\n- customer 테이블을 먼저 본다\n")
+        self.assertIn("customer", g.run(["lint", agents_md], self.data_dir))
 
     def test_directory_walk_skips_claude_dir(self):
         write_file(os.path.join(self.dir, "app.js"), "const memberId = 1;")
@@ -732,15 +737,16 @@ class ScaffoldTest(TempDirCase):
             g.assert_data_dir_placement(os.path.join("/tmp", "plugin", "templates"))
         g.assert_data_dir_placement(os.path.join("/tmp", "proj", ".claude", "superglossary"))
 
-    def test_initial_data_generated_products_and_claude_block(self):
+    def test_initial_data_generated_products_and_agents_block(self):
         g.scaffold(self.data_dir())
         data = g.load_glossary(self.data_dir())
         self.assertTrue(any(t["korean"] == "일시" and t["abbreviation"] == "at" for t in data["terms"]), "일시=at")
         self.assertFalse(any(t["korean"] == "주소" for t in data["terms"]), "주소 없음")
         self.assertIn("identifier", load_file(os.path.join(self.data_dir(), "core.md")))
-        claude = load_file(os.path.join(self.dir, ".claude", "CLAUDE.md"))
-        self.assertIn("## 용어 사전", claude)
-        self.assertIn("@superglossary/core.md", claude)
+        agents = load_file(os.path.join(self.dir, "AGENTS.md"))
+        self.assertIn("## 용어 사전", agents)
+        self.assertIn("@.claude/superglossary/core.md", agents)
+        self.assertFalse(os.path.exists(os.path.join(self.dir, ".claude", "CLAUDE.md")), "CLAUDE.md는 만들지 않는다")
 
     def test_existing_claude_md_is_not_duplicated(self):
         os.makedirs(os.path.join(self.dir, ".claude"), exist_ok=True)
@@ -750,13 +756,13 @@ class ScaffoldTest(TempDirCase):
         self.assertEqual(claude.count("## 용어 사전"), 1, "섹션 1개 유지")
         self.assertIn("# 기존", claude, "기존 내용 보존")
 
-    def test_claude_block_mentions_add_skill_and_lookup(self):
+    def test_glossary_block_mentions_add_skill_and_lookup(self):
         g.scaffold(self.data_dir())
-        claude = load_file(os.path.join(self.dir, ".claude", "CLAUDE.md"))
-        self.assertIn("add 스킬", claude)
-        self.assertIn("lookup", claude)
-        self.assertIn("@superglossary/core.md", claude)
-        self.assertIn("python3 .claude/superglossary/glossary.py", claude)
+        agents = load_file(os.path.join(self.dir, "AGENTS.md"))
+        self.assertIn("add 스킬", agents)
+        self.assertIn("lookup", agents)
+        self.assertIn("@.claude/superglossary/core.md", agents)
+        self.assertIn("python3 .claude/superglossary/glossary.py", agents)
 
     def test_no_gitignore_warning_outside_git_repo(self):
         self.assertEqual(g.scaffold(self.data_dir()), [])
@@ -774,7 +780,7 @@ class ScaffoldTest(TempDirCase):
         return os.path.join(self.data_dir(), "glossary.py")
 
     def test_init_places_a_runnable_cli_copy(self):
-        # bin 모드(superglossary init)로 초기화해도 CLAUDE.md가 안내하는 복사본이 생겨야 한다
+        # bin 모드(superglossary init)로 초기화해도 지침 파일 블록이 안내하는 복사본이 생겨야 한다
         g.scaffold(self.data_dir())
         env = {k: v for k, v in os.environ.items() if k != "SUPERGLOSSARY_DIR"}
         done = subprocess.run([sys.executable, self.copy_path(), "list"], cwd=os.path.dirname(self.dir),
@@ -815,13 +821,14 @@ class ScaffoldTest(TempDirCase):
 
 
 class ClaudeBlockTest(TempDirCase):
-    """init이 .claude/CLAUDE.md의 용어사전 블록을 마커로 관리한다."""
+    """CLAUDE.md가 있는 프로젝트에서는 init이 .claude/CLAUDE.md의 용어사전 블록을 마커로 관리한다."""
 
     def setUp(self):
         super().setUp()
         self.data_dir = os.path.join(self.dir, ".claude", "superglossary")
         self.claude_md = os.path.join(self.dir, ".claude", "CLAUDE.md")
         os.makedirs(os.path.dirname(self.claude_md))
+        write_file(os.path.join(self.dir, "CLAUDE.md"), "# 프로젝트 규칙\n")
 
     def test_rerun_does_not_duplicate_block(self):
         g.scaffold(self.data_dir)
@@ -861,7 +868,61 @@ class ClaudeBlockTest(TempDirCase):
         write_file(self.claude_md, custom)
         warnings = g.scaffold(self.data_dir)
         self.assertEqual(load_file(self.claude_md), custom)
-        self.assertTrue(any("용어 사전" in w for w in warnings), warnings)
+        self.assertTrue(any("용어 사전" in w and ".claude/CLAUDE.md" in w for w in warnings), warnings)
+
+    def test_block_uses_core_import_relative_to_claude_dir(self):
+        g.scaffold(self.data_dir)
+        self.assertIn("@superglossary/core.md", load_file(self.claude_md))
+        self.assertFalse(os.path.exists(os.path.join(self.dir, "AGENTS.md")), "AGENTS.md는 만들지 않는다")
+
+
+class AgentsBlockTest(TempDirCase):
+    """CLAUDE.md가 없는 프로젝트에서는 init이 루트 AGENTS.md의 용어사전 블록을 마커로 관리한다."""
+
+    def setUp(self):
+        super().setUp()
+        self.data_dir = os.path.join(self.dir, ".claude", "superglossary")
+        self.agents_md = os.path.join(self.dir, "AGENTS.md")
+        self.claude_md = os.path.join(self.dir, ".claude", "CLAUDE.md")
+
+    def test_existing_agents_md_is_kept_and_block_is_not_duplicated(self):
+        write_file(self.agents_md, "# 팀 규칙\n\n## 기타\n유지\n")
+        g.scaffold(self.data_dir)
+        g.scaffold(self.data_dir)
+        text = load_file(self.agents_md)
+        self.assertTrue(text.startswith("# 팀 규칙\n\n## 기타\n유지\n"), "기존 내용 보존")
+        self.assertEqual((text.count("## 용어 사전"), text.count("superglossary:begin")), (1, 1))
+        self.assertIn("@.claude/superglossary/core.md", text)
+
+    def test_any_claude_md_file_sends_the_block_to_claude_dir(self):
+        # Claude Code는 이 파일들 중 하나라도 있으면 기본 설정에서 AGENTS.md를 읽지 않는다
+        for rel in ("CLAUDE.md", "CLAUDE.local.md", os.path.join(".claude", "CLAUDE.md")):
+            with self.subTest(rel):
+                case = tempfile.mkdtemp(prefix="glossary-")
+                self.addCleanup(shutil.rmtree, case, True)
+                os.makedirs(os.path.join(case, ".claude"))
+                write_file(os.path.join(case, rel), "# 규칙\n")
+                write_file(os.path.join(case, "AGENTS.md"), "# 다른 에이전트용\n")
+                g.scaffold(os.path.join(case, ".claude", "superglossary"))
+                self.assertIn("superglossary:begin", load_file(os.path.join(case, ".claude", "CLAUDE.md")))
+                self.assertEqual(load_file(os.path.join(case, "AGENTS.md")), "# 다른 에이전트용\n")
+
+    def test_block_left_in_agents_md_is_refreshed_after_claude_md_appears(self):
+        write_file(self.agents_md, "# 팀 규칙\n\n<!-- superglossary:begin -->\n## 용어 사전\n옛 문구\n"
+                                   "<!-- superglossary:end -->\n")
+        write_file(os.path.join(self.dir, "CLAUDE.md"), "# Claude 전용\n")
+        g.scaffold(self.data_dir)
+        agents = load_file(self.agents_md)
+        self.assertNotIn("옛 문구", agents)
+        self.assertIn("@.claude/superglossary/core.md", agents)
+        self.assertIn("@superglossary/core.md", load_file(self.claude_md))
+
+    def test_hand_written_glossary_section_is_left_alone_with_a_warning(self):
+        custom = "# 팀 규칙\n\n## 용어 사전\n우리가 직접 쓴 규칙\n"
+        write_file(self.agents_md, custom)
+        warnings = g.scaffold(self.data_dir)
+        self.assertEqual(load_file(self.agents_md), custom)
+        self.assertTrue(any("AGENTS.md" in w and "용어 사전" in w for w in warnings), warnings)
 
 
 class AtomicWriteTest(TempDirCase):

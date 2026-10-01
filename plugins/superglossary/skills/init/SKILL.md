@@ -1,6 +1,6 @@
 ---
 name: init
-description: 프로젝트 용어사전을 초기화하고 .claude/CLAUDE.md에 연결합니다. 재실행하면 CLI 복사본과 CLAUDE.md 블록을 최신으로 갱신합니다(데이터 보존).
+description: 프로젝트 용어사전을 초기화하고 프로젝트 지침 파일(AGENTS.md, CLAUDE.md가 있는 프로젝트는 .claude/CLAUDE.md)에 연결합니다. 재실행하면 CLI 복사본과 지침 파일 블록을 최신으로 갱신합니다(데이터 보존).
 disable-model-invocation: true
 allowed-tools: Bash, Read, Write, Edit, Agent, AskUserQuestion
 ---
@@ -12,12 +12,12 @@ allowed-tools: Bash, Read, Write, Edit, Agent, AskUserQuestion
 1. 프로젝트 루트에서 `superglossary init`을 실행한다. `superglossary`를 찾지 못하면 `python3 "${CLAUDE_PLUGIN_ROOT}/templates/glossary.py" init`으로 대체한다(같은 CLI다). 이 한 번으로 다음이 처리된다.
    - `.claude/superglossary/`에 초기 `glossary.json`(없을 때) · `core.md` · `terms.md` 생성. 기존 `glossary.json`은 보존되며 구 스키마면 자동으로 올라간다.
    - CLI 복사본 `.claude/superglossary/glossary.py` 배치 — 플러그인이 없는 팀원과 CI를 위한 것이다. 재실행이 곧 CLI 업그레이드이며, 복사본이 플러그인보다 새 버전이면 덮어쓰지 않고 경고한다.
-   - `.claude/CLAUDE.md`에 `## 용어 사전` 블록을 마커(`<!-- superglossary:begin -->`…`<!-- superglossary:end -->`)로 감싸 넣거나 최신 문구로 갱신한다. 마커 없는 구버전 블록도 손대지 않은 것이면 자동으로 바뀐다.
+   - 프로젝트 지침 파일에 `## 용어 사전` 블록을 마커(`<!-- superglossary:begin -->`…`<!-- superglossary:end -->`)로 감싸 넣거나 최신 문구로 갱신한다. 대상은 루트 `AGENTS.md`이고, 프로젝트에 `CLAUDE.md`·`.claude/CLAUDE.md`·`CLAUDE.local.md` 중 하나라도 있으면 `.claude/CLAUDE.md`다(그런 프로젝트에서 Claude Code는 `AGENTS.md`를 읽지 않는다). 다른 쪽 파일에 예전에 넣은 블록이 남아 있으면 함께 갱신한다. 마커 없는 구버전 블록도 손대지 않은 것이면 자동으로 바뀐다.
 2. 방금 배치된 복사본이 도는지 `python3 .claude/superglossary/glossary.py version`으로 확인한다.
 3. 출력의 **경고(⚠)**를 그대로 사용자에게 전달하고 필요한 조치를 확인한다.
    - `.gitignore` 경고: 안내된 패턴으로 `.gitignore`를 수정할지 묻는다(동의 시 수정). 용어사전은 팀과 공유되어야 가치가 있다.
    - 남은 `glossary.mjs`(0.4.0 이전 복사본) 경고: 삭제할지 묻는다(동의 시 삭제).
-   - CLAUDE.md의 `## 용어 사전` 섹션이 직접 수정되어 갱신하지 않았다는 경고: 섹션을 지우고 init을 다시 실행할지 묻는다.
+   - 지침 파일에 init이 관리하지 않는 `## 용어 사전` 섹션이 있어 갱신하지 않았다는 경고: 섹션을 지우고 init을 다시 실행할지 묻는다.
 4. 생성·연결 결과와 CLI 버전을 사용자에게 보고한다.
 
 ## 기존 코드베이스(brownfield)라면

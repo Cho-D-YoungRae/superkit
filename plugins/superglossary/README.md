@@ -23,14 +23,16 @@
 ### 배포판 설치 (권장)
 
 ```bash
-/plugin marketplace add Cho-D-YoungRae/superglossary
-/plugin install superglossary@superglossary
+/plugin marketplace add Cho-D-YoungRae/superkit
+/plugin install superglossary@superkit
 ```
+
+superglossary는 [superkit](../../README.md) 마켓플레이스로 배포됩니다. 0.5.0 이하를 `superglossary@superglossary`로 설치했다면 그 마켓플레이스를 지우고(`/plugin marketplace remove superglossary`) 위 명령으로 다시 설치하세요.
 
 ### 로컬 개발용 로드
 
 ```bash
-claude --plugin-dir .
+claude --plugin-dir plugins/superglossary   # superkit 저장소 루트에서
 # 세션 중 변경 적용 시
 /reload-plugins
 ```
@@ -42,7 +44,7 @@ claude --plugin-dir .
 ```
 1. /superglossary:init
    → .claude/superglossary/ 생성(glossary.json·core.md·terms.md·glossary.py)
-   → .claude/CLAUDE.md에 용어사전 블록 자동 삽입(@superglossary/core.md 상시 로드)
+   → AGENTS.md에 용어사전 블록 자동 삽입(core.md 상시 로드). CLAUDE.md가 있는 프로젝트는 .claude/CLAUDE.md
 
 2. /superglossary:add 회원 member
    → 단일어를 등록합니다. 복합어(회원번호)를 주면 회원+식별자로 분해해 안내합니다.
@@ -92,9 +94,9 @@ claude --plugin-dir .
   glossary.py     — 용어사전 관리 CLI (init/build/add/update/remove/list/lookup/lint/version/help, templates/glossary.py 복사본)
 ```
 
-**상시 로드**: init이 `.claude/CLAUDE.md`에 `@superglossary/core.md` import와 네이밍 규칙 블록을 자동으로 넣습니다. 이후 Claude가 세션마다 용어를 자동 참조합니다. 블록은 `<!-- superglossary:begin -->`…`<!-- superglossary:end -->` 마커로 감싸여 init을 다시 실행할 때마다 최신 문구로 갱신되며, 마커 밖의 내용은 건드리지 않습니다. `core.md`·`terms.md`는 `glossary.json`에서 생성되므로 직접 편집하지 말고, JSON을 고치면 `glossary.py build`로 재생성합니다. 손으로 고친 JSON에 구조 오류(필드 누락·타입 오류)나 용어 간 충돌(영문·축약어 중복 등)이 있으면 CLI가 어디가 틀렸는지 알려 주고, 충돌이 남은 사전은 저장·빌드하지 않습니다.
+**상시 로드**: init이 프로젝트 지침 파일에 `core.md` import와 네이밍 규칙 블록을 자동으로 넣습니다. 이후 Claude가 세션마다 용어를 자동 참조합니다. 지침 파일은 루트 `AGENTS.md`(`@.claude/superglossary/core.md`)이고, 프로젝트에 `CLAUDE.md`·`.claude/CLAUDE.md`·`CLAUDE.local.md` 중 하나라도 있으면 `.claude/CLAUDE.md`(`@superglossary/core.md`)입니다. Claude Code는 기본 설정에서 CLAUDE.md가 있으면 AGENTS.md를 읽지 않기 때문입니다. 블록은 `<!-- superglossary:begin -->`…`<!-- superglossary:end -->` 마커로 감싸여 init을 다시 실행할 때마다 최신 문구로 갱신되며, 마커 밖의 내용은 건드리지 않습니다. `core.md`·`terms.md`는 `glossary.json`에서 생성되므로 직접 편집하지 말고, JSON을 고치면 `glossary.py build`로 재생성합니다. 손으로 고친 JSON에 구조 오류(필드 누락·타입 오류)나 용어 간 충돌(영문·축약어 중복 등)이 있으면 CLI가 어디가 틀렸는지 알려 주고, 충돌이 남은 사전은 저장·빌드하지 않습니다.
 
-**팀 공유**: 용어사전은 팀이 공유해야 가치가 있습니다. `.claude/superglossary/`와 `.claude/CLAUDE.md`를 **git에 커밋**하세요. `.gitignore`가 `.claude/`를 무시하면 init이 경고와 함께 해결 패턴(`.claude/*` + `!.claude/superglossary/`)을 안내합니다.
+**팀 공유**: 용어사전은 팀이 공유해야 가치가 있습니다. `.claude/superglossary/`와 블록이 들어간 지침 파일(`AGENTS.md` 또는 `.claude/CLAUDE.md`)을 **git에 커밋**하세요. `.gitignore`가 `.claude/`를 무시하면 init이 경고와 함께 해결 패턴(`.claude/*` + `!.claude/superglossary/`)을 안내합니다.
 
 ## 기존 프로젝트에 도입 (brownfield)
 
@@ -129,8 +131,8 @@ python3 .claude/superglossary/glossary.py <서브커맨드>   # 프로젝트 복
 | `add <한글> <영문> [축약어]` | 등록 (`--desc`, `--related`, `--avoid` 옵션. 축약어는 `--abbreviation`으로도 지정) | `... add 청구 claim --desc "요금 청구"` |
 | `update <한글>` | 지정 필드만 수정 (`--english`/`--abbreviation`/`--desc`/`--related`/`--avoid`). `--avoid ""`처럼 빈 값을 주면 목록을 비움 | `... update 청구 --english billing` |
 | `remove <한글>` | 삭제 | `... remove 청구` |
-| `lint [--all] [--strict] <paths...>` | 코드 대조 (`[위반]`/`[후보]`). 디렉토리는 재귀 탐색하며 git 저장소에서는 `.gitignore`를 따름. `.claude/`·락 파일(`package-lock.json` 등)·`*.min.js`·`*.map`은 제외. `--all`은 스톱워드 필터 해제, `--strict`는 `[위반]`이 있으면 종료 코드 1 | `... lint src/` |
-| `init` | 초기화·업그레이드 — 사전·생성물·CLI 복사본·CLAUDE.md 블록 (보통 `/superglossary:init`으로 실행) | `superglossary init` |
+| `lint [--all] [--strict] <paths...>` | 코드 대조 (`[위반]`/`[후보]`). 디렉토리는 재귀 탐색하며 git 저장소에서는 `.gitignore`를 따름. `.claude/`·락 파일(`package-lock.json` 등)·`*.min.js`·`*.map`과 지침 파일 안의 용어사전 블록은 제외. `--all`은 스톱워드 필터 해제, `--strict`는 `[위반]`이 있으면 종료 코드 1 | `... lint src/` |
+| `init` | 초기화·업그레이드 — 사전·생성물·CLI 복사본·지침 파일 블록 (보통 `/superglossary:init`으로 실행) | `superglossary init` |
 | `build` | `glossary.json` → `core.md`·`terms.md` 재생성 | `... build` |
 | `version` / `help` | CLI 버전 / 사용법 | `... version` |
 
@@ -181,7 +183,7 @@ CLI는 입력을 조용히 버리지 않습니다. 모르는 옵션(`--descripti
 
 ## 업그레이드
 
-플러그인 업데이트 후 각 프로젝트에서 `/superglossary:init`을 재실행하면 CLI 복사본과 `.claude/CLAUDE.md`의 용어사전 블록이 최신으로 갱신됩니다. `glossary.json`은 보존됩니다.
+플러그인 업데이트 후 각 프로젝트에서 `/superglossary:init`을 재실행하면 CLI 복사본과 지침 파일(`AGENTS.md` 또는 `.claude/CLAUDE.md`)의 용어사전 블록이 최신으로 갱신됩니다. `glossary.json`은 보존됩니다.
 
 - 현재 CLI 버전 확인: `python3 .claude/superglossary/glossary.py version`
 - 프로젝트 복사본이 실행한 CLI보다 새 버전이면(팀원이 먼저 업데이트한 경우) 덮어쓰지 않고 경고합니다.
@@ -227,7 +229,7 @@ git diff --cached --name-only -z --diff-filter=ACMR \
 
 ## 기여
 
-브랜치 전략·커밋 규칙·릴리즈 절차는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
+브랜치 전략·커밋 규칙·릴리즈 절차는 superkit의 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참고하세요.
 
 ## 출처
 

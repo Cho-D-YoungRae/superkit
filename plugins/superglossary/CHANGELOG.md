@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-01
+
+### Changed
+
+- 배포 위치를 [superkit](https://github.com/Cho-D-YoungRae/superkit) 마켓플레이스로 옮겼습니다. 설치 ID가 `superglossary@superglossary`에서 `superglossary@superkit`으로 바뀌므로, 옛 마켓플레이스를 지우고 다시 설치해야 합니다. 이제 릴리즈 태그는 `superglossary--v<버전>` 형식입니다.
+- init이 용어사전 블록을 넣는 지침 파일: 기본은 프로젝트 루트의 `AGENTS.md`(`@.claude/superglossary/core.md`)입니다. 프로젝트에 `CLAUDE.md`·`.claude/CLAUDE.md`·`CLAUDE.local.md` 중 하나라도 있으면 예전처럼 `.claude/CLAUDE.md`에 넣습니다. 이런 프로젝트에서는 Claude Code가 `AGENTS.md`를 읽지 않기 때문입니다. 기존 설치는 `.claude/CLAUDE.md`가 있으므로 동작이 바뀌지 않습니다.
+- 다른 쪽 지침 파일에 예전에 넣은 블록이 남아 있으면 init이 함께 갱신합니다.
+- lint는 지침 파일 안의 용어사전 블록(생성물)을 대조하지 않습니다. 블록이 `.claude/` 밖의 `AGENTS.md`에 들어가도 init 직후 check에 블록 문구가 후보로 섞이지 않습니다.
+
 ## [0.5.0] - 2026-09-28
 
 ### Added

@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 
 # glossary.json 데이터 스키마 버전. 구조가 바뀔 때만 올린다(CLI 버전과 별개).
 #   0 → schemaVersion 필드가 없던 0.4.0 이전 파일
@@ -548,6 +548,8 @@ def lint_files(data, paths, all_tokens=False, exclude=None):
         text = read_text(file)
         if text is None:
             continue
+        # init이 지침 파일(AGENTS.md 등)에 넣은 블록은 생성물이라 대조하지 않는다.
+        text = MANAGED_BLOCK_RE.sub("", text)
         for identifier in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", text):
             for tok in tokenize(identifier):
                 if len(tok) < 2 or tok in known:
@@ -589,8 +591,8 @@ INITIAL_DATA = {
     ]
 }
 
-CLAUDE_BLOCK = """## 용어 사전
-@superglossary/core.md
+GLOSSARY_BLOCK = """## 용어 사전
+@{core_import}
 
 - 클래스/변수/함수/컬럼/테이블 등 모든 네이밍은 위 표의 영문명만 사용한다. 축약어는 표에 등록된 것만 쓰고, 금지 변형은 표준으로 대체한다.
 - 표에 없는 단일어가 필요하면 임의로 짓지 말고 superglossary의 add 스킬로 등록한다(복합어는 단일어로 분해). 플러그인이 없으면 `python3 .claude/superglossary/glossary.py add <korean> <english> [abbreviation]`을 직접 실행한다. 변경은 같은 diff에 포함한다.
@@ -600,7 +602,8 @@ CLAUDE_BLOCK = """## 용어 사전
 - 워크플로: 작업 시작 전 핵심 개념 정렬 → 작업 중 사전에 없는 용어만 추가 → 완료 후 check 스킬로 검토.
 """
 
-# init이 CLAUDE.md에서 관리하는 구간. 마커 안쪽은 init을 다시 실행할 때마다 최신 CLAUDE_BLOCK으로 바뀐다.
+# init이 지침 파일(AGENTS.md 또는 .claude/CLAUDE.md)에서 관리하는 구간. 마커 안쪽은 init을 다시 실행할 때마다
+# 최신 GLOSSARY_BLOCK으로 바뀐다.
 BLOCK_BEGIN = "<!-- superglossary:begin — /superglossary:init이 관리합니다. 고친 내용은 init을 다시 실행하면 덮어써집니다. -->"
 BLOCK_END = "<!-- superglossary:end -->"
 MANAGED_BLOCK_RE = re.compile(r"<!-- superglossary:begin\b.*?-->.*?<!-- superglossary:end -->\n?", re.S)
@@ -614,9 +617,12 @@ LEGACY_BLOCK_SHA256 = {
 }
 
 
-def upsert_claude_block(existing):
-    """CLAUDE.md 내용에 최신 용어사전 블록을 넣거나 갱신한다. (새 내용, 경고 목록)을 반환한다."""
-    block = f"{BLOCK_BEGIN}\n{CLAUDE_BLOCK}{BLOCK_END}\n"
+def upsert_glossary_block(existing, core_import, label):
+    """지침 파일 내용에 최신 용어사전 블록을 넣거나 갱신한다. (새 내용, 경고 목록)을 반환한다.
+
+    core_import는 지침 파일 기준 core.md 경로, label은 경고에 쓸 프로젝트 기준 파일 경로다.
+    """
+    block = f"{BLOCK_BEGIN}\n{GLOSSARY_BLOCK.format(core_import=core_import)}{BLOCK_END}\n"
     if MANAGED_BLOCK_RE.search(existing):
         return MANAGED_BLOCK_RE.sub(lambda _: block, existing, count=1), []
     legacy = LEGACY_SECTION_RE.search(existing)
@@ -624,7 +630,7 @@ def upsert_claude_block(existing):
         digest = hashlib.sha256(legacy.group(0).strip().encode("utf-8")).hexdigest()
         if digest not in LEGACY_BLOCK_SHA256:
             return existing, [
-                "⚠ .claude/CLAUDE.md의 '## 용어 사전' 섹션이 직접 수정되어 있어 갱신하지 않았습니다. "
+                f"⚠ {label}에 init이 관리하지 않는 '## 용어 사전' 섹션이 있어 갱신하지 않았습니다. "
                 "최신 안내로 바꾸려면 그 섹션을 지우고 init을 다시 실행하세요."
             ]
         rest = existing[legacy.end():]
@@ -709,10 +715,28 @@ def resolve_data_dir(script_path=None, cwd=None, env=None):
         current = parent
 
 
-def git_ignore_warnings(data_dir):
+# 프로젝트 루트에 이 중 하나라도 있으면 Claude Code는 기본 설정에서 AGENTS.md를 읽지 않는다.
+CLAUDE_INSTRUCTION_FILES = ("CLAUDE.md", os.path.join(".claude", "CLAUDE.md"), "CLAUDE.local.md")
+
+
+def instruction_files(data_dir):
+    """용어사전 블록을 둘 수 있는 지침 파일 목록. 각 항목은 (프로젝트 기준 경로, 그 파일 기준 core.md 경로)이다.
+
+    첫 항목이 블록을 새로 넣을 대상이다. 프로젝트에 CLAUDE.md 계열 파일이 있으면 Claude Code가 그쪽만
+    읽으므로 .claude/CLAUDE.md, 없으면 Claude Code와 다른 에이전트가 함께 읽는 루트 AGENTS.md다.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.normpath(data_dir)))
+    claude = (os.path.join(".claude", "CLAUDE.md"), "superglossary/core.md")
+    agents = ("AGENTS.md", ".claude/superglossary/core.md")
+    if any(os.path.exists(os.path.join(root, rel)) for rel in CLAUDE_INSTRUCTION_FILES):
+        return [claude, agents]
+    return [agents, claude]
+
+
+def git_ignore_warnings(data_dir, instruction_rel):
     root = os.path.dirname(os.path.dirname(os.path.normpath(data_dir)))
     warnings = []
-    targets = [os.path.join(".claude", "superglossary", "glossary.json"), os.path.join(".claude", "CLAUDE.md")]
+    targets = [os.path.join(".claude", "superglossary", "glossary.json"), instruction_rel]
     for rel in targets:
         try:
             done = subprocess.run(
@@ -724,12 +748,10 @@ def git_ignore_warnings(data_dir):
         if done.returncode == 0:
             warnings.append(f"⚠ {rel} 이(가) .gitignore에 의해 무시되어 팀과 공유되지 않습니다.")
     if warnings:
-        warnings += [
-            "  .gitignore를 다음과 같이 조정하세요:",
-            "    .claude/*",
-            "    !.claude/CLAUDE.md",
-            "    !.claude/superglossary/",
-        ]
+        warnings += ["  .gitignore를 다음과 같이 조정하세요:", "    .claude/*"]
+        if instruction_rel.startswith(".claude" + os.sep):
+            warnings.append("    !" + instruction_rel.replace(os.sep, "/"))
+        warnings.append("    !.claude/superglossary/")
     return warnings
 
 
@@ -746,15 +768,22 @@ def scaffold(data_dir):
     warnings += install_cli_copy(data_dir)
     if os.path.exists(os.path.join(data_dir, "glossary.mjs")):
         warnings.append("⚠ 0.4.0 이전 CLI 복사본 glossary.mjs가 남아 있습니다. 더 이상 쓰이지 않으니 삭제하세요.")
-    claude_md = os.path.join(os.path.dirname(os.path.normpath(data_dir)), "CLAUDE.md")
-    existing = ""
-    if os.path.exists(claude_md):
-        with open(claude_md, encoding="utf-8") as f:
-            existing = f.read()
-    updated, block_warnings = upsert_claude_block(existing)
-    if updated != existing:
-        write_text(claude_md, updated)
-    return warnings + block_warnings + git_ignore_warnings(data_dir)
+    root = os.path.dirname(os.path.dirname(os.path.normpath(data_dir)))
+    files = instruction_files(data_dir)
+    for index, (rel, core_import) in enumerate(files):
+        path = os.path.join(root, rel)
+        existing = ""
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                existing = f.read()
+        # 블록은 대상 파일에 넣는다. 다른 파일에 예전에 넣은 블록이 남아 있으면 낡지 않게 함께 갱신한다.
+        if index > 0 and not MANAGED_BLOCK_RE.search(existing):
+            continue
+        updated, block_warnings = upsert_glossary_block(existing, core_import, rel.replace(os.sep, "/"))
+        warnings += block_warnings
+        if updated != existing:
+            write_text(path, updated)
+    return warnings + git_ignore_warnings(data_dir, files[0][0])
 
 
 BOOLEAN_OPTIONS = {"all", "strict"}
@@ -793,7 +822,7 @@ def _csv_option(options, key):
 
 USAGE = """사용법: python3 .claude/superglossary/glossary.py <subcommand>
        (플러그인이 활성화되어 있으면 `superglossary <subcommand>`로도 실행됩니다)
-  init                                          초기화·업그레이드(사전·생성물·CLI 복사본·CLAUDE.md 블록)
+  init                                          초기화·업그레이드(사전·생성물·CLI 복사본·지침 파일 블록)
   build                                         glossary.json → core.md·terms.md 재생성
   add <korean> <english> [abbreviation] [--desc "설명"] [--related "a,b"] [--avoid "a,b"]
       (축약어는 --abbreviation A로도 지정 가능)
