@@ -31,7 +31,7 @@ status 모드: "릴리스 준비됐는지", "다음 버전 뭐가 될까" 류 �
 
 ## 2. 범위 산출
 
-- anchor: 마지막 릴리스 태그 — `git -c versionsort.suffix=- tag --list '<glob>' --sort=-v:refname | head -n 1` (`<glob>`은 `v{version}`의 `{version}`을 `*`로 치환 — 이 포맷에 맞는 태그만 보고 다른 포맷 태그는 무시하라)
+- anchor: 마지막 릴리스 태그 — `git -c versionsort.suffix=- tag --list '<glob>' --sort=-v:refname | head -n 1` (`<glob>`은 `superrelease--v{version}`의 `{version}`을 `*`로 치환 — 이 포맷에 맞는 태그만 보고 다른 포맷 태그는 무시하라)
 - anchor가 없으면 **첫 릴리스**: 커밋 전체를 나열하지 말고 "Initial release"로 다뤄라.
 - 수집: `git log <anchor>..HEAD --pretty=format:"%h %s"`
 
@@ -76,7 +76,7 @@ status 모드: "릴리스 준비됐는지", "다음 버전 뭐가 될까" 류 �
 
 ## 7. 태그 + GitHub Release
 
-- 태그명: `v{version}` 의 {version}에 릴리스 버전 대입
+- 태그명: `superrelease--v{version}` 의 {version}에 릴리스 버전 대입
 - push 직전 충돌 재확인: `git ls-remote --tags origin <태그>` 가 비어 있어야 함 — 결과가 있으면 **즉시 중단** (동시 릴리스 락, 버전 재사용 금지)
 - annotated 태그: `git tag -a <태그> -m "<한 줄 요약>"` → `git push origin <태그>`
 - gh 경로: `gh release create <태그> --title "<버전>" --notes-file <노트 파일>`

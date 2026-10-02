@@ -27,10 +27,9 @@
       "path": ".",
       "scheme": {"type": "semver", "pattern": null},
       "versionLocations": [
-        {"file": ".claude-plugin/plugin.json", "type": "json-path", "path": "version"},
-        {"file": ".claude-plugin/marketplace.json", "type": "json-path", "path": "metadata.version"}
+        {"file": ".claude-plugin/plugin.json", "type": "json-path", "path": "version"}
       ],
-      "tag": {"enabled": true, "format": "v{version}", "annotated": true, "signed": false, "movingMajorTag": false},
+      "tag": {"enabled": true, "format": "superrelease--v{version}", "annotated": true, "signed": false, "movingMajorTag": false},
       "bump": {"mode": "auto-confirm", "sources": ["conventional-commits"], "fallback": "diff", "compatCheck": null},
       "preRelease": {"style": "none", "qualifier": null},
       "devChannel": {"enabled": false, "qualifier": null, "immutableId": []},

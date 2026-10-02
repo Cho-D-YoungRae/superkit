@@ -1,6 +1,6 @@
-# CLAUDE.md
+# superrelease
 
-superrelease는 **컴파일러 패턴** Claude Code 플러그인이다: 무거운 `init` 스킬이 레포를 스캔·질문한 뒤, 프로젝트 전용 릴리스 툴킷(스킬·스크립트·config·템플릿)을 사용자 레포에 렌더한다. 제품 개요·사용법은 [README.md](README.md) 참고. 이 문서는 **플러그인 코드를 편집할 때** 필요한 명령·규율·함정을 담는다.
+superrelease는 **컴파일러 패턴** Claude Code 플러그인이다: 무거운 `init` 스킬이 레포를 스캔·질문한 뒤, 프로젝트 전용 릴리스 툴킷(스킬·스크립트·config·템플릿)을 사용자 레포에 렌더한다. 제품 개요·사용법은 [README.md](README.md) 참고. 이 문서는 **플러그인 코드를 편집할 때** 필요한 명령·규율·함정을 담는다. 저장소 공통 규칙(브랜치·커밋·태그)은 superkit 루트 [AGENTS.md](../../AGENTS.md)를 따르고, 아래 명령은 모두 이 디렉터리(`plugins/superrelease`)에서 실행한다.
 
 ## Commands
 
@@ -37,13 +37,14 @@ claude --plugin-dir .
 
 ## Dogfooding (자기 릴리스 툴킷)
 
-superrelease는 **자기 자신을 릴리스**한다 — `.superrelease/`와 `.claude/skills/{release,release-notes}/`는 이 레포의 `.superrelease/config.json`으로 렌더된 **생성물**이다(플러그인 소스 아님).
+superrelease는 **자기 자신을 릴리스**한다 — `.superrelease/`와 `.claude/skills/{release,release-notes}/`는 이 디렉터리의 `.superrelease/config.json`으로 렌더된 **생성물**이다(플러그인 소스 아님). 툴킷의 경로는 이 디렉터리 기준이라, 릴리스는 이 디렉터리에서 연 세션에서 `release` 스킬로 한다. 태그는 superkit 규칙대로 `superrelease--v{version}`이다.
 
 - **template**(수정 대상): `skills/init/assets/{skills,scripts,templates}/…`
 - **rendered**(생성물, 직접 수정 금지): `.claude/skills/…`, `.superrelease/{scripts,templates}/…`
 
 asset을 수정하면 반드시 재렌더하라:
-`python3 skills/init/scripts/render.py --config .superrelease/config.json --assets skills/init/assets --repo . --now <ISO>`
+`GIT_CEILING_DIRECTORIES="$(cd .. && pwd)" python3 skills/init/scripts/render.py --config .superrelease/config.json --assets skills/init/assets --repo . --now <ISO>`
+(`GIT_CEILING_DIRECTORIES`가 없으면 프로젝트 이름이 git 원격(superkit)에서 정해져 `test_dogfood_selfrender`가 실패한다.)
 `tests/test_dogfood_selfrender.py`가 커밋 툴킷 == asset 재렌더를 강제한다(드리프트 시 실패).
 
 ## Gotchas / 필수 규율
@@ -64,10 +65,9 @@ asset을 수정하면 반드시 재렌더하라:
 
 ## Workflow
 
-- 브랜칭: **트렁크 기반(GitHub Flow)** — `main`에서 기능 브랜치 → PR → 머지. gitflow(장수 `develop`/`release/*`)는 쓰지 않는다.
-- 커밋: **Conventional Commits** (`feat`/`fix`/`docs`/`test`/`refactor`/`chore`).
+- 브랜치·커밋·태그 규칙은 superkit 루트 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 따른다(GitHub Flow, Conventional Commits에 범위 `superrelease`).
 - 큰 변경의 설계·구현 계획은 `docs/superpowers/{specs,plans}/`에 남긴다(날짜-마일스톤 네이밍).
-- 기여 안내: [CONTRIBUTING.md](CONTRIBUTING.md).
+- 이 플러그인의 기여 안내: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 지원 현황 (조건부 기능, 전부 출하됨)
 

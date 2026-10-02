@@ -2,7 +2,7 @@
 
 기여를 환영합니다. superrelease는 **컴파일러 패턴** Claude Code 플러그인이다 — 무거운 `init`이
 프로젝트 전용 릴리스 툴킷을 사용자 레포에 렌더한다. 아키텍처·규율의 상세는
-[CLAUDE.md](CLAUDE.md)에, 제품 개요는 [README.md](README.md)에 있다.
+[AGENTS.md](AGENTS.md)에, 제품 개요는 [README.md](README.md)에 있다. superrelease는 [superkit](../../README.md) 모노레포의 `plugins/superrelease`에 있고, 아래 명령은 모두 이 디렉터리에서 실행한다.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ git status --porcelain tests/golden   # 의도한 트리만 바뀌었는지 반�
 **의도하지 않은 골든 트리가 바뀌었다면 회귀다** — 대개 조건 블록이 미해당 config에서 0바이트로
 collapse되지 않은 경우다. 개행을 `{{#if}}` **안**에 두어라.
 
-## 지켜야 할 규율 (상세는 CLAUDE.md)
+## 지켜야 할 규율 (상세는 AGENTS.md)
 
 - **동결 template dialect** — render.py의 dialect를 확장하지 않는다. 생성 스킬은 기존 문법만 조합.
 - **바이트 불변** — 조건 블록은 미해당 config에서 0바이트 collapse → 기존 골든 바이트 동일.
@@ -52,10 +52,10 @@ collapse되지 않은 경우다. 개행을 `{{#if}}` **안**에 두어라.
 
 ## 커밋·브랜치
 
-- **Conventional Commits** — `feat:` / `fix:` / `docs:` / `test:` / `refactor:` / `chore:`.
-  예: `feat: render 검증 — gitflow는 release-pr 필수`.
-- **트렁크 기반(GitHub Flow)** — `main`에서 기능 브랜치를 따서 작업 → PR → 리뷰 → `main` 머지.
-  장수 브랜치(gitflow의 `develop`/`release/*`)는 쓰지 않는다.
+- **Conventional Commits** — 범위에 `superrelease`를 적는다.
+  예: `feat(superrelease): render 검증 — gitflow는 release-pr 필수`.
+- **트렁크 기반(GitHub Flow)** — superkit `main`에서 기능 브랜치를 따서 작업 → PR → 리뷰 → `main` 머지.
+  장수 브랜치(gitflow의 `develop`/`release/*`)는 쓰지 않는다. 공통 규칙은 superkit [CONTRIBUTING.md](../../CONTRIBUTING.md).
 - PR 전 **전체 테스트 + `claude plugin validate . --strict`** 통과를 확인한다.
 
 ## 설계 문서

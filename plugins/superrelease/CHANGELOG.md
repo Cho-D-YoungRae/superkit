@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **배포 위치를 superkit 마켓플레이스로 옮겼다** — 이 플러그인은 이제
+  [Cho-D-YoungRae/superkit](https://github.com/Cho-D-YoungRae/superkit)의
+  `plugins/superrelease`에 있다. 설치 ID가 `superrelease@superrelease`에서
+  `superrelease@superkit`으로 바뀌므로, 옛 마켓플레이스를 지우고 다시 설치해야
+  한다. 릴리스 태그는 `superrelease--v<버전>` 형식이다(기존 `v0.1.0`~`v0.4.1`도
+  같은 형식으로 옮겼다).
+- 플러그인을 수정하는 세션용 지침을 `CLAUDE.md`에서 `AGENTS.md`로 옮겼다.
+
 ### Added
 
 - **init이 버전 후보 0건 레포의 입구를 안내한다** — 버전 파일이 없는 기존

@@ -39,11 +39,11 @@ Design principles:
 ## Install
 
 ```
-/plugin marketplace add Cho-D-YoungRae/superrelease
-/plugin install superrelease@superrelease
+/plugin marketplace add Cho-D-YoungRae/superkit
+/plugin install superrelease@superkit
 ```
 
-Local development: `claude --plugin-dir .` · validate with
+Local development (from the superkit root): `claude --plugin-dir plugins/superrelease` · validate with
 `claude plugin validate . --strict` · reload with `/reload-plugins`.
 
 ## Quick start

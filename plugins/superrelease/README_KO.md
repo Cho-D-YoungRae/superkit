@@ -38,11 +38,11 @@ Claude Code 플러그인입니다. init 이후의 일상 릴리스는 생성물�
 ## 설치
 
 ```
-/plugin marketplace add Cho-D-YoungRae/superrelease
-/plugin install superrelease@superrelease
+/plugin marketplace add Cho-D-YoungRae/superkit
+/plugin install superrelease@superkit
 ```
 
-로컬 개발: `claude --plugin-dir .` · 검증은
+로컬 개발(superkit 루트에서): `claude --plugin-dir plugins/superrelease` · 검증은
 `claude plugin validate . --strict` · 리로드는 `/reload-plugins`.
 
 ## 빠른 시작
