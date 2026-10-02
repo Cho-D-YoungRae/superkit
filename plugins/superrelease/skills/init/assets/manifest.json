@@ -1,0 +1,105 @@
+{
+  "entries": [
+    {
+      "src": "skills/release/SKILL.md",
+      "dest": ".claude/skills/release/SKILL.md",
+      "render": true,
+      "when": "repo.monorepoStrategy != \"independent\""
+    },
+    {
+      "src": "skills/release-monorepo/SKILL.md",
+      "dest": ".claude/skills/release/SKILL.md",
+      "render": true,
+      "when": "repo.monorepoStrategy == \"independent\""
+    },
+    {
+      "src": "skills/release-notes/SKILL.md",
+      "dest": ".claude/skills/release-notes/SKILL.md",
+      "render": true,
+      "when": "repo.monorepoStrategy != \"independent\""
+    },
+    {
+      "src": "skills/release-notes-monorepo/SKILL.md",
+      "dest": ".claude/skills/release-notes/SKILL.md",
+      "render": true,
+      "when": "repo.monorepoStrategy == \"independent\""
+    },
+    {
+      "src": "skills/hotfix/SKILL.md",
+      "dest": ".claude/skills/hotfix/SKILL.md",
+      "render": true,
+      "when": "repo.maintenanceLines"
+    },
+    {
+      "src": "skills/hotfix/SKILL.md",
+      "dest": ".claude/skills/hotfix/SKILL.md",
+      "render": true,
+      "when": "repo.branching == \"gitflow\""
+    },
+    {
+      "src": "skills/backfill/SKILL.md",
+      "dest": ".claude/skills/backfill/SKILL.md",
+      "render": true,
+      "when": "repo.backfill"
+    },
+    {
+      "src": "scripts/version.py",
+      "dest": ".superrelease/scripts/version.py",
+      "render": false,
+      "executable": true
+    },
+    {
+      "src": "scripts/next-version.py",
+      "dest": ".superrelease/scripts/next-version.py",
+      "render": false,
+      "executable": true
+    },
+    {
+      "src": "scripts/changed-packages.py",
+      "dest": ".superrelease/scripts/changed-packages.py",
+      "render": false,
+      "executable": true,
+      "when": "repo.monorepoStrategy == \"independent\""
+    },
+    {
+      "src": "templates/notes-single.md",
+      "dest": ".superrelease/templates/notes-single.md",
+      "render": true,
+      "preserve": "template",
+      "when": "repo.monorepoStrategy != \"independent\""
+    },
+    {
+      "src": "templates/notes-package.md",
+      "dest": ".superrelease/templates/notes-package.md",
+      "render": true,
+      "preserve": "template",
+      "when": "repo.monorepoStrategy == \"independent\""
+    },
+    {
+      "src": "templates/notes-bundle.md",
+      "dest": ".superrelease/templates/notes-bundle.md",
+      "render": true,
+      "preserve": "template",
+      "when": "bundle.enabled"
+    },
+    {
+      "src": "templates/changelog-entry.md",
+      "dest": ".superrelease/templates/changelog-entry.md",
+      "render": true,
+      "preserve": "template"
+    },
+    {
+      "src": "templates/release-pr-body.md",
+      "dest": ".superrelease/templates/release-pr-body.md",
+      "render": true,
+      "preserve": "template",
+      "when": "repo.releasePath == \"release-pr\""
+    },
+    {
+      "src": "github/release.yml",
+      "dest": ".github/release.yml",
+      "render": false,
+      "when": "github.releaseYml"
+    }
+  ]
+}
