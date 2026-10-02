@@ -7,6 +7,8 @@ Claude Code 플러그인 모음이자 마켓플레이스.
 | [superdomain](plugins/superdomain) | 도메인 정의(DOMAIN.md), 도메인·코딩 컨벤션 리뷰, ADR로 도메인 로직이 드러나는 코드를 돕는다 |
 | [superglossary](plugins/superglossary) | 프로젝트별 용어사전을 관리하고 일관된 용어 사용을 돕는다 |
 | [infra](plugins/infra) | 인프라 하네스(인벤토리·변경기록·직접 제어)를 구성하고 운영한다 |
+| [superrelease](plugins/superrelease) | 프로젝트를 분석해 그 프로젝트 전용 릴리스 툴킷을 저장소에 만들어 준다 |
+| [llm-wiki](plugins/llm-wiki) | LLM이 유지보수하는 개인 위키 — 위키 부트스트래핑과 소스 추출 툴벨트 |
 
 ## 설치
 
@@ -17,6 +19,8 @@ Claude Code 세션 안에서 마켓플레이스를 한 번 추가하고, 필요�
 /plugin install superdomain@superkit
 /plugin install superglossary@superkit
 /plugin install infra@superkit
+/plugin install superrelease@superkit
+/plugin install llm-wiki@superkit
 ```
 
 터미널에서:
@@ -33,7 +37,7 @@ claude plugin install superglossary@superkit
 
 ### 예전 저장소에서 옮겨 오는 경우
 
-superdomain과 superglossary는 원래 저장소마다 마켓플레이스가 따로 있었다(`superdomain@superdomain`, `superglossary@superglossary`). 옛 마켓플레이스를 지우면 그 플러그인도 함께 제거되므로, 지운 뒤 위 명령으로 다시 설치한다.
+superdomain·superglossary·superrelease·llm-wiki는 원래 저장소마다 마켓플레이스가 따로 있었다(`superdomain@superdomain`, `superglossary@superglossary`, `superrelease@superrelease`, `llm-wiki@llm-wiki`). 옛 마켓플레이스를 지우면 그 플러그인도 함께 제거되므로, 지운 뒤 위 명령으로 다시 설치한다.
 
 ```bash
 claude plugin marketplace remove superdomain

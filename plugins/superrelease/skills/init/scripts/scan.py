@@ -1,0 +1,752 @@
+#!/usr/bin/env python3
+"""scan.py — read-only project scanner for superrelease init.
+
+Prints a JSON report of build systems, version-string candidates, tag patterns,
+Conventional Commits usage, merge-policy evidence, branches, monorepo signals,
+changelog artifacts and CI tag-trigger *candidates* (heuristic — the caller must
+read the candidate workflow files to confirm).
+Exit codes: 0 success (missing git degrades gracefully) / 2 usage error.
+"""
+import sys
+
+if sys.version_info < (3, 9):
+    sys.stderr.write("error: superrelease scripts require Python 3.9+\n")
+    sys.exit(2)
+
+import argparse
+import json
+import re
+import subprocess
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+CC_RE = re.compile(
+    r"^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]*\))?!?:")
+SQUASH_RE = re.compile(r"\(#\d+\)$")
+GRADLE_VERSION_PATTERN = "^version\\s*=?\\s*['\\\"]([^'\\\"]+)['\\\"]"
+PYPROJECT_VERSION_PATTERN = "^version\\s*=\\s*['\\\"]([^'\\\"]+)['\\\"]"
+CARGO_VERSION_PATTERN = "^version\\s*=\\s*\\\"([^\\\"]+)\\\""
+DOCKER_VERSION_PATTERN = (
+    "LABEL\\s+(?:org\\.opencontainers\\.image\\.)?version=\\\"?([^\\\"\\s]+)\\\"?")
+CHART_VERSION_PATTERN = "^version:\\s*(\\S+)"
+BADGE_VERSION_PATTERN = "badge/version-([0-9][A-Za-z0-9.%-]*)-"
+POM_REVISION_PATTERN = "<revision>([^<]+)</revision>"
+VERSION_FILE_PATTERN = "^(\\S+)\\s*$"
+OPENAPI_YAML_PATTERN = "^[ \\t]+version:\\s*[\"']?([0-9][^\"'\\s#]*)"
+PUBSPEC_VERSION_PATTERN = "^version:\\s*(\\S+)"
+PUBSPEC_MARKETING_PATTERN = "^version:\\s*(\\d[^+\\s]*)"
+CHART_APP_VERSION_PATTERN = "^appVersion:\\s*[\"']?([^\"'\\s]+)"
+XCCONFIG_MARKETING_PATTERN = "^MARKETING_VERSION\\s*=\\s*(\\S+)"
+ANDROID_VERSION_NAME_PATTERN = "^\\s*versionName\\s*=?\\s*['\\\"]([^'\\\"]+)['\\\"]"
+ANDROID_GRADLE_PATHS = ("app/build.gradle.kts", "app/build.gradle",
+                        "android/app/build.gradle.kts", "android/app/build.gradle")
+VERSIONISH_RE = re.compile(r"^v?\d[\w.+-]*$")
+OPENAPI_FILES = ("openapi.json", "openapi.yaml", "openapi.yml",
+                 "swagger.json", "swagger.yaml", "swagger.yml")
+TAG_PATTERNS = {
+    "semver-v": r"^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$",
+    "semver": r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$",
+    "short": r"^v?\d+\.\d+$",
+    "scoped": r"^@?[A-Za-z0-9._/-]+@v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$",
+}
+AUTOMATION_CI_MARKERS = ("changesets/action", "release-please",
+                         "semantic-release", "towncrier")
+SEMANTIC_RELEASE_FILES = (".releaserc", ".releaserc.json", ".releaserc.yaml",
+                          ".releaserc.yml", ".releaserc.js", ".releaserc.cjs",
+                          "release.config.js", "release.config.cjs",
+                          "release.config.mjs")
+DEVELOP_BRANCH_NAMES = ("develop", "development", "dev")
+BUNDLE_NOTE_RE = re.compile(r"^\d{4}(?:\.\d+)+$")
+BUNDLE_NOTE_DIRS = ("docs/releases", "docs/release")
+
+
+def git(repo, *args):
+    try:
+        proc = subprocess.run(["git", "-C", str(repo)] + list(args),
+                              capture_output=True, text=True)
+    except FileNotFoundError:
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def read(path):
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
+def scan_build_systems(repo):
+    found = []
+    gradle_files = ("build.gradle", "build.gradle.kts",
+                    "settings.gradle", "settings.gradle.kts")
+    if any((repo / n).is_file() for n in gradle_files):
+        found.append("gradle")
+    if (repo / "pom.xml").is_file():
+        found.append("maven")
+    if (repo / "package.json").is_file():
+        pm = "npm"
+        if (repo / "pnpm-lock.yaml").is_file():
+            pm = "pnpm"
+        elif (repo / "yarn.lock").is_file():
+            pm = "yarn"
+        found.append("node:" + pm)
+    if (repo / "pyproject.toml").is_file():
+        found.append("python")
+    if (repo / "Cargo.toml").is_file():
+        found.append("rust")
+    text = read(repo / "pubspec.yaml")
+    if text:
+        found.append("flutter" if re.search(r"^[ \t]*flutter:", text, re.M) else "dart")
+    if (repo / "go.mod").is_file():
+        found.append("go")
+    if any(repo.glob("*.tf")):
+        found.append("terraform")
+    return found
+
+
+def _pom_project_fields(text):
+    """Return (project version, revision property) from a POM, matching tags
+    by localname so namespaced and plain POMs both parse. (None, None) on
+    parse failure or non-project root."""
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return None, None
+
+    def local(el):
+        return el.tag.rsplit("}", 1)[-1]
+
+    if local(root) != "project":
+        return None, None
+    version = revision = None
+    for child in root:
+        name = local(child)
+        if name == "version" and (child.text or "").strip():
+            version = child.text.strip()
+        elif name == "properties":
+            for prop in child:
+                if local(prop) == "revision" and (prop.text or "").strip():
+                    revision = prop.text.strip()
+    return version, revision
+
+
+def scan_version_candidates(repo):
+    out = []
+
+    def add(file, loc_type, value, **extra):
+        entry = {"file": file, "type": loc_type, "value": value}
+        entry.update(extra)
+        out.append(entry)
+
+    text = read(repo / "gradle.properties")
+    if text:
+        m = re.search(r"^\s*version\s*=\s*(\S+)\s*$", text, re.M)
+        if m:
+            add("gradle.properties", "properties-key", m.group(1), key="version")
+    for name in ("build.gradle.kts", "build.gradle"):
+        text = read(repo / name)
+        if text:
+            m = re.search(GRADLE_VERSION_PATTERN, text, re.M)
+            if m:
+                add(name, "regex", m.group(1), pattern=GRADLE_VERSION_PATTERN)
+    text = read(repo / "pom.xml")
+    if text:
+        version, revision = _pom_project_fields(text)
+        if revision is not None and re.findall(POM_REVISION_PATTERN, text) == [revision]:
+            add("pom.xml", "regex", revision, pattern=POM_REVISION_PATTERN)
+        elif revision is not None:
+            # revision exists but the text pattern is ambiguous (a commented or
+            # profile-overridden <revision> the regex would read instead of the
+            # canonical one) — get/set cannot safely target it.
+            add("pom.xml", "regex", revision,
+                usable=False, advice="maven-project-version")
+        elif version is not None:
+            add("pom.xml", "regex", version,
+                usable=False, advice="maven-project-version")
+    text = read(repo / "package.json")
+    if text:
+        try:
+            v = json.loads(text).get("version")
+            if isinstance(v, str):
+                add("package.json", "json-path", v, path="version")
+        except json.JSONDecodeError:
+            pass
+    text = read(repo / ".claude-plugin" / "plugin.json")
+    if text:
+        try:
+            v = json.loads(text).get("version")
+            if isinstance(v, str):
+                add(".claude-plugin/plugin.json", "json-path", v, path="version")
+        except json.JSONDecodeError:
+            pass
+    text = read(repo / "pyproject.toml")
+    if text:
+        m = re.search(PYPROJECT_VERSION_PATTERN, text, re.M)
+        if m:
+            add("pyproject.toml", "regex", m.group(1), pattern=PYPROJECT_VERSION_PATTERN)
+    text = read(repo / "Cargo.toml")
+    if text:
+        m = re.search(CARGO_VERSION_PATTERN, text, re.M)
+        if m:
+            add("Cargo.toml", "regex", m.group(1), pattern=CARGO_VERSION_PATTERN)
+    text = read(repo / "Dockerfile")
+    if text:
+        m = re.search(DOCKER_VERSION_PATTERN, text)
+        if m:
+            add("Dockerfile", "regex", m.group(1), pattern=DOCKER_VERSION_PATTERN)
+    text = read(repo / "Chart.yaml")
+    if text:
+        m = re.search(CHART_VERSION_PATTERN, text, re.M)
+        if m:
+            add("Chart.yaml", "regex", m.group(1), pattern=CHART_VERSION_PATTERN)
+        m = re.search(CHART_APP_VERSION_PATTERN, text, re.M)
+        if m:
+            # appVersion tracks the app, version tracks the chart — which one
+            # drives a release is a per-repo decision; detect-and-advise only
+            add("Chart.yaml", "regex", m.group(1),
+                usable=False, advice="chart-app-version")
+    text = read(repo / "README.md")
+    if text:
+        m = re.search(BADGE_VERSION_PATTERN, text)
+        if m:
+            add("README.md", "regex", m.group(1), pattern=BADGE_VERSION_PATTERN)
+    text = read(repo / "VERSION")
+    if text:
+        stripped = text.strip()
+        if stripped and "\n" not in stripped and VERSIONISH_RE.match(stripped):
+            add("VERSION", "regex", stripped, pattern=VERSION_FILE_PATTERN)
+    text = read(repo / "pubspec.yaml")
+    if text:
+        m = re.search(PUBSPEC_VERSION_PATTERN, text, re.M)
+        if m:
+            if "+" in m.group(1):
+                # marketing part is a usable location (set() replaces only the
+                # capture group, so +N survives); the build number is CI-managed
+                marketing, build = m.group(1).split("+", 1)
+                if marketing and marketing[0].isdigit():
+                    add("pubspec.yaml", "regex", marketing,
+                        pattern=PUBSPEC_MARKETING_PATTERN, buildNumber=build)
+            else:
+                add("pubspec.yaml", "regex", m.group(1),
+                    pattern=PUBSPEC_VERSION_PATTERN)
+    text = read(repo / "src-tauri" / "tauri.conf.json")
+    if text:
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            v = data.get("version")
+            pkg = data.get("package")
+            v1 = pkg.get("version") if isinstance(pkg, dict) else None
+            if isinstance(v, str):
+                add("src-tauri/tauri.conf.json", "json-path", v, path="version")
+            elif isinstance(v1, str):
+                add("src-tauri/tauri.conf.json", "json-path", v1,
+                    path="package.version")
+    for cfg_path in sorted(repo.glob("*.xcconfig")) + sorted((repo / "ios").glob("*.xcconfig")):
+        text = read(cfg_path)
+        if text:
+            m = re.search(XCCONFIG_MARKETING_PATTERN, text, re.M)
+            if m and VERSIONISH_RE.match(m.group(1)):
+                add(cfg_path.relative_to(repo).as_posix(), "regex", m.group(1),
+                    pattern=XCCONFIG_MARKETING_PATTERN)
+    for rel in ANDROID_GRADLE_PATHS:
+        text = read(repo / rel)
+        if text:
+            m = re.search(ANDROID_VERSION_NAME_PATTERN, text, re.M)
+            if m:
+                add(rel, "regex", m.group(1),
+                    pattern=ANDROID_VERSION_NAME_PATTERN)
+    for name in OPENAPI_FILES:
+        text = read(repo / name)
+        if not text:
+            continue
+        if name.endswith(".json"):
+            try:
+                info = json.loads(text).get("info")
+            except (json.JSONDecodeError, AttributeError):
+                continue
+            v = info.get("version") if isinstance(info, dict) else None
+            if isinstance(v, str) and VERSIONISH_RE.match(v.strip()):
+                add(name, "json-path", v.strip(), path="info.version")
+                break
+        else:
+            matches = re.findall(OPENAPI_YAML_PATTERN, text, re.M)
+            # Only a safe regex location when exactly one indented version: key
+            # exists — set() would clobber every match, and with no stdlib YAML
+            # parser we cannot identify which one is info.version otherwise.
+            if len(matches) == 1 and VERSIONISH_RE.match(matches[0]):
+                add(name, "regex", matches[0], pattern=OPENAPI_YAML_PATTERN)
+                break
+    return out
+
+
+def scan_tags(repo):
+    raw = git(repo, "tag", "--list", "--sort=-v:refname")
+    if raw is None:
+        return {"available": False}
+    tags = [t for t in raw.splitlines() if t.strip()]
+    by_pattern = {name: [t for t in tags if re.match(p, t)]
+                  for name, p in TAG_PATTERNS.items()}
+    other = [t for t in tags if not any(re.match(p, t) for p in TAG_PATTERNS.values())]
+    latest = tags[0] if tags else None
+    annotated = signed = None
+    if latest:
+        obj_type = (git(repo, "cat-file", "-t", latest) or "").strip()
+        annotated = obj_type == "tag"
+        if annotated:
+            body = git(repo, "cat-file", "tag", latest) or ""
+            signed = "-----BEGIN PGP SIGNATURE-----" in body
+    groups = [n for n, ts in by_pattern.items() if ts] + (["other"] if other else [])
+    prefix_counts = {}
+    for t in by_pattern.get("scoped", []):
+        prefix = t.rsplit("@", 1)[0]
+        prefix_counts[prefix] = prefix_counts.get(prefix, 0) + 1
+    scoped_prefixes = [p for p, _ in sorted(
+        prefix_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:10]]
+    return {"available": True, "count": len(tags),
+            "byPattern": {n: len(ts) for n, ts in by_pattern.items()},
+            "otherCount": len(other), "mixed": len(groups) > 1, "latest": latest,
+            "latestAnnotated": annotated, "latestSigned": signed,
+            "scopedPrefixes": scoped_prefixes}
+
+
+def scan_commits(repo):
+    raw = git(repo, "log", "-n", "100", "--pretty=%s")
+    if raw is None:
+        return {"available": False}
+    subjects = [s for s in raw.splitlines() if s]
+    total = len(subjects)
+    cc = sum(1 for s in subjects if CC_RE.match(s))
+    squash = sum(1 for s in subjects if SQUASH_RE.search(s))
+    merges = sum(1 for s in subjects if s.startswith("Merge pull request"))
+    if squash > merges and squash > 0:
+        guess = "squash"
+    elif merges > 0:
+        guess = "merge"
+    else:
+        guess = "unknown"
+    return {"available": True, "sampled": total,
+            "conventionalRate": round(cc / total, 2) if total else 0.0,
+            "squashSuffixCount": squash, "mergeCommitCount": merges,
+            "mergePolicyGuess": guess}
+
+
+def scan_branches(repo):
+    current = (git(repo, "rev-parse", "--abbrev-ref", "HEAD") or "").strip() or None
+    head = git(repo, "symbolic-ref", "refs/remotes/origin/HEAD")
+    default = head.strip().rsplit("/", 1)[-1] if head else current
+    local = [b.strip().lstrip("* ").strip()
+             for b in (git(repo, "branch", "--list") or "").splitlines() if b.strip()]
+    remote = [b.strip() for b in (git(repo, "branch", "-r") or "").splitlines()
+              if b.strip() and "->" not in b]
+    names = set(local) | {r.split("/", 1)[-1] for r in remote}
+    guess = next((n for n in DEVELOP_BRANCH_NAMES if n in names), None)
+    return {"current": current, "defaultGuess": default,
+            "hasDevelop": guess is not None,
+            "developBranchGuess": guess,
+            "releaseBranches": sorted(n for n in names if n.startswith("release/")),
+            "hotfixBranches": sorted(n for n in names if n.startswith("hotfix/"))}
+
+
+def _module_hints(repo):
+    hints = []
+    for name in ("settings.gradle", "settings.gradle.kts"):
+        text = read(repo / name)
+        if not text:
+            continue
+        for line in text.splitlines():
+            if re.match(r"^\s*include[ (]", line):
+                hints += re.findall(r"['\"]:?([A-Za-z0-9._:-]+)['\"]", line)
+    return sorted(set(hints))
+
+
+def _node_packages(repo):
+    globs = ["packages/*", "apps/*"]
+    text = read(repo / "pnpm-workspace.yaml")
+    if text:
+        globs += re.findall(r"^\s*-\s*['\"]?([^'\"#\s]+)", text, re.M)
+    root_pkg = read(repo / "package.json")
+    if root_pkg:
+        try:
+            root_data = json.loads(root_pkg)
+        except json.JSONDecodeError:
+            root_data = None
+        ws = root_data.get("workspaces") if isinstance(root_data, dict) else None
+        if isinstance(ws, list):
+            globs += [g for g in ws if isinstance(g, str)]
+        elif isinstance(ws, dict) and isinstance(ws.get("packages"), list):
+            globs += [g for g in ws["packages"] if isinstance(g, str)]
+    seen, packages = set(), []
+    # Only trailing "/*" and "/**" globs are supported (both expand to the
+    # base dir's immediate children — "**" is NOT treated as recursive);
+    # any other value is treated as a literal package directory path.
+    for g in globs:
+        if g.endswith("/**"):
+            base = g[:-3]
+        elif g.endswith("/*"):
+            base = g[:-2]
+        else:
+            base = g
+        base_dir = repo / base
+        if not base_dir.is_dir():
+            continue
+        if g == base:
+            candidates = [base_dir]
+        else:
+            candidates = sorted(d for d in base_dir.iterdir() if d.is_dir())
+        for d in candidates:
+            pj = d / "package.json"
+            text = read(pj) if pj.is_file() else None
+            if not text:
+                continue
+            rel = d.relative_to(repo).as_posix()
+            if rel in seen:
+                continue
+            seen.add(rel)
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(data, dict):
+                continue
+            deps = set()
+            for key in ("dependencies", "devDependencies", "peerDependencies"):
+                block = data.get(key)
+                if isinstance(block, dict):
+                    deps.update(block)
+            packages.append({"path": rel, "name": data.get("name"),
+                             "version": data.get("version"),
+                             "buildSystem": "node",
+                             "_deps": sorted(deps)})
+    return packages
+
+
+def _python_packages(repo):
+    """uv workspace members (regex-parsed — no tomllib on 3.9) with the same
+    trailing-glob expansion rule as _node_packages."""
+    text = read(repo / "pyproject.toml")
+    if not text:
+        return []
+    sec = re.search(r"^\[tool\.uv\.workspace\]\s*$(.*?)(?=^\[|\Z)",
+                    text, re.M | re.S)
+    if not sec:
+        return []
+    arr = re.search(r"members\s*=\s*\[(.*?)\]", sec.group(1), re.S)
+    if not arr:
+        return []
+    globs = re.findall(r"['\"]([^'\"]+)['\"]", arr.group(1))
+    seen, packages = set(), []
+    for g in globs:
+        if g.endswith("/**"):
+            base = g[:-3]
+        elif g.endswith("/*"):
+            base = g[:-2]
+        else:
+            base = g
+        base_dir = repo / base
+        if not base_dir.is_dir():
+            continue
+        candidates = [base_dir] if g == base else sorted(
+            d for d in base_dir.iterdir() if d.is_dir())
+        for d in candidates:
+            ptext = read(d / "pyproject.toml")
+            if not ptext:
+                continue
+            rel = d.relative_to(repo).as_posix()
+            if rel in seen:
+                continue
+            seen.add(rel)
+            name_m = re.search(r"^name\s*=\s*['\"]([^'\"]+)['\"]", ptext, re.M)
+            ver_m = re.search(PYPROJECT_VERSION_PATTERN, ptext, re.M)
+            deps = set()
+            blocks = []
+            proj = re.search(r"^\[project\]\s*$(.*?)(?=^\[|\Z)",
+                             ptext, re.M | re.S)
+            dep_m = re.search(r"^dependencies\s*=\s*\[(.*?)\]",
+                              proj.group(1) if proj else "", re.M | re.S)
+            if dep_m:
+                blocks.append(dep_m.group(1))
+            opt = re.search(r"^\[project\.optional-dependencies\]\s*$(.*?)(?=^\[|\Z)",
+                            ptext, re.M | re.S)
+            if opt:
+                blocks += re.findall(r"=\s*\[(.*?)\]", opt.group(1), re.S)
+            for block in blocks:
+                for item in re.findall(r"['\"]([^'\"]+)['\"]", block):
+                    nm = re.match(r"[A-Za-z0-9._-]+", item)
+                    if nm:
+                        deps.add(nm.group(0))
+            packages.append({"path": rel,
+                             "name": name_m.group(1) if name_m else None,
+                             "version": ver_m.group(1) if ver_m else None,
+                             "buildSystem": "python", "_deps": sorted(deps)})
+    return packages
+
+
+def _maven_module_hints(repo):
+    text = read(repo / "pom.xml")
+    if not text:
+        return []
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+
+    def local(el):
+        return el.tag.rsplit("}", 1)[-1]
+
+    hints = []
+    for child in root:
+        if local(child) == "modules":
+            for mod in child:
+                if local(mod) == "module" and (mod.text or "").strip():
+                    hints.append(mod.text.strip())
+    return sorted(set(hints))
+
+
+def _gradle_packages(repo):
+    """Resolve settings.gradle(.kts) include paths (":a:b" -> "a/b") and
+    collect each existing module's version (gradle.properties key first,
+    then build.gradle(.kts) assignment)."""
+    seen, packages = set(), []
+    for name in ("settings.gradle", "settings.gradle.kts"):
+        text = read(repo / name)
+        if not text:
+            continue
+        for line in text.splitlines():
+            line = re.sub(r"//.*|/\*.*?\*/", "", line)
+            if not re.match(r"^\s*include[ (]", line):
+                continue
+            for mod in re.findall(r"['\"]:?([A-Za-z0-9._:-]+)['\"]", line):
+                rel = mod.replace(":", "/")
+                if rel in seen:
+                    continue
+                seen.add(rel)
+                d = repo / rel
+                if not d.is_dir():
+                    continue
+                version = None
+                props = read(d / "gradle.properties")
+                if props:
+                    m = re.search(r"^\s*version\s*=\s*(\S+)\s*$", props, re.M)
+                    if m:
+                        version = m.group(1)
+                if version is None:
+                    for bname in ("build.gradle.kts", "build.gradle"):
+                        btext = read(d / bname)
+                        if btext:
+                            m = re.search(GRADLE_VERSION_PATTERN, btext, re.M)
+                            if m:
+                                version = m.group(1)
+                                break
+                packages.append({"path": rel,
+                                 "name": rel.rsplit("/", 1)[-1],
+                                 "version": version,
+                                 "buildSystem": "gradle"})
+    return packages
+
+
+def scan_monorepo(repo):
+    signals = []
+    for name in ("settings.gradle", "settings.gradle.kts"):
+        text = read(repo / name)
+        if text and re.search(r"^\s*include[ (]", text, re.M):
+            signals.append(name + ": multi-module include")
+    if (repo / "pnpm-workspace.yaml").is_file():
+        signals.append("pnpm-workspace.yaml")
+    for d in ("packages", "apps"):
+        base = repo / d
+        if base.is_dir() and any((c / "package.json").is_file()
+                                 for c in base.iterdir() if c.is_dir()):
+            signals.append(d + "/: package.json children")
+    packages = _node_packages(repo)
+    py_packages = _python_packages(repo)
+    if py_packages:
+        signals.append("pyproject.toml: [tool.uv.workspace]")
+    dep_scoped = packages + py_packages
+    names = {p["name"]: p["path"] for p in dep_scoped if p.get("name")}
+    internal = []
+    for p in dep_scoped:
+        for dep in p.pop("_deps", []):
+            if dep in names and names[dep] != p["path"]:
+                internal.append({"fromPath": p["path"], "fromName": p.get("name"),
+                                 "toPath": names[dep], "toName": dep})
+    packages = packages + py_packages
+    node_paths = {p["path"] for p in packages}
+    packages += [g for g in _gradle_packages(repo)
+                 if g["path"] not in node_paths]
+    charts_dir = repo / "charts"
+    if charts_dir.is_dir():
+        chart_children = sorted(d for d in charts_dir.iterdir()
+                                if d.is_dir() and (d / "Chart.yaml").is_file())
+        if chart_children:
+            signals.append("charts/: Chart.yaml children")
+            existing = {p["path"] for p in packages}
+            for d in chart_children:
+                rel = d.relative_to(repo).as_posix()
+                if rel in existing:
+                    continue
+                ctext = read(d / "Chart.yaml") or ""
+                m = re.search(CHART_VERSION_PATTERN, ctext, re.M)
+                packages.append({"path": rel,
+                                 "name": d.name,
+                                 "version": m.group(1) if m else None,
+                                 "buildSystem": "helm"})
+    maven_hints = _maven_module_hints(repo)
+    if maven_hints:
+        signals.append("pom.xml: <modules>")
+    return {"suspected": bool(signals) or len(packages) > 1,
+            "signals": signals, "packages": packages,
+            "internalDependencies": internal,
+            "gradleModuleHints": _module_hints(repo),
+            "mavenModuleHints": maven_hints}
+
+
+def scan_changelog(repo):
+    bundle_guess = None
+    for d in BUNDLE_NOTE_DIRS:
+        base = repo / d
+        if not base.is_dir():
+            continue
+        notes = sorted(p.stem for p in base.glob("*.md")
+                       if BUNDLE_NOTE_RE.match(p.stem))
+        if notes:
+            bundle_guess = {"dir": d + "/", "notes": notes}
+            break
+    return {"changelogMd": (repo / "CHANGELOG.md").is_file(),
+            "releasesDir": (repo / "docs" / "releases").is_dir(),
+            "fragmentsDir": (repo / "changelog.d").is_dir(),
+            "bundleNotesGuess": bundle_guess}
+
+
+def scan_ci(repo):
+    candidates = []
+    workflows = repo / ".github" / "workflows"
+    if workflows.is_dir():
+        for f in sorted(workflows.iterdir()):
+            if f.suffix in (".yml", ".yaml"):
+                text = read(f) or ""
+                if re.search(r"^\s*tags:", text, re.M) and re.search(r"^\s*push:", text, re.M):
+                    candidates.append(f.relative_to(repo).as_posix())
+    return {"tagTriggerCandidates": candidates,
+            "note": "heuristic only — read each candidate file to confirm "
+                    "before treating tag push as a deploy trigger"}
+
+
+def scan_release_automation(repo):
+    """Existing release-automation tooling (detect only — migration guidance
+    lives in the init skill; nothing here mutates or disables anything)."""
+    tools = []
+    ch_dir = repo / ".changeset"
+    if ch_dir.is_dir():
+        pending = [p for p in ch_dir.glob("*.md") if p.name != "README.md"]
+        tools.append({"name": "changesets", "signals": [".changeset/"],
+                      "pendingFragments": len(pending)})
+    signals = [n for n in SEMANTIC_RELEASE_FILES if (repo / n).is_file()]
+    text = read(repo / "package.json")
+    if text:
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            if isinstance(data.get("release"), dict):
+                signals.append("package.json:release")
+            for key in ("dependencies", "devDependencies"):
+                block = data.get(key)
+                if isinstance(block, dict) and "semantic-release" in block:
+                    signals.append("package.json:" + key)
+    if signals:
+        tools.append({"name": "semantic-release", "signals": signals})
+    rp = [n for n in ("release-please-config.json",
+                      ".release-please-manifest.json") if (repo / n).is_file()]
+    if rp:
+        tools.append({"name": "release-please", "signals": rp})
+    tc = []
+    if (repo / "towncrier.toml").is_file():
+        tc.append("towncrier.toml")
+    ptext = read(repo / "pyproject.toml")
+    if ptext and re.search(r"^\[tool\.towncrier[\].]", ptext, re.M):
+        tc.append("pyproject.toml:[tool.towncrier]")
+    if tc:
+        tools.append({"name": "towncrier", "signals": tc})
+    ci = []
+    workflows = repo / ".github" / "workflows"
+    if workflows.is_dir():
+        for f in sorted(workflows.iterdir()):
+            if f.suffix in (".yml", ".yaml"):
+                wtext = read(f) or ""
+                if any(mk in wtext for mk in AUTOMATION_CI_MARKERS):
+                    ci.append(f.relative_to(repo).as_posix())
+    return {"tools": tools, "ciWorkflows": ci}
+
+
+def scan_plugin_manifest(repo):
+    text = read(repo / ".claude-plugin" / "plugin.json")
+    if not text:
+        return None
+    try:
+        pj = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    version = pj.get("version")
+    if not isinstance(version, str):
+        return None
+    out = {"detected": True, "version": version}
+    mtext = read(repo / ".claude-plugin" / "marketplace.json")
+    if mtext:
+        try:
+            mp = json.loads(mtext)
+        except json.JSONDecodeError:
+            mp = None
+        if isinstance(mp, dict):
+            meta = mp.get("metadata")
+            mv = meta.get("version") if isinstance(meta, dict) else None
+            if isinstance(mv, str):
+                out["marketplaceVersion"] = mv
+            plugins = mp.get("plugins")
+            # self-listed: the marketplace lists exactly this plugin via a local source,
+            # so metadata.version mirrors the plugin version (safe to sync)
+            out["marketplaceSelfListed"] = bool(
+                isinstance(plugins, list) and len(plugins) == 1
+                and isinstance(plugins[0], dict)
+                and plugins[0].get("source") in (".", "./")
+                and isinstance(pj.get("name"), str)
+                and plugins[0].get("name") == pj.get("name"))
+    return out
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="scan.py",
+        description="Read-only project scan for superrelease init (JSON report).")
+    parser.add_argument("--repo", default=".", help="repository root (default: cwd)")
+    parser.add_argument("--json", action="store_true",
+                        help="accepted for symmetry; output is always JSON")
+    args = parser.parse_args(argv)
+    repo = Path(args.repo).resolve()
+    if not repo.is_dir():
+        sys.stderr.write("error: not a directory: " + str(repo) + "\n")
+        sys.exit(2)
+    report = {
+        "repo": str(repo),
+        "git": git(repo, "rev-parse", "--is-inside-work-tree") is not None,
+        "buildSystems": scan_build_systems(repo),
+        "versionCandidates": scan_version_candidates(repo),
+        "tags": scan_tags(repo),
+        "commits": scan_commits(repo),
+        "branches": scan_branches(repo),
+        "monorepo": scan_monorepo(repo),
+        "changelog": scan_changelog(repo),
+        "ci": scan_ci(repo),
+        "releaseAutomation": scan_release_automation(repo),
+        "pluginManifest": scan_plugin_manifest(repo),
+        "python": ".".join(str(v) for v in sys.version_info[:3]),
+    }
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

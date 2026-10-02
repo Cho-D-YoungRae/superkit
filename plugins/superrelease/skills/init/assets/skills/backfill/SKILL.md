@@ -1,0 +1,50 @@
+---
+name: backfill
+description: {{project.name}} 프로젝트의 CHANGELOG를 과거 태그 이력에서 소급 작성한다. 사용자가 백필, backfill, 체인지로그 소급, 과거 릴리스 노트 채워줘, CHANGELOG 이력 정리, 예전 태그 노트 만들어줘 등 기존 태그에서 누락된 릴리스 이력을 채우는 요청을 하면 반드시 이 스킬을 사용한다.
+---
+
+# backfill — {{project.name}} CHANGELOG 이력 소급 작성
+
+이미 태그가 쌓여 있는데 CHANGELOG에 기록이 없거나 빠진 릴리스가 있을 때, 태그 구간별 커밋으로 과거 릴리스 항목을 사후 작성해 CHANGELOG.md를 채운다. **일회성 정리 작업**이며, 태그·버전 bump·push는 하지 않고 CHANGELOG.md만 쓴다.{{#if repo.monorepoStrategy == "independent"}} 이 레포는 independent 모노레포이므로 scope마다 태그 네임스페이스를 따로 순회한다(아래 "모노레포 순회" 참조).{{/if}}
+
+공통 규칙:
+
+- 부작용 있는 동작은 **dry-run 프리뷰 → 사용자 확인 → 실행**. 확인은 AskUserQuestion을 쓰되 도구가 없으면 텍스트로 물어라.
+- 이 스킬은 CHANGELOG.md 외 어떤 파일도 바꾸지 않는다 — 태그를 만들거나 옮기지 않고 버전 파일도 건드리지 않는다.
+
+## 1. 대상 태그 구간 산출
+
+- `git tag --list`로 태그를 모으고, config `scopes[0].tag.format`의 {version} 패턴에 맞는 태그만 남긴다(과거 혼재 포맷 태그는 무시 — 표준 포맷 규칙).
+- 남은 태그를 버전 순으로 정렬한다(오름차순: `git -c versionsort.suffix=- tag --list '<glob>' --sort=v:refname` — `<glob>`은 위 tag.format의 `{version}`을 `*`로 치환). 연속한 두 태그 `A`, `B`가 한 구간 `A..B`이며, **이 구간은 태그 B 버전의 릴리스 항목**이다(그 사이 커밋이 B에서 나갔다). 가장 이른 태그는 선행 태그가 없으므로 그 태그 자체를 "Initial release"로 다룬다(`git log <firstTag>`).
+
+## 2. 멱등 — 이미 있는 버전 건너뛰기
+
+- CHANGELOG.md를 읽어 이미 항목이 있는 버전을 파악한다. 구간 `A..B`의 대상 버전 B가 이미 CHANGELOG에 있으면 **그 구간을 건너뛴다** — 누락된 구간만 채운다. 기존 항목과 Unreleased 섹션은 절대 건드리지 않는다.
+- 채울 구간이 하나도 없으면 "CHANGELOG가 이미 최신입니다"라고 보고하고 멈춘다.
+
+## 3. 구간별 항목 작성
+
+- 채울 각 구간에 대해 `git log <A>..<B> --pretty=format:"%h %s"`로 커밋을 모은다.{{#if repo.mergePolicy == "squash"}} squash 레포이므로 커밋 제목의 `(#N)`으로 PR을 역참조하고 PR 메타데이터를 1차 소스로 써라.{{/if}}
+- `.claude/skills/release-notes/SKILL.md` 절차로 읽되, 정식 릴리스 노트가 아니라 **간결한 이력 항목**을 목표로 한다 — `.superrelease/templates/changelog-entry.md` 골격(Keep a Changelog: Added/Changed/Fixed)에 `## [<버전 B>] - {date}` 헤더로 Changes 목록 위주로 짧게.
+- 언어·어조는 config `scopes[0].notes`의 language·tone을 따른다.
+
+## 4. dry-run 프리뷰 → 커밋
+
+- 채울 구간 목록(버전·구간 범위)과 각 구간의 항목 초안을 미리 보여주고 확인받아라.
+- 확인 후: CHANGELOG.md에 역시간순(최신이 위)으로 삽입한다. Unreleased 섹션이 있으면 그 아래.{{#if repo.releasePath == "release-pr"}} 이 레포는 보호 브랜치(release-pr)라 기본 브랜치에 직접 push할 수 없다 — CHANGELOG 변경을 `docs/backfill-changelog` 같은 브랜치에 커밋해 push하고 PR로 머지하라(backfill은 태그가 없어 머지 후 재개가 필요 없는 순수 문서 PR다).{{else}} CHANGELOG.md만 스테이징해 커밋한다(예: `docs: backfill CHANGELOG from tags`).{{/if}}
+- **태그·버전 bump·push는 하지 않는다.**
+{{#if repo.monorepoStrategy == "independent"}}
+## 모노레포 순회 (independent)
+
+위 §1~§4를 **각 scope마다** 반복하되 다음을 그 scope 값으로 바꾼다:
+
+- §1 태그 필터: 그 scope의 config `tag.format`(`<scope>@{version}` 네임스페이스)에 맞는 태그만. `tag.enabled`가 false인 scope는 순회할 태그가 없으므로 **"태그 없음 — 건너뜀"으로 skip**한다.
+- §3 커밋 수집: `git log <A>..<B> --pretty=format:"%h %s" -- <scope.path>`로 그 scope 경로 아래 커밋만{{#if derived.anyWatchPaths}}(그 scope에 `watchPaths`가 있으면 `-- <scope.path> <watchPaths…>` — 릴리스의 변경 집계와 같은 기준){{/if}}.
+- §3 헤더: `## <scope>@<version>`(bare, `<version>`은 태그 B 버전). 언어·어조는 그 scope의 `notes`를 따른다.
+- §2 멱등: CHANGELOG에서 그 `<scope>@<version>` 항목이 이미 있으면 그 구간을 건너뛴다.
+
+전 scope의 채울 구간을 한 번에 dry-run으로 보여주고 확인받은 뒤 §4대로 삽입·커밋한다.
+{{/if}}
+## 실패 시
+
+어디까지 작성·삽입했는지 명시하라. CHANGELOG.md는 태그와 무관하므로 되돌리기 안전하다 — 잘못됐으면 `git checkout CHANGELOG.md`로 취소하고 다시 시도하면 된다.

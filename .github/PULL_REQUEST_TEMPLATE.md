@@ -7,12 +7,14 @@
 - [ ] superdomain
 - [ ] superglossary
 - [ ] infra
+- [ ] superrelease
+- [ ] llm-wiki
 - [ ] 저장소 공통(마켓플레이스·CI·문서)
 
 ## 테스트
 
 - [ ] `claude plugin validate .` 통과
-- [ ] 바뀐 플러그인의 테스트 통과(superglossary: `python3 -m unittest discover -s plugins/superglossary/tests`, infra: `bash plugins/infra/tests/run_tests.sh`)
+- [ ] 바뀐 플러그인의 테스트 통과(명령은 [CONTRIBUTING.md](../CONTRIBUTING.md#개발검증))
 - [ ] `claude --plugin-dir plugins/<이름>`으로 로컬 동작 확인
 
 ## 체크리스트

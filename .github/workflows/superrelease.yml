@@ -1,0 +1,36 @@
+name: superrelease
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/superrelease/**"
+      - ".github/workflows/superrelease.yml"
+  pull_request:
+    paths:
+      - "plugins/superrelease/**"
+      - ".github/workflows/superrelease.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/superrelease
+    strategy:
+      fail-fast: false
+      matrix:
+        # 생성 스크립트가 지원하는 최소 버전과 최신 버전을 함께 검증한다.
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 테스트 (골든·자기 렌더 포함)
+        run: python3 -m unittest discover -s tests -q
+
+      - name: 자기 릴리스 툴킷 버전 위치 검증
+        run: python3 .superrelease/scripts/version.py verify
