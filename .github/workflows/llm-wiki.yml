@@ -1,0 +1,31 @@
+name: llm-wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/llm-wiki/**"
+      - ".github/workflows/llm-wiki.yml"
+  pull_request:
+    paths:
+      - "plugins/llm-wiki/**"
+      - ".github/workflows/llm-wiki.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/llm-wiki
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: 의존성
+        run: python3 -m pip install pytest pyyaml pymupdf
+
+      - name: 테스트
+        run: python3 -m pytest tests/ -q

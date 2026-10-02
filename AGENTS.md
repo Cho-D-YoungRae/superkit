@@ -8,6 +8,8 @@ Claude Code 플러그인 여러 개를 한 저장소에서 관리하는 모노�
 - `plugins/superdomain/` — 도메인 정의·도메인/컨벤션 리뷰·ADR.
 - `plugins/superglossary/` — 프로젝트 용어사전. 플러그인 지침은 [plugins/superglossary/AGENTS.md](plugins/superglossary/AGENTS.md).
 - `plugins/infra/` — 인프라 하네스. 플러그인 지침은 [plugins/infra/AGENTS.md](plugins/infra/AGENTS.md).
+- `plugins/superrelease/` — 프로젝트 전용 릴리스 툴킷 생성기. 플러그인 지침은 [plugins/superrelease/AGENTS.md](plugins/superrelease/AGENTS.md). 자기 자신을 릴리스하는 툴킷(`.superrelease/`, `.claude/skills/`)이 이 디렉터리 안에 있다.
+- `plugins/llm-wiki/` — LLM 위키. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
 - `.github/workflows/` — 플러그인마다 하나씩, 그 디렉터리가 바뀔 때만 도는 CI.
 
 ## 지켜야 할 것
@@ -27,6 +29,7 @@ Claude Code 플러그인 여러 개를 한 저장소에서 관리하는 모노�
 - 플러그인마다 SemVer를 따로 쓴다. `plugin.json`의 `version`을 올려야 사용자에게 업데이트가 간다. 한 플러그인의 변경이 다른 플러그인의 버전을 바꾸지 않는다.
 - 릴리즈할 때 그 플러그인의 `CHANGELOG.md`를 정리하고, `main`에 병합한 뒤 플러그인 디렉터리에서 `claude plugin tag --push`로 `<이름>--v<버전>` 태그를 단다.
 - superglossary는 `plugins/superglossary/scripts/bump_version.py`로 버전을 올린다(`plugin.json`과 CLI 상수를 함께 바꾼다).
+- superrelease는 자기 툴킷으로 릴리스할 수 있다 — `plugins/superrelease`에서 연 세션에서 `release` 스킬을 쓰면 버전·CHANGELOG·`superrelease--v<버전>` 태그를 함께 처리한다.
 
 ## 검증
 
@@ -44,6 +47,14 @@ python3 -m unittest discover -s plugins/superglossary/tests
 
 ```bash
 bash plugins/infra/tests/run_tests.sh
+```
+
+```bash
+cd plugins/superrelease && python3 -m unittest discover -s tests -q
+```
+
+```bash
+uv run --no-project --with pytest --with pyyaml --with pymupdf pytest plugins/llm-wiki/tests -q
 ```
 
 로컬에서 플러그인을 바로 써 보려면 `claude --plugin-dir plugins/<이름>`으로 띄우고, 고친 뒤 `/reload-plugins`로 반영한다.
