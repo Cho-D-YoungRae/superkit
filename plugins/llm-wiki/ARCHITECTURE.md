@@ -62,7 +62,7 @@ sequenceDiagram
 | 스크립트 4개 (`yt_transcript`·`pdf_chunk`·`wiki_check`·`html_to_md`) | 플러그인 `skills/source-extract/scripts/` | 기계 작업. stdout·캐시만 출력 |
 | 템플릿 7종 | 플러그인 `templates/` | init이 렌더링하는 원본. `schema_version`의 기준 |
 | `AGENTS.md` (운영 규칙 전체) | **위키** 루트 | 헌법 — 플러그인 없이도 위키가 동작하는 근거 |
-| `CLAUDE.md` (포인터) | **위키** 루트 | `@AGENTS.md` 임포트 한 줄 + 폴백 안내 |
+| `CLAUDE.md` (포인터, 위키에 원래 있을 때만) | **위키** 루트 | 기존 `CLAUDE.md`에 `@AGENTS.md` 임포트 한 줄 + 폴백 안내를 덧붙인다 |
 | `purpose.md` · `.llm-wiki/config.yaml` | **위키** | 왜(목적·핵심 질문) · 설정 |
 | `raw/` · `wiki/` 콘텐츠 | **위키** | 데이터 전부 |
 
@@ -81,8 +81,9 @@ sequenceDiagram
 **ADR-1. MCP 서버를 두지 않는다.**
 상태가 전부 파일시스템에 있다(마크다운·YAML·캐시). 조회·수정에 프로토콜이 필요 없고, 규약(`AGENTS.md`)은 에이전트 컨텍스트로 직접 로드된다. MCP를 두면 상주 프로세스·설치 의존이 생겨 위키의 "어디서든 동작" 속성이 깨진다.
 
-**ADR-2. AGENTS.md를 canonical 스키마로 둔다 (CLAUDE.md는 포인터).**
-Codex·Cursor 등은 `AGENTS.md` 표준을 읽지만 임포트 문법이 없고, Claude Code는 `CLAUDE.md`만 자동 로드하지만 `@path` 네이티브 임포트가 있다. 따라서 내용은 AGENTS.md 한 곳에 두고 CLAUDE.md가 `@AGENTS.md`로 가리키는 방향만이 양 런타임에서 기계적으로 동작하며, 두 파일 내용 드리프트를 원천 차단한다. 심볼릭링크는 배제 — Windows git 기본 설정(`core.symlinks=false`)에서 링크가 경로 문자열이 적힌 일반 파일로 체크아웃되어 이식성이 깨진다.
+**ADR-2. AGENTS.md를 canonical 스키마로 둔다 (CLAUDE.md는 이미 있을 때만 포인터).**
+Codex·Cursor 등은 `AGENTS.md` 표준을 읽지만 임포트 문법이 없다. Claude Code는 v2.1.277부터 `CLAUDE.md`가 없으면 `AGENTS.md`를 직접 읽는다. 따라서 내용은 AGENTS.md 한 곳에 두고, init은 새 위키에 `CLAUDE.md`를 만들지 않는다. 위키 폴더에 `CLAUDE.md`(또는 `.claude/CLAUDE.md`)가 원래 있으면 Claude Code가 그쪽만 읽으므로, 그 파일에 `@AGENTS.md` 임포트를 덧붙인다 — 내용은 여전히 AGENTS.md 한 곳이라 두 파일의 드리프트가 생기지 않는다. 심볼릭링크는 배제 — Windows git 기본 설정(`core.symlinks=false`)에서 링크가 경로 문자열이 적힌 일반 파일로 체크아웃되어 이식성이 깨진다.
+(0.3.0 전에는 Claude Code가 `CLAUDE.md`만 자동 로드해 init이 항상 포인터 `CLAUDE.md`를 만들었다. 그렇게 만든 기존 위키의 포인터는 그대로 둬도 된다 — Claude Code는 임포트된 `AGENTS.md`를 두 번 읽지 않는다.)
 
 **ADR-3. 장문 PDF는 청킹한다.**
 이 패턴의 인제스트 단위는 "한 번에 소화 가능한 조각"(책은 챕터 단위)이고, 청크당 1 pass + log의 `part n/m` 기록으로 중단·재개가 가능해진다. 컨텍스트 창 대비 토큰 경제도 이유다. **원본 보존과는 무관하다** — 원본 PDF는 `raw/sources/`에 그대로 있고 청크는 `raw/.cache/`의 파생물(gitignore 대상)일 뿐이다.

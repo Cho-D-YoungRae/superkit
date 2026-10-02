@@ -1,11 +1,21 @@
 {
   "name": "llm-wiki",
   "displayName": "LLM Wiki",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "LLM이 유지보수하는 개인 위키 — 위키 부트스트래핑과 소스 추출 툴벨트 (Karpathy llm-wiki 패턴의 Claude Code 플러그인 구현)",
-  "author": { "name": "Cho-D-YoungRae", "url": "https://github.com/Cho-D-YoungRae" },
-  "homepage": "https://github.com/Cho-D-YoungRae/llm-wiki#readme",
-  "repository": "https://github.com/Cho-D-YoungRae/llm-wiki",
+  "author": {
+    "name": "Cho-D-YoungRae",
+    "url": "https://github.com/Cho-D-YoungRae"
+  },
+  "homepage": "https://github.com/Cho-D-YoungRae/superkit/tree/main/plugins/llm-wiki#readme",
+  "repository": "https://github.com/Cho-D-YoungRae/superkit",
   "license": "MIT",
-  "keywords": ["wiki", "knowledge-base", "pkm", "ingest", "karpathy", "llm-wiki"]
+  "keywords": [
+    "wiki",
+    "knowledge-base",
+    "pkm",
+    "ingest",
+    "karpathy",
+    "llm-wiki"
+  ]
 }

@@ -38,7 +38,7 @@ argument-hint: "[대상 디렉토리]"
 
 | 이미 있는 파일 | 처리 |
 |------|------|
-| `CLAUDE.md` | 내용을 보존한다. `@AGENTS.md` 줄이 없으면 파일 끝에 빈 줄 하나를 두고 `CLAUDE.md.tmpl` 내용을 덧붙인다 |
+| `CLAUDE.md` 또는 `.claude/CLAUDE.md` | 내용을 보존한다. 이 파일이 있으면 Claude Code가 `AGENTS.md`를 직접 읽지 않으므로, `@AGENTS.md` 줄이 없으면 그 파일(둘 다 있으면 루트 `CLAUDE.md`) 끝에 빈 줄 하나를 두고 `CLAUDE.md.tmpl` 내용을 덧붙인다 |
 | `AGENTS.md` (llm-wiki managed 마커 없음) | 렌더링한 템플릿의 "사용자 확장 영역" 아래로 기존 내용을 그대로 옮긴다. 쓰기 전에 결과 구조를 보여주고 승인받는다 |
 | `AGENTS.md` (managed 마커 있음) | config 없이 마커만 있는 비정상 상태다 — 상황을 보고하고 중단한다 |
 | `purpose.md` · `wiki/index.md` · `wiki/overview.md` | 그대로 둔다 |
@@ -57,7 +57,6 @@ argument-hint: "[대상 디렉토리]"
 
 - `config.yaml.tmpl` → `.llm-wiki/config.yaml`: `{{LANGUAGE}}`=사용자 대화 언어(기본 ko), `{{OBSIDIAN}}`=true|false, `{{LINK_STYLE}}`=markdown|wikilink, `{{YT_LANGS}}`=`ko, en`.
 - `AGENTS.md.tmpl` → `AGENTS.md`: 조건 블록 처리 — 채택한 스타일의 `<!-- if:markdown -->`/`<!-- if:wikilink -->` 블록은 **마커 주석만 제거**하고 내용을 남긴다. 미채택 블록은 마커째 통삭제. `<!-- if:obsidian -->`도 동일(obsidian=false면 삭제). **`llm-wiki:managed:start/end` 마커는 반드시 남긴다** — 업그레이드의 기준점이다.
-- `CLAUDE.md.tmpl` → `CLAUDE.md`: 그대로 복사(치환 없음).
 - `purpose.md.tmpl` → `purpose.md`: `{{PURPOSE}}`에 목적 서술, `{{KEY_QUESTIONS}}`에 핵심 질문 불릿 2~3개.
 - `index.md.tmpl` → `wiki/index.md`, `log.md.tmpl` → `wiki/log.md`, `overview.md.tmpl` → `wiki/overview.md`: 그대로 복사.
 - `wiki/log.md` 끝에 init 항목을 append:
@@ -83,7 +82,7 @@ argument-hint: "[대상 디렉토리]"
 ### A6. 완료 안내
 
 - 생성된 구조 요약과, A3에서 보존·병합한 파일 목록을 보여준다.
-- 대상이 현재 디렉토리가 아니면: 위키 규약(`CLAUDE.md` → `AGENTS.md`)은 그 디렉토리에서 연 세션에만 로드되므로 `cd <대상> && claude`로 새 세션을 열라고 안내한다.
+- 대상이 현재 디렉토리가 아니면: 위키 규약(`AGENTS.md`)은 그 디렉토리에서 연 세션에만 로드되므로 `cd <대상> && claude`로 새 세션을 열라고 안내한다.
 - obsidian yes였으면: 이 디렉토리를 옵시디언 vault로 열 수 있고, **Web Clipper** 브라우저 확장으로 웹 문서를 저장한 뒤(저장 위치를 `raw/sources/`로 지정 권장) 인자 없는 `/llm-wiki:wiki-ingest`로 쌓인 파일을 한꺼번에 인제스트할 수 있으며, **graph view**로 위키 연결망을 볼 수 있다고 안내한다.
 - 다음 단계 예시를 제시한다: `/llm-wiki:wiki-ingest https://youtu.be/<영상ID>` 또는 `/llm-wiki:wiki-ingest ~/notes/some-note.md`.
 

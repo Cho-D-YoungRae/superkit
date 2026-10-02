@@ -1,11 +1,11 @@
-# CLAUDE.md — llm-wiki 플러그인 개발 가이드
+# llm-wiki 플러그인 개발 가이드
 
-이 파일은 **플러그인 저장소를 유지보수하는** 에이전트용이다. init이 위키에 생성해 주는 포인터 파일(`templates/CLAUDE.md.tmpl`)과 혼동하지 말 것.
+이 파일은 **플러그인을 유지보수하는** 에이전트용이다. init이 위키에 만들어 주는 위키 규약(`templates/AGENTS.md.tmpl`)과 혼동하지 말 것. llm-wiki는 [superkit](../../README.md) 모노레포의 `plugins/llm-wiki`에 있고, 저장소 공통 규칙(브랜치·커밋·버전·태그)은 루트 [AGENTS.md](../../AGENTS.md)를 따른다. 아래 명령은 이 디렉토리에서 실행한다.
 
 ## 저장소 구조
 
 ```
-.claude-plugin/          plugin.json(매니페스트) · marketplace.json(이 저장소 = 마켓플레이스)
+.claude-plugin/          plugin.json(매니페스트) — 마켓플레이스는 superkit 루트의 .claude-plugin/marketplace.json
 skills/
   wiki-init/ wiki-ingest/ wiki-lint/ wiki-status/
                          워크플로 스킬 4개 = 슬래시 커맨드 /llm-wiki:wiki-* — 순서·게이트·출력만 담는다
@@ -47,7 +47,7 @@ uv run --with pytest --with pyyaml --with pymupdf pytest tests/ -q
 ```
 
 스모크 검증(수용 기준 — 설계 스펙 §11의 9개 시나리오): 임시 디렉토리에서 `claude --plugin-dir <이 저장소>` 세션을 열고 순서대로 수행한다 —
-① `/llm-wiki:wiki-init`(옵시디언 no·유튜브 yes·git yes) → 구조·AGENTS.md 13섹션·CLAUDE.md 포인터·log init 항목 확인
+① `/llm-wiki:wiki-init`(옵시디언 no·유튜브 yes·git yes) → 구조·AGENTS.md 13섹션·CLAUDE.md 미생성(원래 CLAUDE.md가 있던 폴더면 `@AGENTS.md`가 덧붙음)·log init 항목 확인
 ② `tests/fixtures/sample-note.md` ingest → 분석 확인 단계 표시, sources 요약 1페이지+횡단 페이지+index·log 갱신, 1:1 미러 없음
 ③ 같은 파일 재-ingest → sha 스킵, `--force` 재수행
 ④ 자막 있는/없는 유튜브 URL → 정상 인제스트 / exit 2 안내 전달

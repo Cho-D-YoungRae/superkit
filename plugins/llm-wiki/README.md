@@ -23,15 +23,17 @@ claude
 Claude Code 안에서:
 
 ```
-/plugin marketplace add Cho-D-YoungRae/llm-wiki
-/plugin install llm-wiki@llm-wiki
+/plugin marketplace add Cho-D-YoungRae/superkit
+/plugin install llm-wiki@superkit
 ```
+
+llm-wiki는 [superkit](../../README.md) 마켓플레이스로 배포됩니다. 0.2.0 이하를 `llm-wiki@llm-wiki`로 설치했다면 그 마켓플레이스를 지우고(`/plugin marketplace remove llm-wiki`) 위 명령으로 다시 설치하세요.
 
 로컬 개발·시험 설치:
 
 ```bash
-git clone https://github.com/Cho-D-YoungRae/llm-wiki.git
-claude --plugin-dir ./llm-wiki
+git clone https://github.com/Cho-D-YoungRae/superkit.git
+claude --plugin-dir ./superkit/plugins/llm-wiki
 ```
 
 ## Quickstart (3분)
@@ -96,7 +98,9 @@ mkdir my-wiki && cd my-wiki && claude
 
 **왜 MCP 서버가 없나?** 상태가 전부 파일시스템(마크다운·YAML)에 있고, 규약은 `AGENTS.md`로 에이전트 컨텍스트에 직접 로드된다. 프로토콜 서버·상주 프로세스가 낄 자리가 없으며, 이는 위키의 이식성(어느 에이전트에서든 동작)을 위한 의도된 설계다.
 
-**Codex(다른 에이전트)에서 쓰려면?** 위키는 그대로 동작한다 — Codex는 `AGENTS.md` 표준을 읽는다. 플러그인 커맨드 대신, 이 플러그인 저장소를 클론해 둔 경로의 스크립트를 직접 실행하면 된다(위키 저장소 안에는 스크립트가 없다): `uv run <클론 경로>/skills/source-extract/scripts/yt_transcript.py <URL>` 등(PEP 723 단독 실행).
+**Codex(다른 에이전트)에서 쓰려면?** 위키는 그대로 동작한다 — Codex는 `AGENTS.md` 표준을 읽는다. 플러그인 커맨드 대신, superkit 저장소를 클론해 둔 경로의 스크립트를 직접 실행하면 된다(위키 저장소 안에는 스크립트가 없다): `uv run <클론 경로>/plugins/llm-wiki/skills/source-extract/scripts/yt_transcript.py <URL>` 등(PEP 723 단독 실행).
+
+**Claude Code가 위키 규약을 못 읽는다면?** 위키 규약은 `AGENTS.md` 하나이고, Claude Code는 v2.1.277부터 `CLAUDE.md`가 없으면 이 파일을 직접 읽는다. 그보다 오래된 버전이거나 위키 상위 폴더에 `CLAUDE.md`가 있으면 위키 루트에 `@AGENTS.md` 한 줄짜리 `CLAUDE.md`를 두면 된다.
 
 **웹 페이지는 어떻게 가져오나?** 실제 HTML을 받아 기계적으로 마크다운으로 바꾼 뒤, 격리된 서브에이전트(`web-extract`)가 머리말·추천 글 같은 군더더기만 걷어내고 본문은 **요약 없이 원문 그대로** `raw/sources/`에 저장한다. 원본 HTML은 서브에이전트 안에서만 다뤄 메인 세션의 컨텍스트를 아낀다. 페이월·봇 차단이면 옵시디언 Web Clipper나 브라우저에서 저장한 `.html` 파일로 우회한다.
 
