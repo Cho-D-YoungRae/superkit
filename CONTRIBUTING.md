@@ -35,7 +35,6 @@ claude plugin validate .
 claude --plugin-dir plugins/<이름>
 
 # 플러그인별 테스트
-python3 -m unittest discover -s plugins/superglossary/tests
 bash plugins/infra/tests/run_tests.sh
 (cd plugins/superrelease && python3 -m unittest discover -s tests -q)
 uv run --no-project --with pytest --with pyyaml --with pymupdf pytest plugins/llm-wiki/tests -q
@@ -45,7 +44,7 @@ uv run --no-project --with pytest --with pyyaml --with pymupdf pytest plugins/ll
 
 플러그인마다 따로 릴리즈합니다. 버전은 [유의적 버전(SemVer)](https://semver.org/lang/ko/)을 따릅니다.
 
-1. 작업 브랜치에서 그 플러그인의 `plugin.json` `version`을 올립니다. superglossary는 `python3 plugins/superglossary/scripts/bump_version.py <version>`을, superrelease는 `plugins/superrelease/.superrelease/scripts/version.py set <version>`(또는 그 디렉터리에서 연 세션의 `release` 스킬)을 씁니다.
+1. 작업 브랜치에서 그 플러그인의 `plugin.json` `version`을 올립니다. superrelease는 `plugins/superrelease/.superrelease/scripts/version.py set <version>`(또는 그 디렉터리에서 연 세션의 `release` 스킬)을 씁니다.
 2. 그 플러그인의 `CHANGELOG.md`에 버전과 날짜로 변경 사항을 정리합니다.
 3. `main`으로 PR을 보내 병합합니다.
 4. `main`에서 플러그인 디렉터리로 이동해 태그를 답니다: `claude plugin tag --push` (태그 이름은 `<이름>--v<버전>`).

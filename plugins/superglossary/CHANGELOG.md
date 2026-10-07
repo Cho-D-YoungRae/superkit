@@ -7,6 +7,32 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-07
+
+용어집을 Claude가 직접 읽고 고치는 md 파일로 바꿨습니다. JSON·생성물·Python CLI·lint를 걷어 냈습니다.
+
+### Changed
+
+- **BREAKING**: 용어집이 `.claude/superglossary/glossary.json`(+ 생성물 `core.md`·`terms.md`)에서 `docs/superglossary/glossary.md` 한 파일로 바뀌었습니다. 열은 `한글 | 영문 | 축약 | 금지 | 설명`입니다(`relatedElements`·`stopwords`는 없앴습니다). 용어가 300개를 넘으면 도메인별 파일(`docs/superglossary/<도메인>.md`)로 나누자고 제안하고, `glossary.md`가 index를 맡습니다.
+- **BREAKING**: 스킬이 `glossary`(생성·추가·수정·분리)와 `check` 둘이 됐습니다. `/superglossary:init`·`/superglossary:add`는 `/superglossary:glossary`가 맡습니다.
+- **BREAKING**: 지침 파일에 `@import` 블록(`<!-- superglossary:begin -->`…`<!-- superglossary:end -->`) 대신 포인터 한 줄을 넣습니다. 용어집은 매 세션이 아니라 이름을 지을 때만 읽힙니다.
+- 용어는 단어별로 등록합니다. 합성어의 영문이 부분 영문의 조합과 다를 때(업계 용어·표준 약어·영문 한 단어)만 한 항목으로 두고, 이 예외는 확인을 받습니다.
+- `check`가 lint 대신 변경분의 이름을 직접 대조합니다. 금지 단어·다른 영문·미등록 축약어·추가 후보를 보고합니다.
+- `glossary-scanner`가 lint 없이 Grep으로 변형별 빈도를 셉니다.
+
+### Removed
+
+- CLI(`glossary.py`, `bin/superglossary`)와 `lint`(`--strict` 포함), 스톱워드 설정
+- `check-analyzer` 서브에이전트
+- `scripts/bump_version.py` — 버전은 `plugin.json`에만 있습니다
+- 플러그인 CI 워크플로(`.github/workflows/superglossary.yml`)와 단위 테스트
+
+### 0.6.0에서 옮기기
+
+1. 0.7.0으로 업데이트한 뒤 `/superglossary:glossary`에 "`.claude/superglossary/glossary.json`의 용어를 `docs/superglossary/glossary.md`로 옮겨 줘"라고 요청합니다.
+2. 지침 파일의 `<!-- superglossary:begin -->`…`<!-- superglossary:end -->` 블록을 지우고 포인터 줄을 넣습니다(`/superglossary:glossary`가 넣을지 묻습니다).
+3. `.claude/superglossary/`를 지웁니다.
+
 ## [0.6.0] - 2026-10-01
 
 ### Changed
