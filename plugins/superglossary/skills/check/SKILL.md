@@ -1,19 +1,56 @@
 ---
 name: check
-description: 작업 완료 후나 커밋 전에 코드 네이밍을 프로젝트 용어사전과 대조해 위반·누락 용어를 검토할 때 사용한다. "용어 검사", "사전이랑 맞는지 확인", "네이밍 점검" 같은 요청에 트리거.
-allowed-tools: Bash(superglossary:*), Bash(python3 .claude/superglossary/glossary.py:*), Bash(git diff:*), Bash(git ls-files:*), Read, Grep, Agent
+description: 코드 변경의 이름(클래스·변수·함수·컬럼·테이블·API 필드)이 용어 사전(docs/superglossary/)을 따르는지 검토해 표로 보고한다. 금지 단어, 등록된 개념의 다른 영문, 등록되지 않은 축약어, 사전에 추가할 후보를 찾는다. 작업을 마친 뒤나 커밋·PR 전, "용어 검사", "네이밍 점검", "사전이랑 맞는지 확인" 같은 요청에 사용한다. 코드는 고치지 않는다. 용어를 추가·수정하는 일은 glossary가 맡는다.
+argument-hint: "[경로 | 커밋 범위]"
+allowed-tools: Read, Grep, Glob, Bash(git rev-parse:*), Bash(git diff:*), Bash(git status:*), Bash(git ls-files:*)
 ---
 
-# 용어사전 검토
+# 용어 사전 검토
 
-1. **사전 확인**: `.claude/superglossary/`가 없으면 `/superglossary:init` 실행을 제안하고 종료한다.
-2. **대상 결정**: 인자가 없으면 `git diff --name-only --diff-filter=d`(unstaged) + `git diff --cached --name-only --diff-filter=d`(staged) + `git ls-files --others --exclude-standard`(신규 untracked)의 합집합, 경로가 주어지면 그 범위. 삭제된 파일은 넘기지 않는다(lint는 없는 경로를 경고한다). `.claude/`(용어사전·CLAUDE.md)와 지침 파일 안의 용어사전 블록은 lint가 스스로 제외하므로 따로 거르지 않아도 된다. **대상이 하나도 없으면** "검사할 변경 파일이 없습니다"로 보고하고 종료한다(빈 목록으로 lint를 호출하지 않는다).
-3. **후보 추출(결정론)**: `superglossary lint <paths...>` 실행(디렉토리를 주면 재귀 탐색한다). `superglossary`를 찾지 못하면 `python3 .claude/superglossary/glossary.py lint <paths...>`로 대체한다. 출력은 두 섹션 — `[위반]`(금지 변형 사용: `토큰	표준영문(한글)	빈도	파일`)과 `[후보]`(미등록 토큰: `토큰	빈도	파일`).
-4. **위반 처리**: `[위반]`은 사전이 결정론적으로 확정한 결과다. 그대로 보고 표에 올린다.
-5. **후보 처리(하이브리드)**:
-   - `[후보]`가 **10개 이하**면 이 세션에서 직접 의미 확정한다. 판단 기준: ① 사전 등록 개념을 다른 영문으로 쓴 동의어(빈도·문맥 확인) ② 미등록 축약어 ③ 반복 등장하는 미등록 단일어는 추가 후보 ④ 일반 영어·라이브러리 식별자는 노이즈로 제외 ⑤ 기존 모듈 컨벤션 존중.
-   - **10개 초과**면 `[후보]` 목록(파일 위치 포함)과 `superglossary list` 결과를 `check-analyzer` 서브에이전트에 넘겨(Agent 도구) 확정을 받는다.
-6. **보고**: 위반(금지 변형 + 의미 위반)과 추가 후보(add 스킬로 등록할 대상)를 표로 보고한다. **자동 수정은 하지 않는다** — 적용은 사용자 판단.
-7. **노이즈가 반복되면**: 사내 접두사처럼 후보로 계속 올라오는 무의미한 토큰이 있으면, `glossary.json`의 `stopwords.add`에 넣자고 제안한다(반대로 도메인 핵심어가 기본 스톱워드에 걸려 누락되면 `stopwords.remove`).
+이번 변경에서 새로 생긴 이름이 용어 사전과 맞는지 보고한다. 판정은 이 세션에서 직접 한다. 변경분만 보므로 서브에이전트가 필요 없다.
 
-작업 완료 후 커밋 전에 실행하기를 권장한다.
+용어 사전의 형식(분리 여부, `## 도메인` index의 코드 범위, `## 공통 용어`)과 등록 규칙은 `${CLAUDE_SKILL_DIR}/../glossary/glossary-guide.md`에 있다. 판정 전에 읽는다.
+
+## 1. 용어 사전 확인
+
+기준 디렉터리는 git 루트다(`git rev-parse --show-toplevel`). git 저장소가 아니면 변경을 알 수 없으므로, 검사할 경로를 인자로 달라고 안내하고 끝낸다.
+
+`docs/superglossary/glossary.md`가 없으면 `/superglossary:glossary`로 만들자고 제안하고 끝낸다.
+
+## 2. 대상 정하기
+
+- **인자 없음**: 아래 셋의 합집합. 삭제된 파일은 뺀다.
+  - unstaged: `git diff --name-only --diff-filter=d`
+  - staged: `git diff --cached --name-only --diff-filter=d`
+  - untracked: `git ls-files --others --exclude-standard`
+- **경로**: 그 파일·디렉터리 전체를 본다.
+- **커밋 범위**(예: `main..HEAD`): `git diff <범위>`의 변경을 본다.
+
+용어 사전 파일(`docs/superglossary/`)과 락 파일·생성물·의존성 디렉터리는 대상에서 뺀다. 대상이 없으면 "검사할 변경이 없습니다"로 보고하고 끝낸다.
+
+## 3. 용어 사전 읽기
+
+분리 전이면 `glossary.md`만 읽는다. 분리돼 있으면 대상 파일 경로가 맞는 `코드 범위`의 도메인 파일과 `## 공통 용어`를 읽는다.
+
+## 4. 대조
+
+추가·변경된 줄(untracked와 경로 대상은 파일 전체)에서 새로 생긴 이름을 찾아 단어로 나눈다(`customerId` → customer, id). 단어마다 본다.
+
+1. **금지 단어**: 어떤 항목의 금지 열에 있다 → 위반. 그 항목의 영문이 표준이다.
+2. **다른 영문**: 사전에 있는 개념을 다른 영문으로 썼다(예: 사전 `member`인데 코드 `client`) → 위반. 빈도와 문맥을 보고 판단한다.
+3. **미등록 축약어**: 축약 열에 없는 축약(예: `regDt`의 `reg`, `dt`) → 위반.
+4. **추가 후보**: 사전에 없지만 이 프로젝트의 개념이고 반복해서 쓰이는 단어 → 추가 후보.
+
+일반 영어, 언어 키워드, 라이브러리·프레임워크 식별자는 뺀다. 기존 모듈을 고친 변경이면 그 모듈의 기존 이름을 따른 것은 위반으로 보지 않는다(용어 사전 규칙). 확정하기 애매하면 위반이 아니라 후보로 둔다.
+
+## 5. 보고
+
+```
+### 위반
+| 파일:줄 | 이름 | 사전 표준 | 사유 |
+
+### 추가 후보
+| 한글(추정) | 영문 | 근거 |
+```
+
+둘 다 없으면 "이상 없음" 한 줄로 보고한다. 코드는 고치지 않는다 — 고칠지는 사용자가 정한다. 추가 후보가 있으면 `/superglossary:glossary`로 등록할지 묻는다. 같은 단어가 위반으로 계속 나오는데 기존 코드 전반에 퍼져 있으면, 사전 쪽(금지 열이나 영문)을 고칠지도 함께 묻는다.
