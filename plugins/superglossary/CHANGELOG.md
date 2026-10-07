@@ -29,7 +29,7 @@
 
 ### 0.6.0에서 옮기기
 
-1. 0.7.0으로 업데이트한 뒤 `/superglossary:glossary`에 "`.claude/superglossary/glossary.json`의 용어를 `docs/superglossary/glossary.md`로 옮겨 줘"라고 요청합니다.
+1. 0.7.0으로 업데이트한 뒤 `/superglossary:glossary`에 "`.claude/superglossary/glossary.json`의 용어를 `docs/superglossary/glossary.md`로 옮겨 줘"라고 요청합니다. 필드는 `korean`→한글, `english`→영문, `abbreviation`→축약, `avoid`→금지(쉼표 구분), `description`→설명으로 옮기고, `relatedElements`·`stopwords`는 옮기지 않습니다.
 2. 지침 파일의 `<!-- superglossary:begin -->`…`<!-- superglossary:end -->` 블록을 지우고 포인터 줄을 넣습니다(`/superglossary:glossary`가 넣을지 묻습니다).
 3. `.claude/superglossary/`를 지웁니다.
 

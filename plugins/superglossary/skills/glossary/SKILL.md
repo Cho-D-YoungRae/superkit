@@ -15,7 +15,7 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Agent, Bash(git rev-parse:*)
 
 기준 디렉터리는 git 루트다(`git rev-parse --show-toplevel`). git 저장소가 아니면 현재 디렉터리를 기준으로 삼는다.
 
-- `docs/superglossary/glossary.md`를 읽는다. 없으면 4. 생성으로 간다.
+- `docs/superglossary/glossary.md`를 읽는다. 없으면, 사용자가 용어집을 만들어 달라고 했을 때는 4. 생성으로 간다. 이름을 짓다가 불린 것이면 만들기 전에 이 프로젝트에 용어 사전을 둘지 묻는다 — 사전을 쓰지 않는 프로젝트에 파일이 말없이 생기지 않게 하기 위해서다.
 - `## 도메인` 표(index)가 있으면 분리된 사전이다. 지금 다루는 파일 경로가 맞는 `코드 범위`의 도메인 파일과 `## 공통 용어`를 함께 읽는다.
 
 ## 2. 추가
@@ -55,4 +55,4 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Agent, Bash(git rev-parse:*)
 ## 하지 않는 것
 
 - 코드의 기존 이름을 바꾸지 않는다. 사전과 다른 이름은 check가 보고하고, 바꿀지는 사용자가 정한다.
-- 사용자 확인 없이 지침 파일을 고치거나 사전을 나누지 않는다.
+- 사용자 확인 없이 사전을 새로 만들거나, 지침 파일을 고치거나, 사전을 나누지 않는다.
