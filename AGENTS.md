@@ -28,7 +28,6 @@ Claude Code 플러그인 여러 개를 한 저장소에서 관리하는 모노�
 
 - 플러그인마다 SemVer를 따로 쓴다. `plugin.json`의 `version`을 올려야 사용자에게 업데이트가 간다. 한 플러그인의 변경이 다른 플러그인의 버전을 바꾸지 않는다.
 - 릴리즈할 때 그 플러그인의 `CHANGELOG.md`를 정리하고, `main`에 병합한 뒤 플러그인 디렉터리에서 `claude plugin tag --push`로 `<이름>--v<버전>` 태그를 단다.
-- superglossary는 `plugins/superglossary/scripts/bump_version.py`로 버전을 올린다(`plugin.json`과 CLI 상수를 함께 바꾼다).
 - superrelease는 자기 툴킷으로 릴리스할 수 있다 — `plugins/superrelease`에서 연 세션에서 `release` 스킬을 쓰면 버전·CHANGELOG·`superrelease--v<버전>` 태그를 함께 처리한다.
 
 ## 검증
@@ -40,10 +39,6 @@ claude plugin validate .
 ```
 
 플러그인별 테스트:
-
-```bash
-python3 -m unittest discover -s plugins/superglossary/tests
-```
 
 ```bash
 bash plugins/infra/tests/run_tests.sh
