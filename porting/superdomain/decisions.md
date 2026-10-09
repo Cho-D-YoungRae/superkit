@@ -140,3 +140,15 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 ```
 
 이동 직전 대상 기준의 SHA-256은 `b58fd9686c77d3b4f033face368612567af6712eb880417192c0e505adff2910`이다. 이 변경의 검증과 별도 리뷰를 완료한 뒤 대상 기준만 갱신한다. 원본 기준과 관리 파일 목록은 그대로 보존한다. 검증 결과: 새 위치와 공백을 포함한 독립 복사본의 manifest·스킬 4개·파일 17개·내부 링크 29개 통과, 카탈로그/후보 상태 검사 통과, Git 범위 fixture 통과, tree_state 단위 검사 6개 통과, 전환 스킬 포함 스킬 형식 검사 5개 통과, 기존 Claude marketplace CI 코드와 `claude plugin validate .` 통과, workflow YAML·트리거 확인. `check_repository.py --target-state <후보 경로>`로 기존 기준을 덮어쓰지 않고 검증했다. GitHub의 실제 workflow 실행과 앱 설치·런타임은 미검증이다. 최종 상태: 별도 새 컨텍스트의 `superdomain_layout_review`가 pass로 판정했다. 지적은 없었다. 검토한 대상 후보 SHA-256 `8acef553f64dbeae63ad2acfb5a3fb0f0d86f84ba1bad4a632baa38d8090b59a`와 현재 파일이 같음을 확인한 뒤 target-state.json을 확정했다. source-state.json과 managed-paths.json은 이동 전과 바이트 동일하다. 최종 기본 검사와 반복 비교가 파일을 바꾸지 않음을 확인했다. 리뷰 근거는 review.md의 배치 변경 절에 기록했다.
+
+## 2026-10-09: 원본 0.6.1 반영
+
+원본 superdomain이 0.6.1로 올라가 컨벤션에 「라이브러리·DB가 이미 구현한 기능은 테스트하지 않는다」(`지향`)를 더하고, 「모킹은 외부 자원에만 쓴다」의 실제 DB 조회 테스트 범위를 조건을 직접 쓴 조회로 좁혔다. 쓰기 전에 원본·전환본을 기존 기준과 비교했으며 추가·수정·삭제가 없었다.
+
+- 원본에서 바뀐 파일: `.claude-plugin/plugin.json`(0.6.1), `CHANGELOG.md`, `skills/conventions/conventions.md`.
+- 전환본 반영: `skills/conventions/conventions.md`를 원본에서 그대로 복사했다(대응표의 `copy`, 바이트 동일). `plugin.json`의 `version`과 README의 기반 버전을 0.6.1로 바꿨다. `CHANGELOG.md`는 대응표대로 배포본에서 제외한다.
+- 스킬·역할 문서·호출 방식·권한·경로·트리거는 바뀌지 않았다. 관리 파일 목록(17개)도 그대로다.
+- 독립 리뷰: 생략했다. `copy`로 분류한 파일의 바이트 복사와 버전 표기 변경뿐이라 전환 판단(adapt·replace)이 새로 생기지 않는다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+- 기준 상태: 검사 통과 뒤 `source-state.json`·`target-state.json`을 다시 만들었다.
+
+검증 결과: `check_repository.py`, `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .` 통과. 원본·전환본 conventions.md 바이트 동일, 두 manifest의 이름·버전(superdomain 0.6.1) 일치 확인. conventions.md에는 내부 링크가 없어 링크 수는 바뀌지 않는다. `validate.cjs`의 공식 스키마 검사는 로컬에서 실행하지 않았으므로 PR의 `superdomain-codex` CI 결과로 확인한다. 이 스크립트는 스키마·심볼릭 링크·스킬 frontmatter·내부 링크만 검사하며 버전 값이나 README 본문은 검사하지 않는다. 런타임은 미검증이다.

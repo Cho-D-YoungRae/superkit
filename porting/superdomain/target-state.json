@@ -7,12 +7,12 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "6f08bd499f8df90602ea9988b6c9c4222c2a0e6f86d7dc534f636772939e37e2",
+      "sha256": "eb9559f0f629bf8db913285c485e36c0753a8e30486353cf772e60e2ce270eff",
       "type": "file"
     },
     "plugin.json": {
       "executable": false,
-      "sha256": "02d7017b97e63f35c4507de94bd1e83da3a66707e4eb46835d18bb3e5d5f6653",
+      "sha256": "9d78f9fe6de62f3cf6529ec1e2a1774acf12222c7aee3001d170c1118f2a38c5",
       "type": "file"
     },
     "skills/adr/SKILL.md": {
@@ -42,7 +42,7 @@
     },
     "skills/conventions/conventions.md": {
       "executable": false,
-      "sha256": "57c149072627fd78f78e45dbfe6c2614dd37dc3976f78fe8fbfde88a9105ef03",
+      "sha256": "3f13eec7ac20d1a1773b6057b61752abaef6fef4609e32e9146d3c1c106d87b2",
       "type": "file"
     },
     "skills/domain/SKILL.md": {

@@ -2,12 +2,12 @@
   "files": {
     ".claude-plugin/plugin.json": {
       "executable": false,
-      "sha256": "a8c93e74681a62aacf6cb0aae16910e4ea979364e00cd04184bbb99c93268ddf",
+      "sha256": "641cb78b6f027db51282d3bed83acfd3ceeab814c540b6c404e6adb99cec7465",
       "type": "file"
     },
     "CHANGELOG.md": {
       "executable": false,
-      "sha256": "b54d91d8538344f428eb97ef546103060d805b23e0f293bab0b115c280fd6147",
+      "sha256": "445414822ae8c043ed2699bfc95754b9883af6d40c0f234fed1eb05927d47d2f",
       "type": "file"
     },
     "LICENSE": {
@@ -57,7 +57,7 @@
     },
     "skills/conventions/conventions.md": {
       "executable": false,
-      "sha256": "57c149072627fd78f78e45dbfe6c2614dd37dc3976f78fe8fbfde88a9105ef03",
+      "sha256": "3f13eec7ac20d1a1773b6057b61752abaef6fef4609e32e9146d3c1c106d87b2",
       "type": "file"
     },
     "skills/domain/SKILL.md": {
