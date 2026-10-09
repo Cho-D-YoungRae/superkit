@@ -1,0 +1,90 @@
+{
+  "files": {
+    "LICENSE": {
+      "executable": false,
+      "sha256": "57bffe5ed02890283a8cb3e23f8e1972806a35972ba1316824098b137ec5a268",
+      "type": "file"
+    },
+    "README.md": {
+      "executable": false,
+      "sha256": "6f08bd499f8df90602ea9988b6c9c4222c2a0e6f86d7dc534f636772939e37e2",
+      "type": "file"
+    },
+    "plugin.json": {
+      "executable": false,
+      "sha256": "02d7017b97e63f35c4507de94bd1e83da3a66707e4eb46835d18bb3e5d5f6653",
+      "type": "file"
+    },
+    "skills/adr/SKILL.md": {
+      "executable": false,
+      "sha256": "91528b9c482b46dd84e2eb864241e0b094a95859c1b4c51e27b09bf652dd1d01",
+      "type": "file"
+    },
+    "skills/adr/adr-template.md": {
+      "executable": false,
+      "sha256": "0fab79046157a651f6d231ecd2842590ec2b228d6b9f261a4cd021f1668792bf",
+      "type": "file"
+    },
+    "skills/adr/agents/openai.yaml": {
+      "executable": false,
+      "sha256": "fd78a318af79ff9073589865494a03f0cbb4e00169098ceeee7ded52bf24ef58",
+      "type": "file"
+    },
+    "skills/conventions/SKILL.md": {
+      "executable": false,
+      "sha256": "61162d6397167e94442fbb27e22d8e77e3c33153b26119d2f4e4e413f08d2825",
+      "type": "file"
+    },
+    "skills/conventions/agents/openai.yaml": {
+      "executable": false,
+      "sha256": "7dfda1eff7525d815bfa28dda0e66f7a02ca06c6cbaba15c0976c37ea6d03d93",
+      "type": "file"
+    },
+    "skills/conventions/conventions.md": {
+      "executable": false,
+      "sha256": "57c149072627fd78f78e45dbfe6c2614dd37dc3976f78fe8fbfde88a9105ef03",
+      "type": "file"
+    },
+    "skills/domain/SKILL.md": {
+      "executable": false,
+      "sha256": "4b78f444765c69627acc0a70c71c2f7170ddb7fc77ed5da890ca1da11d578d5f",
+      "type": "file"
+    },
+    "skills/domain/agents/openai.yaml": {
+      "executable": false,
+      "sha256": "ef7b4f95aaec8f677e63206ce61661cc909de4998a9e5c9df7152fcdee307baf",
+      "type": "file"
+    },
+    "skills/domain/domain-guide.md": {
+      "executable": false,
+      "sha256": "5acaa41aea45ba705bf18d80a9ac247b852ecd89149feb827a57711f9d2ba282",
+      "type": "file"
+    },
+    "skills/review/SKILL.md": {
+      "executable": false,
+      "sha256": "f5e6d063f14d0847c5722e015a43c01ffc39b219e7b48d00d6896f7ddefd2605",
+      "type": "file"
+    },
+    "skills/review/agents/openai.yaml": {
+      "executable": false,
+      "sha256": "4c88ad9c299390933b63cbd0af7de5a281c918807d1273c0603fcfbc89987516",
+      "type": "file"
+    },
+    "skills/review/references/convention-reviewer.md": {
+      "executable": false,
+      "sha256": "8ce831dfa5c1dabca91ba2e367386870c73c60e8098beea3ce717e05d81fa0f7",
+      "type": "file"
+    },
+    "skills/review/references/dispatch.md": {
+      "executable": false,
+      "sha256": "111bef07585a4e7102bad177208d3db3c778000d0d1912e8d3f79a0c307a988d",
+      "type": "file"
+    },
+    "skills/review/references/domain-reviewer.md": {
+      "executable": false,
+      "sha256": "e55e574b42a66db1e7f18b3a2f956cab0f7152b1f43d9deba3ac1201764b2d29",
+      "type": "file"
+    }
+  },
+  "schema_version": 1
+}

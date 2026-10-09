@@ -1,0 +1,19 @@
+[
+  "LICENSE",
+  "README.md",
+  "plugin.json",
+  "skills/adr/SKILL.md",
+  "skills/adr/adr-template.md",
+  "skills/adr/agents/openai.yaml",
+  "skills/conventions/SKILL.md",
+  "skills/conventions/agents/openai.yaml",
+  "skills/conventions/conventions.md",
+  "skills/domain/SKILL.md",
+  "skills/domain/agents/openai.yaml",
+  "skills/domain/domain-guide.md",
+  "skills/review/SKILL.md",
+  "skills/review/agents/openai.yaml",
+  "skills/review/references/convention-reviewer.md",
+  "skills/review/references/dispatch.md",
+  "skills/review/references/domain-reviewer.md"
+]

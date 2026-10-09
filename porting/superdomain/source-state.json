@@ -1,0 +1,80 @@
+{
+  "files": {
+    ".claude-plugin/plugin.json": {
+      "executable": false,
+      "sha256": "a8c93e74681a62aacf6cb0aae16910e4ea979364e00cd04184bbb99c93268ddf",
+      "type": "file"
+    },
+    "CHANGELOG.md": {
+      "executable": false,
+      "sha256": "b54d91d8538344f428eb97ef546103060d805b23e0f293bab0b115c280fd6147",
+      "type": "file"
+    },
+    "LICENSE": {
+      "executable": false,
+      "sha256": "57bffe5ed02890283a8cb3e23f8e1972806a35972ba1316824098b137ec5a268",
+      "type": "file"
+    },
+    "README.md": {
+      "executable": false,
+      "sha256": "1625382eb25eba93b897c658010c1bd284befc90b21da694c6904af6ef360a15",
+      "type": "file"
+    },
+    "agents/convention-reviewer.md": {
+      "executable": false,
+      "sha256": "09c522ede269a50a13fdecc2478feb3d4759f2be1481376bff057f64fafaacf1",
+      "type": "file"
+    },
+    "agents/domain-reviewer.md": {
+      "executable": false,
+      "sha256": "ee887885795b018101d3c2e19329d931aea92e501ca6d3e7360cb7e366473a95",
+      "type": "file"
+    },
+    "docs/superpowers/plans/2026-09-29-superdomain-redesign.md": {
+      "executable": false,
+      "sha256": "25a0c627a3221dec30b9abdd433bad75b93db97b559085813e02f855b2604e89",
+      "type": "file"
+    },
+    "docs/superpowers/specs/2026-09-29-superdomain-redesign-design.md": {
+      "executable": false,
+      "sha256": "e771f797c6aefffb4e3e15645230dcb0f37adabb00392f1369e81376ca1464a1",
+      "type": "file"
+    },
+    "skills/adr/SKILL.md": {
+      "executable": false,
+      "sha256": "42d38cea6d7c7520e1639bc7ea441c53a0bb1a77810212bd933edc421b9af5a3",
+      "type": "file"
+    },
+    "skills/adr/adr-template.md": {
+      "executable": false,
+      "sha256": "0fab79046157a651f6d231ecd2842590ec2b228d6b9f261a4cd021f1668792bf",
+      "type": "file"
+    },
+    "skills/conventions/SKILL.md": {
+      "executable": false,
+      "sha256": "8f34892fe9565ddea5bb3817665312631e41dac13758f1e01f340b9183cfa7f9",
+      "type": "file"
+    },
+    "skills/conventions/conventions.md": {
+      "executable": false,
+      "sha256": "57c149072627fd78f78e45dbfe6c2614dd37dc3976f78fe8fbfde88a9105ef03",
+      "type": "file"
+    },
+    "skills/domain/SKILL.md": {
+      "executable": false,
+      "sha256": "cd6617d157affd258b7cc3de2cfc0b54b91602ca0539b4516cfede51e8ee97dc",
+      "type": "file"
+    },
+    "skills/domain/domain-guide.md": {
+      "executable": false,
+      "sha256": "5acaa41aea45ba705bf18d80a9ac247b852ecd89149feb827a57711f9d2ba282",
+      "type": "file"
+    },
+    "skills/review/SKILL.md": {
+      "executable": false,
+      "sha256": "fa3be240f7340e682c4c1b791be6a3022b3d78a1e08ee27abd587e1cb5ff7427",
+      "type": "file"
+    }
+  },
+  "schema_version": 1
+}

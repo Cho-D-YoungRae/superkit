@@ -1,0 +1,20 @@
+{
+  "name": "superkit",
+  "interface": {
+    "displayName": "superkit for Codex"
+  },
+  "plugins": [
+    {
+      "name": "superdomain",
+      "source": {
+        "source": "local",
+        "path": "./plugins/superdomain-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
