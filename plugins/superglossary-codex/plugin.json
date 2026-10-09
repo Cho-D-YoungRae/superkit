@@ -1,0 +1,28 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "superglossary",
+  "description": "프로젝트 용어사전을 md로 관리하고 코드 변경의 이름이 같은 용어를 쓰는지 검토한다",
+  "version": "0.7.0",
+  "author": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com"
+  },
+  "homepage": "https://github.com/Cho-D-YoungRae/superkit/tree/main/plugins/superglossary-codex",
+  "repository": "https://github.com/Cho-D-YoungRae/superkit",
+  "license": "MIT",
+  "keywords": [
+    "glossary",
+    "terminology",
+    "documentation",
+    "korean"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Superglossary",
+        "shortDescription": "프로젝트 용어 사전 관리와 코드 이름 검토",
+        "developerName": "Cho-D-YoungRae"
+      }
+    }
+  }
+}

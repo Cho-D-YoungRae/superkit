@@ -1,0 +1,55 @@
+{
+  "files": {
+    "LICENSE": {
+      "executable": false,
+      "sha256": "57bffe5ed02890283a8cb3e23f8e1972806a35972ba1316824098b137ec5a268",
+      "type": "file"
+    },
+    "README.md": {
+      "executable": false,
+      "sha256": "2cc121c51b9e974d276342043dc189cfce182559e1ea5fcbb5903ea0ea2b9424",
+      "type": "file"
+    },
+    "plugin.json": {
+      "executable": false,
+      "sha256": "2f01acfa3980bb4dde10a743a1b8af521c13ac10e16bfbe5c7e9a60df10e6f1c",
+      "type": "file"
+    },
+    "skills/check/SKILL.md": {
+      "executable": false,
+      "sha256": "e87bdd19ebd28a773f9e1a6cd144fcc86ef3fd96ff7c3a52ab67efe98732fac4",
+      "type": "file"
+    },
+    "skills/check/agents/openai.yaml": {
+      "executable": false,
+      "sha256": "862d4dc257e3e3cb6eb1d661a402862e3eee1720422f96fa26b0e7bd5cb94596",
+      "type": "file"
+    },
+    "skills/glossary/SKILL.md": {
+      "executable": false,
+      "sha256": "4d275587ca4ea6aaf79f7eb6b6d698745c2beadc968b4d046a08782c4df03200",
+      "type": "file"
+    },
+    "skills/glossary/agents/openai.yaml": {
+      "executable": false,
+      "sha256": "aa5831d1b41d87069401e6e33597f9aed5a8165a3176046594a7f999349ae321",
+      "type": "file"
+    },
+    "skills/glossary/glossary-guide.md": {
+      "executable": false,
+      "sha256": "7ad54d06ab44d80a7b22907b76490c7e681bd754ab27a7dfccd093605cbe4f2e",
+      "type": "file"
+    },
+    "skills/glossary/references/glossary-scanner.md": {
+      "executable": false,
+      "sha256": "58224b9dbd5e6234b511d0d864a2512c4ddff3a4ec27a69f2117eb5c309915b8",
+      "type": "file"
+    },
+    "skills/glossary/references/scanner-dispatch.md": {
+      "executable": false,
+      "sha256": "964caed7b6713ce88af8a68cbc788216e7ce1806d38c13244d54262189a0f00e",
+      "type": "file"
+    }
+  },
+  "schema_version": 1
+}

@@ -1,0 +1,12 @@
+[
+  "LICENSE",
+  "README.md",
+  "plugin.json",
+  "skills/check/SKILL.md",
+  "skills/check/agents/openai.yaml",
+  "skills/glossary/SKILL.md",
+  "skills/glossary/agents/openai.yaml",
+  "skills/glossary/glossary-guide.md",
+  "skills/glossary/references/glossary-scanner.md",
+  "skills/glossary/references/scanner-dispatch.md"
+]
