@@ -1,0 +1,60 @@
+{
+  "files": {
+    ".claude-plugin/plugin.json": {
+      "executable": false,
+      "sha256": "2839d9649def2b5ebd4bd233c610ea4ca9fe9e33606e990a6dfd1e4617789298",
+      "type": "file"
+    },
+    "AGENTS.md": {
+      "executable": false,
+      "sha256": "7ca5e2df9c955c035012dad595bca390ebc4c3e4f2cbf1a7096cd37d125bfdaf",
+      "type": "file"
+    },
+    "CHANGELOG.md": {
+      "executable": false,
+      "sha256": "762fd67351ef0f5c679bf0b81065250220caccb1c74052bbfbee113624f91d2d",
+      "type": "file"
+    },
+    "LICENSE": {
+      "executable": false,
+      "sha256": "57bffe5ed02890283a8cb3e23f8e1972806a35972ba1316824098b137ec5a268",
+      "type": "file"
+    },
+    "README.md": {
+      "executable": false,
+      "sha256": "2b380991f5635265651a50e5aa788c678c0be21064b8a922831ef079c81529f0",
+      "type": "file"
+    },
+    "agents/glossary-scanner.md": {
+      "executable": false,
+      "sha256": "ebbde0366e8f2ebd6ab27fd60624a381f2746e918d47610a2054ef9ceae83264",
+      "type": "file"
+    },
+    "docs/superpowers/plans/2026-10-07-llm-glossary.md": {
+      "executable": false,
+      "sha256": "49156ec60c1f220a5be19098901d40c4c93ce37b285609f224dd761c6ac39b35",
+      "type": "file"
+    },
+    "docs/superpowers/specs/2026-10-07-llm-glossary-design.md": {
+      "executable": false,
+      "sha256": "06b209fb25f4b7a0970530dac10fbb3c63da516c2e967262d589cdfd026d05f2",
+      "type": "file"
+    },
+    "skills/check/SKILL.md": {
+      "executable": false,
+      "sha256": "bc12965a32c609964d22bd85ea34382a9790afc010cb89c399ce80af79646d17",
+      "type": "file"
+    },
+    "skills/glossary/SKILL.md": {
+      "executable": false,
+      "sha256": "c8d9806f6cad1d33f1032705f69ac3b4f85e5f972c2f80c582bb31d7785466ba",
+      "type": "file"
+    },
+    "skills/glossary/glossary-guide.md": {
+      "executable": false,
+      "sha256": "167e1399d74ac84a38c7b4e970371e611cd6d92dc91c933e0b53447965e90ed2",
+      "type": "file"
+    }
+  },
+  "schema_version": 1
+}

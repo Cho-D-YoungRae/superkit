@@ -42,7 +42,7 @@ bash plugins/infra/tests/run_tests.sh
 uv run --no-project --with pytest --with pyyaml --with pymupdf pytest plugins/llm-wiki/tests -q
 ```
 
-Codex 전환본은 `.agents/plugins/marketplace.json`에만 등록합니다. `python3 porting/superdomain/check_repository.py`로 카탈로그·기준 상태를, `python3 porting/superdomain/check_git_scopes.py`로 리뷰의 Git 범위를 검사합니다. 공식 매니페스트 스키마·스킬 형식·내부 링크 검사는 `.github/workflows/superdomain-codex.yml`의 절차를 따릅니다. 설치 후 스킬 선택과 모델 실행은 별도로 확인합니다.
+Codex 전환본은 `.agents/plugins/marketplace.json`에만 등록합니다. `superdomain`과 `superglossary` 각각 `python3 porting/<이름>/check_repository.py`로 카탈로그·기준 상태를, `python3 porting/<이름>/check_git_scopes.py`로 리뷰의 Git 범위를 검사합니다. 공식 매니페스트 스키마·스킬 형식·내부 링크 검사는 `.github/workflows/<이름>-codex.yml`의 절차를 따릅니다. 설치 후 스킬 선택과 모델 실행은 별도로 확인합니다.
 
 ## 릴리즈 절차
 

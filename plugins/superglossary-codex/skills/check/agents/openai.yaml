@@ -1,0 +1,3 @@
+interface:
+  display_name: "Superglossary 이름 검토"
+  short_description: "코드 변경의 금지 단어·미등록 축약어와 용어 추가 후보를 확인합니다"

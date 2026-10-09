@@ -10,6 +10,7 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 - `plugins/superdomain-codex/` — superdomain의 Codex 전환본. 루트 `plugin.json`과 `skills/`를 사용한다.
 - `porting/<이름>/` — 전환 결정·독립 리뷰·원본/대상 기준 상태·관리 파일 목록과 검증 도구. 설치 패키지에는 포함하지 않는다.
 - `plugins/superglossary/` — 프로젝트 용어사전. 플러그인 지침은 [plugins/superglossary/AGENTS.md](plugins/superglossary/AGENTS.md).
+- `plugins/superglossary-codex/` — superglossary의 Codex 전환본. 용어집 관리·이름 검토 스킬과 스캐너 역할 문서.
 - `plugins/infra/` — 인프라 하네스. 플러그인 지침은 [plugins/infra/AGENTS.md](plugins/infra/AGENTS.md).
 - `plugins/superrelease/` — 프로젝트 전용 릴리스 툴킷 생성기. 플러그인 지침은 [plugins/superrelease/AGENTS.md](plugins/superrelease/AGENTS.md). 자기 자신을 릴리스하는 툴킷(`.superrelease/`, `.claude/skills/`)이 이 디렉터리 안에 있다.
 - `plugins/llm-wiki/` — LLM 위키. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
@@ -43,11 +44,13 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 claude plugin validate .
 ```
 
-Codex superdomain 검증(의존성과 전체 CI 절차는 `.github/workflows/superdomain-codex.yml` 참조):
+Codex 전환본 검증(의존성과 전체 CI 절차는 `.github/workflows/<이름>-codex.yml` 참조):
 
 ```bash
 python3 porting/superdomain/check_repository.py
 python3 porting/superdomain/check_git_scopes.py
+python3 porting/superglossary/check_repository.py
+python3 porting/superglossary/check_git_scopes.py
 ```
 
 플러그인별 테스트:
