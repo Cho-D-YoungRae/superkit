@@ -1,0 +1,3 @@
+interface:
+  display_name: "Claude to Codex"
+  short_description: "Claude Code 플러그인을 Codex용으로 생성하고 갱신"

@@ -1,0 +1,3 @@
+interface:
+  display_name: "superdomain 결정 기록"
+  short_description: "중요한 결정의 근거를 ADR로 남기고 승인·대체·부분 조정을 관리합니다"

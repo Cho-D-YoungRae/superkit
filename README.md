@@ -1,6 +1,6 @@
 # superkit
 
-Claude Code 플러그인 모음이자 마켓플레이스.
+Claude Code 플러그인과 Codex 전환본을 관리하는 플러그인 모음이자 마켓플레이스.
 
 | 플러그인 | 하는 일 |
 |---|---|
@@ -10,7 +10,17 @@ Claude Code 플러그인 모음이자 마켓플레이스.
 | [superrelease](plugins/superrelease) | 프로젝트를 분석해 그 프로젝트 전용 릴리스 툴킷을 저장소에 만들어 준다 |
 | [llm-wiki](plugins/llm-wiki) | LLM이 유지보수하는 개인 위키 — 위키 부트스트래핑과 소스 추출 툴벨트 |
 
+Claude 원본은 `plugins/<이름>/`에, Codex 전환본은 `plugins/<이름>-codex/`에 둔다. 현재 Codex 전환본은 [superdomain](plugins/superdomain-codex)이다. 전환 결정·리뷰·다음 업데이트 기준은 [porting/superdomain](porting/superdomain/decisions.md)에 보관한다.
+
 ## 설치
+
+### Codex
+
+저장소의 `.agents/plugins/marketplace.json`은 Codex 전환본만 등록한다. superdomain의 패키지 위치는 `plugins/superdomain-codex/`이며, 플러그인 이름은 `superdomain`이다.
+
+이 저장소를 프로젝트로 연 뒤 데스크톱 앱을 다시 시작하고, Plugins Directory의 **superkit for Codex** 소스에서 superdomain을 설치한다. 카탈로그 등록은 자동 설치나 활성화를 의미하지 않는다. 설치 후 실제 스킬 실행은 아직 검증하지 않았다. 자세한 사용법과 요구 환경은 [Codex 패키지 README](plugins/superdomain-codex/README.md)를 본다.
+
+### Claude Code
 
 Claude Code 세션 안에서 마켓플레이스를 한 번 추가하고, 필요한 플러그인만 설치한다.
 

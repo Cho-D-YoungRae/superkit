@@ -1,0 +1,50 @@
+name: superdomain-codex
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/superdomain-codex/**"
+      - "porting/superdomain/**"
+      - ".agents/plugins/marketplace.json"
+      - ".agents/skills/claude-to-codex/**"
+      - ".github/workflows/superdomain-codex.yml"
+  pull_request:
+    paths:
+      - "plugins/superdomain-codex/**"
+      - "porting/superdomain/**"
+      - ".agents/plugins/marketplace.json"
+      - ".agents/skills/claude-to-codex/**"
+      - ".github/workflows/superdomain-codex.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: 검증 의존성 준비
+        run: npm install --prefix "$RUNNER_TEMP/superdomain-validation" --ignore-scripts --no-audit --no-fund --no-package-lock ajv@8.18.0 js-yaml@4.1.1
+      - name: 공식 매니페스트 스키마와 패키지 검사
+        env:
+          NODE_PATH: ${{ runner.temp }}/superdomain-validation/node_modules
+        run: |
+          curl --fail --silent --show-error --retry 2 --max-time 30 https://agent-plugins.org/schemas/1.0.0/plugin.schema.json --output "$RUNNER_TEMP/plugin.schema.json"
+          node porting/superdomain/validate.cjs plugins/superdomain-codex "$RUNNER_TEMP/plugin.schema.json"
+          cp -R plugins/superdomain-codex "$RUNNER_TEMP/isolated package"
+          node porting/superdomain/validate.cjs "$RUNNER_TEMP/isolated package" "$RUNNER_TEMP/plugin.schema.json"
+      - name: 카탈로그와 전환 기준 상태 검사
+        run: python3 porting/superdomain/check_repository.py
+      - name: 리뷰 범위와 상태 도구 검사
+        run: |
+          python3 porting/superdomain/check_git_scopes.py
+          python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
