@@ -1,6 +1,6 @@
 # superdomain for Codex
 
-도메인 정의, 도메인·코딩 컨벤션 리뷰, ADR을 제공하는 Codex 플러그인이다. Claude Code용 superdomain **0.6.0**의 업무 규칙을 기반으로 한다.
+도메인 정의, 도메인·코딩 컨벤션 리뷰, ADR을 제공하는 Codex 플러그인이다. Claude Code용 superdomain **0.6.1**의 업무 규칙을 기반으로 한다.
 
 ## 스킬
 
