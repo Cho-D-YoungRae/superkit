@@ -7,6 +7,7 @@
   "skills/adr/agents/openai.yaml",
   "skills/conventions/SKILL.md",
   "skills/conventions/agents/openai.yaml",
+  "skills/conventions/architecture-tests.md",
   "skills/conventions/conventions.md",
   "skills/domain/SKILL.md",
   "skills/domain/agents/openai.yaml",
