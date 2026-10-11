@@ -7,7 +7,7 @@
 - 변경이 도메인 정의와 코딩 컨벤션을 따르는지 리뷰한다.
 - 비싸거나 중요한 결정을 ADR로 남기고, 작업을 마칠 때 기록할 결정이 있으면 제안한다.
 
-아키텍처를 문서로 정하지 않는다. 대신 코드가 권장 방식(코딩 컨벤션)을 따르는지 리뷰로 확인한다. 스크립트가 없어서 Claude Code 말고는 설치할 것이 없다.
+아키텍처를 문서로 정하지 않는다. 대신 코드가 권장 방식(코딩 컨벤션)을 따르는지 리뷰로 확인한다. 의존 방향처럼 결정적으로 검사할 수 있는 규칙은 대상 프로젝트의 아키텍처 테스트(Spring Modulith·Konsist·ArchUnit)로 지키도록 구성 방법을 안내하고, 리뷰는 테스트가 덮지 않는 것을 본다. 플러그인에는 스크립트가 없어서 Claude Code 말고는 설치할 것이 없다.
 
 ## 설치
 
@@ -71,7 +71,7 @@ skills/
   domain/                SKILL.md, domain-guide.md (DOMAIN.md 형식과 경계·분류 판단 기준)
   review/                SKILL.md
   adr/                   SKILL.md, adr-template.md
-  conventions/           SKILL.md, conventions.md (코딩 컨벤션)
+  conventions/           SKILL.md, conventions.md (코딩 컨벤션), architecture-tests.md (아키텍처 테스트 구성)
 agents/                  domain-reviewer.md, convention-reviewer.md
 docs/superpowers/        설계 스펙과 구현 계획
 ```

@@ -152,3 +152,37 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 - 기준 상태: 검사 통과 뒤 `source-state.json`·`target-state.json`을 다시 만들었다.
 
 검증 결과: `check_repository.py`, `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .` 통과. 원본·전환본 conventions.md 바이트 동일, 두 manifest의 이름·버전(superdomain 0.6.1) 일치 확인. conventions.md에는 내부 링크가 없어 링크 수는 바뀌지 않는다. `validate.cjs`의 공식 스키마 검사는 로컬에서 실행하지 않았으므로 PR의 `superdomain-codex` CI 결과로 확인한다. 이 스크립트는 스키마·심볼릭 링크·스킬 frontmatter·내부 링크만 검사하며 버전 값이나 README 본문은 검사하지 않는다. 런타임은 미검증이다.
+
+## 2026-10-11: 원본 0.7.0 반영
+
+원본 superdomain이 0.7.0으로 올라가 컨벤션에 「아키텍처 규칙은 테스트로 강제한다」(`지향`)와 구성 문서 `skills/conventions/architecture-tests.md`를 더하고, 두 리뷰어가 대상 프로젝트의 아키텍처 테스트를 근거로 쓰게 했다(이슈 #6). 쓰기 전에 원본·전환본을 기존 기준과 비교했다. 전환본은 기준과 같았고, 원본은 아래 파일만 바뀌었다.
+
+- 원본에서 바뀐 파일: `.claude-plugin/plugin.json`(0.7.0), `CHANGELOG.md`, `README.md`, `agents/domain-reviewer.md`, `agents/convention-reviewer.md`, `docs/superpowers/specs/2026-09-29-superdomain-redesign-design.md`, `skills/conventions/SKILL.md`, `skills/conventions/conventions.md`, `skills/domain/SKILL.md`, `skills/domain/domain-guide.md`. 새 파일: `skills/conventions/architecture-tests.md`.
+
+| 원본 컴포넌트/동작 | Codex 대상 파일/호출 방식 | 처리 | 보존할 조건 | 검증 방법 |
+|---|---|---|---|---|
+| `skills/conventions/conventions.md` 새 항목 | `skills/conventions/conventions.md` | copy | 바이트 동일 | `cmp` |
+| `skills/conventions/architecture-tests.md`(새 파일) | `skills/conventions/architecture-tests.md`(관리 목록에 추가) | copy | 바이트 동일, 외부 링크는 Spring 공식 문서만 | `cmp`, 내부 링크 검사 |
+| `skills/domain/domain-guide.md` 허용 관계 테스트 | `skills/domain/domain-guide.md` | copy | 바이트 동일 | `cmp` |
+| `skills/conventions/SKILL.md` 설명·1단계 | 같은 파일 | adapt | 설명에 아키텍처 테스트 추가, `${CLAUDE_SKILL_DIR}` 대신 상대 링크 `[architecture-tests.md](architecture-tests.md)` | 링크 검사 |
+| `skills/domain/SKILL.md` 수정 모드 2단계 | 같은 파일 | adapt | 문장 동일, 코드 수정은 하지 않고 알리기만 한다 | diff |
+| `agents/domain-reviewer.md` 시작 4단계·「아키텍처 테스트가 있을 때」·변경/전체 점검 항목 | `skills/review/references/domain-reviewer.md` | adapt | 문장 동일, `Grep` 대신 기존 표기인 "읽기 전용 검색(rg 등)", 테스트를 실행하지 않음 | 원본과 diff |
+| `agents/convention-reviewer.md` 시작 5단계·「아키텍처 테스트가 있을 때」 | `skills/review/references/convention-reviewer.md` | adapt | 같은 방식 | 원본과 diff |
+| `.claude-plugin/plugin.json` 버전 | `plugin.json` `version`, README 기반 버전 | adapt | 0.7.0 | 값 확인 |
+| `README.md`, `CHANGELOG.md`, 스펙 | 없음 | omit | 기존 대응표대로 배포본에서 제외(README는 Codex 전용 README 유지) | — |
+
+- 리뷰어의 아키텍처 테스트 탐색은 읽기 전용 검색과 읽기뿐이며 테스트를 실행하지 않는다. 기존 실행 계약(dispatch.md)의 읽기 전용·재위임 없음 조건과 커밋 범위 리뷰의 `git show <해시>:<경로>` 규칙이 그대로 적용된다.
+- 스킬 진입점·인자·호출 흐름·권한·트리거 경로는 바뀌지 않았다. 관리 파일은 17개에서 18개가 됐다.
+- 동작(리뷰어 판단 기준)에 영향을 주는 갱신이라 독립 리뷰를 받는다.
+
+검증(리뷰 전): 세 복사본 `cmp` 동일. 패키지 `.md`의 상대 링크(정규식 `](경로)`로 센 원시 계수, 자리표시자 포함)에서 깨진 것은 ADR 템플릿의 기존 자리표시자·예시 파일명뿐이다. 리뷰어가 validate.cjs 방식으로 재현한 해석 링크 30개는 모두 정상이다. `check_git_scopes.py` 통과, tree_state 단위 검사 6개 통과, `claude plugin validate .`와 원본 디렉터리의 `claude plugin validate --strict .claude-plugin/plugin.json`·`--strict skills`·`--strict agents` 통과. `check_repository.py`는 원본 기준을 갱신하기 전이라 원본 변경을 보고하며 실패한다(예상한 결과). `validate.cjs`의 공식 스키마 검사는 로컬에서 실행하지 않았으므로 PR의 `superdomain-codex` CI로 확인한다. 런타임은 미검증이다.
+
+독립 리뷰: 별도 새 컨텍스트의 리뷰어가 1차 pass로 판정하고 권고 3건을 남겼다. 조치 뒤 재검토도 pass다. 리뷰어는 Spring Modulith 2.1.1 jar와 Konsist 0.17.3 소스로 예시 API 시그니처를 대조했다.
+
+| ID | 구분 | 상태 | 내용 | 조치 |
+|---|---|---|---|---|
+| R1 | suggestion(원본 내용) | resolved | architecture-tests.md가 Konsist에 없는 baseline(위반 고정) 기능을 안내했다 | 원본을 "ArchUnit은 `FreezingArchRule`, Konsist는 범위를 좁히거나 `@Suppress(\"konsist.<테스트 이름>\")`"로 고치고 대상에 다시 복사했다 |
+| R2 | suggestion(전환) | dismissed | 커밋 범위 리뷰에서 테스트 소스 검색이 작업 트리를 볼 수 있다 | 역할 문서의 실행 계약(끝점 `git show`, 작업 트리를 섞지 않음)이 새 단계에도 적용되고 원본과 동작이 같아 Codex 전용 문구를 더하지 않았다. 리뷰어가 근거를 확인했다 |
+| R3 | suggestion(기록) | resolved | 링크 수·strict 검사 명령을 재현할 수 없었다 | 위 검증 문장을 계수 방법과 실제 명령으로 고쳤다 |
+
+최종 상태: 리뷰한 후보(`source-candidate2.json` sha256 `70db1dcfe259abe681eb3433ed475179ae9423c104f23c8ac95ed8530cb26879`, `target-candidate2.json` sha256 `1ec8f726baa5c854f0881ff3c00484eba2524f1421a467213e41f6818612d736`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했다. 미검증: `validate.cjs`의 공식 스키마 검사(PR CI로 확인), 예시 코드의 실제 컴파일, Codex 설치·런타임. 상태: 생성·갱신 완료, 런타임 미검증.

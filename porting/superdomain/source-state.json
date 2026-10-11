@@ -2,12 +2,12 @@
   "files": {
     ".claude-plugin/plugin.json": {
       "executable": false,
-      "sha256": "641cb78b6f027db51282d3bed83acfd3ceeab814c540b6c404e6adb99cec7465",
+      "sha256": "f6d59dc554d71c4a7bc59d6c9bd3fd7cc90b512d720a2112a6ebe8e875b1c0c5",
       "type": "file"
     },
     "CHANGELOG.md": {
       "executable": false,
-      "sha256": "445414822ae8c043ed2699bfc95754b9883af6d40c0f234fed1eb05927d47d2f",
+      "sha256": "5609e5ededcb4e9d834aabd5a0ff9817cd3d3ae368d0bf267b657302fe649ef6",
       "type": "file"
     },
     "LICENSE": {
@@ -17,17 +17,17 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "1625382eb25eba93b897c658010c1bd284befc90b21da694c6904af6ef360a15",
+      "sha256": "4367690c18c691ff7d8bade56d3483880063429da0c0a63c5e23e1d8ce786cdf",
       "type": "file"
     },
     "agents/convention-reviewer.md": {
       "executable": false,
-      "sha256": "09c522ede269a50a13fdecc2478feb3d4759f2be1481376bff057f64fafaacf1",
+      "sha256": "3abccd842ebc617ce96e80dd9362a2a831a132eccc9c3161c1c1c363d75f8a34",
       "type": "file"
     },
     "agents/domain-reviewer.md": {
       "executable": false,
-      "sha256": "ee887885795b018101d3c2e19329d931aea92e501ca6d3e7360cb7e366473a95",
+      "sha256": "b94428a66c24a377d4c380b36ebcec27358392a4e4694d941d7356fcbe14a593",
       "type": "file"
     },
     "docs/superpowers/plans/2026-09-29-superdomain-redesign.md": {
@@ -37,7 +37,7 @@
     },
     "docs/superpowers/specs/2026-09-29-superdomain-redesign-design.md": {
       "executable": false,
-      "sha256": "e771f797c6aefffb4e3e15645230dcb0f37adabb00392f1369e81376ca1464a1",
+      "sha256": "1e21a041adac9f82c95035522f72df90581e590ad02451b5a0c77498f3abad9e",
       "type": "file"
     },
     "skills/adr/SKILL.md": {
@@ -52,22 +52,27 @@
     },
     "skills/conventions/SKILL.md": {
       "executable": false,
-      "sha256": "8f34892fe9565ddea5bb3817665312631e41dac13758f1e01f340b9183cfa7f9",
+      "sha256": "408c0805736fdf47c0f600214eee82805b69d97c2cca1d291b401f57744b6a47",
+      "type": "file"
+    },
+    "skills/conventions/architecture-tests.md": {
+      "executable": false,
+      "sha256": "ae2b90eadacb35805faaf3c519a6006dc7c8b328b9fdb627345f3630a89309e4",
       "type": "file"
     },
     "skills/conventions/conventions.md": {
       "executable": false,
-      "sha256": "3f13eec7ac20d1a1773b6057b61752abaef6fef4609e32e9146d3c1c106d87b2",
+      "sha256": "8d181a27ac41ed6354a2b332d375e3c8aa2c3a90c6a5d2d6505f5951ac4f7536",
       "type": "file"
     },
     "skills/domain/SKILL.md": {
       "executable": false,
-      "sha256": "cd6617d157affd258b7cc3de2cfc0b54b91602ca0539b4516cfede51e8ee97dc",
+      "sha256": "6650b902af849acca6b85b80772ecead2c8505bd09c8a3bd9fc9ddfeaa092fb0",
       "type": "file"
     },
     "skills/domain/domain-guide.md": {
       "executable": false,
-      "sha256": "5acaa41aea45ba705bf18d80a9ac247b852ecd89149feb827a57711f9d2ba282",
+      "sha256": "a9e3c1272848f736d0c8bea5a94ee40037d1db93d1b68c48a97c82fc9063bb9e",
       "type": "file"
     },
     "skills/review/SKILL.md": {

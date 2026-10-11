@@ -7,12 +7,12 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "eb9559f0f629bf8db913285c485e36c0753a8e30486353cf772e60e2ce270eff",
+      "sha256": "e7581cb85a445919f22baec61a3a7c831d6cdc76c324ab6a452661e1dd04f925",
       "type": "file"
     },
     "plugin.json": {
       "executable": false,
-      "sha256": "9d78f9fe6de62f3cf6529ec1e2a1774acf12222c7aee3001d170c1118f2a38c5",
+      "sha256": "eb068139834729bd4a56c2d6cbb489b77ecde377ee2d749465f0a98583d863c7",
       "type": "file"
     },
     "skills/adr/SKILL.md": {
@@ -32,7 +32,7 @@
     },
     "skills/conventions/SKILL.md": {
       "executable": false,
-      "sha256": "61162d6397167e94442fbb27e22d8e77e3c33153b26119d2f4e4e413f08d2825",
+      "sha256": "ff4cd527adaf795881fbb1f37077feb486912e78a550b193b700e63475d2831a",
       "type": "file"
     },
     "skills/conventions/agents/openai.yaml": {
@@ -40,14 +40,19 @@
       "sha256": "7dfda1eff7525d815bfa28dda0e66f7a02ca06c6cbaba15c0976c37ea6d03d93",
       "type": "file"
     },
+    "skills/conventions/architecture-tests.md": {
+      "executable": false,
+      "sha256": "ae2b90eadacb35805faaf3c519a6006dc7c8b328b9fdb627345f3630a89309e4",
+      "type": "file"
+    },
     "skills/conventions/conventions.md": {
       "executable": false,
-      "sha256": "3f13eec7ac20d1a1773b6057b61752abaef6fef4609e32e9146d3c1c106d87b2",
+      "sha256": "8d181a27ac41ed6354a2b332d375e3c8aa2c3a90c6a5d2d6505f5951ac4f7536",
       "type": "file"
     },
     "skills/domain/SKILL.md": {
       "executable": false,
-      "sha256": "4b78f444765c69627acc0a70c71c2f7170ddb7fc77ed5da890ca1da11d578d5f",
+      "sha256": "e3da046899b09c33255968014f21cbf3cfa99b42f44bd2d8dc01249a951c3620",
       "type": "file"
     },
     "skills/domain/agents/openai.yaml": {
@@ -57,7 +62,7 @@
     },
     "skills/domain/domain-guide.md": {
       "executable": false,
-      "sha256": "5acaa41aea45ba705bf18d80a9ac247b852ecd89149feb827a57711f9d2ba282",
+      "sha256": "a9e3c1272848f736d0c8bea5a94ee40037d1db93d1b68c48a97c82fc9063bb9e",
       "type": "file"
     },
     "skills/review/SKILL.md": {
@@ -72,7 +77,7 @@
     },
     "skills/review/references/convention-reviewer.md": {
       "executable": false,
-      "sha256": "8ce831dfa5c1dabca91ba2e367386870c73c60e8098beea3ce717e05d81fa0f7",
+      "sha256": "607c6feb38a9c0b6f5b1b1d2d89c0472a02ec9825e3f0e3c785863d611fbc128",
       "type": "file"
     },
     "skills/review/references/dispatch.md": {
@@ -82,7 +87,7 @@
     },
     "skills/review/references/domain-reviewer.md": {
       "executable": false,
-      "sha256": "e55e574b42a66db1e7f18b3a2f956cab0f7152b1f43d9deba3ac1201764b2d29",
+      "sha256": "53c22d903b04b811b8386e4d3574b49b14bcca107c0d2fc63803805c9ee5a975",
       "type": "file"
     }
   },
