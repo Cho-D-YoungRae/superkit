@@ -1,0 +1,28 @@
+name: clean-code
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/clean-code/**"
+      - ".github/workflows/clean-code.yml"
+  pull_request:
+    paths:
+      - "plugins/clean-code/**"
+      - ".github/workflows/clean-code.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/clean-code
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: 스킬·레퍼런스 구조 검사
+        run: python3 -m unittest discover -s tests -q

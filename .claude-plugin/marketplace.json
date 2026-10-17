@@ -6,7 +6,7 @@
     "url": "https://github.com/Cho-D-YoungRae"
   },
   "metadata": {
-    "description": "Cho-D-YoungRae의 에이전트 플러그인 모음 — 도메인 정의, 용어사전, 인프라 하네스, 릴리스 툴킷, LLM 위키"
+    "description": "Cho-D-YoungRae의 에이전트 플러그인 모음 — 도메인 정의, 용어사전, 인프라 하네스, 릴리스 툴킷, LLM 위키, 클린 코드"
   },
   "plugins": [
     {
@@ -79,6 +79,21 @@
         "llm-wiki"
       ],
       "category": "productivity"
+    },
+    {
+      "name": "clean-code",
+      "source": "./plugins/clean-code",
+      "description": "『Clean Code』의 원칙을 챕터별 레퍼런스로 담아, 코드를 쓰고 리팩터링하고 리뷰할 때 적용하게 한다",
+      "keywords": [
+        "clean-code",
+        "refactoring",
+        "code-review",
+        "naming",
+        "code-smells",
+        "java",
+        "korean"
+      ],
+      "category": "workflow"
     }
   ]
 }
