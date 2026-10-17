@@ -14,7 +14,7 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 - `plugins/infra/` — 인프라 하네스. 플러그인 지침은 [plugins/infra/AGENTS.md](plugins/infra/AGENTS.md).
 - `plugins/superrelease/` — 프로젝트 전용 릴리스 툴킷 생성기. 플러그인 지침은 [plugins/superrelease/AGENTS.md](plugins/superrelease/AGENTS.md). 자기 자신을 릴리스하는 툴킷(`.superrelease/`, `.claude/skills/`)이 이 디렉터리 안에 있다.
 - `plugins/llm-wiki/` — LLM 위키. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
-- `plugins/clean-code/` — 『Clean Code』 원칙 레퍼런스와 적용 스킬. 플러그인 지침은 [plugins/clean-code/AGENTS.md](plugins/clean-code/AGENTS.md).
+- `plugins/clean-code/` — 『Clean Code』 원칙 레퍼런스, 적용·리뷰 스킬과 리뷰어 에이전트. 플러그인 지침은 [plugins/clean-code/AGENTS.md](plugins/clean-code/AGENTS.md).
 - `.github/workflows/` — 플러그인마다 하나씩, 그 디렉터리가 바뀔 때만 도는 CI.
 
 ## 지켜야 할 것
