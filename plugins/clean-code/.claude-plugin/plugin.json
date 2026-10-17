@@ -1,0 +1,22 @@
+{
+  "name": "clean-code",
+  "version": "0.1.0",
+  "description": "『Clean Code』의 원칙을 챕터별 레퍼런스로 담아, 코드를 쓰고 리팩터링하고 리뷰할 때 적용하게 한다",
+  "author": {
+    "name": "Cho-D-YoungRae",
+    "email": "yrc9229@gmail.com",
+    "url": "https://github.com/Cho-D-YoungRae"
+  },
+  "homepage": "https://github.com/Cho-D-YoungRae/superkit/tree/main/plugins/clean-code",
+  "repository": "https://github.com/Cho-D-YoungRae/superkit",
+  "license": "MIT",
+  "keywords": [
+    "clean-code",
+    "refactoring",
+    "code-review",
+    "naming",
+    "code-smells",
+    "java",
+    "korean"
+  ]
+}

@@ -9,6 +9,7 @@ Claude Code 플러그인과 Codex 전환본을 관리하는 플러그인 모음�
 | [infra](plugins/infra) | 인프라 하네스(인벤토리·변경기록·직접 제어)를 구성하고 운영한다 |
 | [superrelease](plugins/superrelease) | 프로젝트를 분석해 그 프로젝트 전용 릴리스 툴킷을 저장소에 만들어 준다 |
 | [llm-wiki](plugins/llm-wiki) | LLM이 유지보수하는 개인 위키 — 위키 부트스트래핑과 소스 추출 툴벨트 |
+| [clean-code](plugins/clean-code) | 『Clean Code』의 원칙을 챕터별 레퍼런스로 담아, 코드를 쓰고 리팩터링하고 리뷰할 때 적용하게 한다 |
 
 Claude 원본은 `plugins/<이름>/`에, Codex 전환본은 `plugins/<이름>-codex/`에 둔다. 현재 Codex 전환본은 [superdomain](plugins/superdomain-codex)과 [superglossary](plugins/superglossary-codex)다. 전환 결정·리뷰·다음 업데이트 기준은 각 `porting/<이름>/`에 보관한다.
 
@@ -31,6 +32,7 @@ Claude Code 세션 안에서 마켓플레이스를 한 번 추가하고, 필요�
 /plugin install infra@superkit
 /plugin install superrelease@superkit
 /plugin install llm-wiki@superkit
+/plugin install clean-code@superkit
 ```
 
 터미널에서:
