@@ -1,11 +1,13 @@
 # clean-code
 
-『Clean Code』(Robert C. Martin, 2008)의 원칙을 챕터별 레퍼런스로 담아 코드 작성·리팩터링·리뷰에 적용하게 하는 플러그인이다. 스킬 하나와 레퍼런스 md로 이루어진다. 저장소 공통 규칙(브랜치·커밋·버전·태그)은 루트 [AGENTS.md](../../AGENTS.md)를 따른다.
+『Clean Code』(Robert C. Martin, 2008)의 원칙을 챕터별 레퍼런스로 담아 코드 작성·리팩터링·리뷰에 적용하게 하는 플러그인이다. 스킬 둘(apply·review), 리뷰어 에이전트 하나, 레퍼런스 md로 이루어진다. 저장소 공통 규칙(브랜치·커밋·버전·태그)은 루트 [AGENTS.md](../../AGENTS.md)를 따른다.
 
 ## 구조
 
 - `.claude-plugin/plugin.json` — 매니페스트. `version`이 버전의 유일한 출처다.
 - `skills/apply/SKILL.md` — 작업 → 챕터 파일 대응표와 적용 기준. 레퍼런스 파일을 더하거나 이름을 바꾸면 이 표도 고친다.
+- `skills/review/SKILL.md` — 리뷰 대상을 정하고 리뷰어를 띄워 결과를 합친다. 판정은 하지 않는다.
+- `agents/clean-code-reviewer.md` — 읽기 전용 리뷰어. 판정 기준과 출력 형식의 유일한 출처다. 모델은 이 파일에서만 정한다.
 - `skills/apply/references/index.md` — 책 전체 목차, 챕터별 한 줄 요약, 파일 링크. 파일이 없는 챕터도 목차에 남긴다.
 - `skills/apply/references/chapter_NN_<제목>.md` — 챕터별 요약.
 - `scripts/verbatim_check.py` — 레퍼런스와 원서 텍스트의 연속 일치 구절 대조(유지보수용).
