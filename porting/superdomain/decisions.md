@@ -227,7 +227,7 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 
 기준 확인: 원본의 가이드와 리뷰어는 실제 프로젝트 두 곳의 DOMAIN.md로 확인했다(원본 설계 문서의 "기준 확인 결과"). 전환본의 리뷰어 참고 문서는 같은 문장을 담지만 Codex 런타임에서 돌려 보지는 않았다.
 
-독립 리뷰: 별도 새 컨텍스트의 리뷰어가 1차 pass(권고 2건)로 판정했다. S1(실행 계약의 "글자 수 세기"가 방법을 정하지 않는다)은 문구를 고치고 전환본 후보를 다시 떠 재검토 pass를 받았다. S2(원본 기준 상태에 아직 커밋되지 않은 설계 문서 여섯 개가 들어 있다)는 절차 권고이고, 기준 상태와 그 문서들을 같은 커밋에 넣어 지킨다. 지적과 조치는 [review.md](review.md)의 "2026-11-12: 0.8.0 반영의 독립 리뷰"에 있다.
+독립 리뷰: 별도 새 컨텍스트의 리뷰어가 1차 pass(권고 2건)로 판정했다. S1(실행 계약의 "글자 수 세기"가 방법을 정하지 않는다)은 문구를 고치고 전환본 후보를 다시 떠 재검토 pass를 받았다. S2(원본 기준 상태에 아직 커밋되지 않은 설계 문서 여섯 개가 들어 있다)는 절차 권고이고, 기준 상태와 그 문서들을 같은 커밋에 넣어 지킨다(뒤에 바뀌었다: 비교 범위 조정으로 풀렸고 검토서 둘은 저장소에 넣지 않았다. 이 문서 끝의 두 절). 지적과 조치는 [review.md](review.md)의 "2026-11-12: 0.8.0 반영의 독립 리뷰"에 있다.
 
 최종 상태: 리뷰한 후보(`source-candidate.json` sha256 `c6edba9a1740dde2778856d2b16de7aa5d01e33f246264fad67fe6edddb9942e`, `target-candidate2.json` sha256 `36f0ada5a0b2be5571f4c066f4631dfee178b2424f7bf00c2a4f7c399e79ec7f`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했고, 기본 `check_repository.py`가 통과했다. 미검증: Codex 설치·런타임, review 스킬이 리뷰어를 부르는 실제 호출 경로(원본 쪽 확인도 CLI 인증이 만료돼 리뷰어 문서를 지침으로 준 하위 에이전트로 했다). 상태: 갱신 완료, 런타임 미검증.
 
@@ -291,6 +291,16 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 
 - **가져온 것:** 여덟 파일. `.github/workflows/superdomain-codex.yml`, `.github/workflows/superglossary-codex.yml`, 루트 `AGENTS.md`, `CONTRIBUTING.md`, 두 `check_repository.py`, `porting/superglossary/decisions.md`는 그 작업 트리의 파일과 바이트가 같다. `porting/superdomain/decisions.md`(이 파일)는 두 쪽이 같은 자리 뒤에 절을 붙여 그대로는 합쳐지지 않았다. 2026-11-10 절을 글자 그대로 가져와 날짜순으로 넣었다.
 - **독립 리뷰:** 받지 않았다. 2026-11-10 절이 적은 대로 검사 범위만 조정한 변경이고, 가져오면서 내용을 바꾸지 않았다. 생략을 독립 리뷰 통과로 기록하지 않는다.
-- **0.8.0 리뷰의 S2:** 풀렸다. 설계 문서 여섯 개가 없는 체크아웃에서도 `check_repository.py`가 통과한다. 비교 범위 조정이 기준 상태와 같이 또는 먼저 들어가야 성립하고, 이 브랜치에서는 같이 들어간다. 설계 문서 여섯 개는 그래도 같은 PR에 넣는다(스펙과 계획이 이 변경의 근거다).
+- **0.8.0 리뷰의 S2:** 풀렸다. 설계 문서 여섯 개가 없는 체크아웃에서도 `check_repository.py`가 통과한다. 비교 범위 조정이 기준 상태와 같이 또는 먼저 들어가야 성립하고, 이 브랜치에서는 같이 들어간다. 설계 문서 가운데 스펙 둘과 계획 둘은 같은 PR에 넣는다(이 변경의 근거다). 검토서 둘은 넣지 않는다(아래 절).
 
 검증 결과: 작업 트리에서 두 플러그인의 `check_repository.py`와 `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .`가 통과했다. 두 workflow 파일은 YAML로 읽히고 `push`·`pull_request` 경로에 원본 폴더가 있다. 미추적 설계 문서 여섯 개를 뺀 사본(저장소 밖 임시 폴더)에서 옛 검사 스크립트는 그 여섯 경로를 `removed`로 지목하며 실패했고, 가져온 스크립트는 걸러 낸 경로를 한 줄로 출력하고 통과했다. 같은 사본에서 `skills/adr/SKILL.md`에 한 글자를 더하면 가져온 스크립트도 그 경로를 지목하며 실패한다. 사본 시험은 로컬에서 한 것이고, GitHub의 실제 workflow 실행은 미검증이다.
+
+## 2026-11-12: 검토서 둘을 저장소에 넣지 않음
+
+설계 문서 여섯 개 가운데 스펙 둘과 계획 둘만 저장소에 넣었다. 검토서 둘(`docs/superpowers/specs/2026-11-10-superdomain-improvements-review.md`, `docs/superpowers/specs/2026-11-11-superdomain-adr-review.md`)은 사용자의 결정으로 넣지 않는다. 전환본과 대응표, 기준 상태는 이 일로 바뀌지 않았다.
+
+- **고친 것:** 스펙 둘과 계획 둘에서 검토서 파일을 가리키던 다섯 곳을 글로 바꿨다. 원본의 스킬·에이전트·manifest와 전환본은 건드리지 않았다.
+- **기준 상태:** `source-state.json`에는 검토서 둘과, 고치기 전의 스펙·계획 네 개의 해시가 그대로 남아 있다. 여섯 경로 모두 비교에서 빼는 `docs/superpowers/` 아래라서 `check_repository.py`는 통과하고, 걸러 낸 차이를 한 줄로 출력한다. 원본 기준 상태를 다음에 다시 뜰 때 정리된다.
+- **독립 리뷰:** 받지 않았다. 전환하지 않는 문서의 다섯 곳과 이 기록만 고쳤다.
+
+검증 결과: 두 플러그인의 `check_repository.py`와 `check_git_scopes.py`, `claude plugin validate .`가 통과했다. 커밋할 내용만 꺼낸 사본에서 `check_repository.py`는 위 여섯 경로를 걸러 낸 차이로 출력하고 통과했다.

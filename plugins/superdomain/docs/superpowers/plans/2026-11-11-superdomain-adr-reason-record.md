@@ -8,7 +8,7 @@
 
 **Tech Stack:** Claude Code 플러그인(SKILL.md, `.claude-plugin/plugin.json`), Codex 전환본(`plugins/superdomain-codex`), 검증에 `claude plugin validate`, `python3`, `node`(`ajv`·`js-yaml`), `git`. 검사 명령은 그 자리에서 실행만 하고 파일로 남기지 않는다.
 
-**Spec:** `plugins/superdomain/docs/superpowers/specs/2026-11-11-superdomain-adr-reason-record-design.md` (근거는 같은 폴더의 `2026-11-11-superdomain-adr-review.md`)
+**Spec:** `plugins/superdomain/docs/superpowers/specs/2026-11-11-superdomain-adr-reason-record-design.md` (근거인 ADR 개선 검토는 저장소에 두지 않는다)
 
 ## Global Constraints
 
