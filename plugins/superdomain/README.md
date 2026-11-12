@@ -36,7 +36,7 @@ superdomain은 [superkit](../../README.md) 마켓플레이스로 배포된다. 0
 |---|---|
 | `/superdomain:domain` | 도메인을 처음 정의하거나, 도메인을 추가·분리·병합하거나, 역할·관계를 바꿀 때 |
 | `/superdomain:review` | 커밋·PR 전에 변경이 도메인 정의와 코딩 컨벤션을 따르는지 볼 때, 도메인이 너무 커지지 않았는지 점검할 때 |
-| `/superdomain:adr` | 비싸거나 중요한 결정을 기록하거나, ADR을 승인·대체할 때. 작업을 마칠 때 기록할 결정이 있으면 먼저 제안한다 |
+| `/superdomain:adr` | 비싸거나 중요한 결정을 기록하거나, 기록해 둔 결정이 바뀌었을 때, 정해진 것을 바꾸기 전에 관련 기록을 찾을 때. 작업을 마칠 때 기록할 결정이 있으면 먼저 제안한다 |
 | `/superdomain:conventions` | Kotlin·Java 코드를 쓸 때 코딩 컨벤션을 적용한다. `.kt`·`.java` 작업에서 자동으로 걸린다 |
 
 `review`의 인자는 `[domain|code] [경로 | 커밋 범위 | 전체]`다. 인자가 없으면 현재 브랜치의 변경과 커밋하지 않은 변경을 두 관점으로 모두 본다.
@@ -54,8 +54,8 @@ superdomain은 [superkit](../../README.md) 마켓플레이스로 배포된다. 0
 
 | 경로 | 무엇 |
 |---|---|
-| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·코드 위치(선택: 개념·외부 접점·규칙·미정)와 도메인 간 관계 |
-| `docs/superdomain/adr/yyyy-MM-dd-slug.md` | 결정 기록 |
+| `docs/superdomain/DOMAIN.md` | 도메인별 역할·기능·분류·패키지(필요할 때: 외부·규칙·하위 도메인·개념·하지 않는 것·알려진 어긋남)와 도메인 간 관계 |
+| `docs/superdomain/adr/yyyy-MM-dd-slug.md` | 결정 기록(결정마다 이유·버린 안·받아들인 비용) |
 
 `domain`·`adr` 스킬은 동의를 받아 대상 지침 파일에 두 경로를 가리키는 포인터 줄을 추가할 수 있다. 대상은 프로젝트 루트의 AGENTS.md이고, 루트에 CLAUDE.md나 `.claude/CLAUDE.md`가 있으면 그 파일이다(그때 Claude Code는 AGENTS.md를 읽지 않는다). ADR 줄이 있으면 Claude가 작업을 마칠 때 기록할 결정이 있었는지 돌아보고 제안한다.
 
