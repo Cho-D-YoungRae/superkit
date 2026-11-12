@@ -186,3 +186,16 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 | R3 | suggestion(기록) | resolved | 링크 수·strict 검사 명령을 재현할 수 없었다 | 위 검증 문장을 계수 방법과 실제 명령으로 고쳤다 |
 
 최종 상태: 리뷰한 후보(`source-candidate2.json` sha256 `70db1dcfe259abe681eb3433ed475179ae9423c104f23c8ac95ed8530cb26879`, `target-candidate2.json` sha256 `1ec8f726baa5c854f0881ff3c00484eba2524f1421a467213e41f6818612d736`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했다. 미검증: `validate.cjs`의 공식 스키마 검사(PR CI로 확인), 예시 코드의 실제 컴파일, Codex 설치·런타임. 상태: 생성·갱신 완료, 런타임 미검증.
+
+## 2026-11-10: 원본 기준 비교 범위 조정
+
+`check_repository.py`가 원본 폴더 전체를 `source-state.json`과 비교해서, 전환하지 않는 설계 문서를 원본에 더하기만 해도 실패했다. 반대로 CI 경로 트리거에는 원본 폴더가 없어 원본만 바꾼 PR에서는 이 검사가 돌지 않았다. 두 가지를 함께 고쳤다. 전환본과 대응표는 바뀌지 않았다.
+
+- **비교에서 빼는 경로:** 대응표에서 `omit`인 `CHANGELOG.md`와 `docs/superpowers/` 아래 전체. 대응표에는 스펙·계획 두 파일만 적혀 있지만, 같은 폴더에 새로 생기는 설계 문서도 같은 분류로 본다.
+- **계속 비교하는 경로:** 그 밖의 모든 원본 파일. `README.md`(`adapt`)와 `LICENSE`(`copy`)는 전환 입력이므로 그대로 비교한다. 0.7.0 반영 표가 README 변경을 `omit`으로 적은 것은 그 변경을 전환본에 옮기지 않았다는 뜻이고, 파일의 분류는 처음 대응표의 `adapt`다. 빼는 목록에 없는 경로는 새로 생기기만 해도 실패하므로 새 스킬 파일이나 새 컴포넌트 폴더(hooks·commands 등)를 놓치지 않는다.
+- **구현:** `check_repository.py`가 `tree_state.py compare` 결과에서 위 경로를 거른다. 경로는 원본 루트 기준이고 파일은 완전 일치, 폴더는 접두사로 판정한다(`skills/domain/CHANGELOG.md`는 빠지지 않는다). 걸러 낸 차이는 검사가 통과해도 한 줄로 출력한다. 기준을 `snapshot --paths-file`로 좁히는 방식은 새 스킬 파일 추가를 잡지 못해 쓰지 않았다. `tree_state.py`는 고치지 않았다.
+- **기준 상태:** `source-state.json`·`target-state.json`·`managed-paths.json`과 전환본은 바꾸지 않았다. `source-state.json`에는 빼는 경로의 해시가 그대로 남아 있고, `tree_state.py compare`를 직접 실행하면 그 경로의 차이도 보고한다. 통과 여부는 `check_repository.py`로 판단한다.
+- **CI:** `.github/workflows/superdomain-codex.yml`의 `push`·`pull_request` 경로에 `plugins/superdomain/**`를 더했다. 원본의 전환 대상 파일을 바꾼 PR은 전환본과 기준 상태를 함께 갱신해야 통과한다.
+- **독립 리뷰:** 생략했다. 전환 판단(대응표)과 전환본은 그대로이고 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+
+검증 결과: 임시 변경을 하나씩 만들고 `check_repository.py`를 실행한 뒤 되돌렸다. 통과 — `docs/superpowers/specs/x.md` 추가, `CHANGELOG.md` 수정, `docs/superpowers/plans/`의 계획 삭제. 실패(AssertionError가 해당 경로를 지목) — `skills/domain/x.md` 추가, `skills/domain/SKILL.md` 한 글자 수정, `agents/domain-reviewer.md` 삭제, `.claude-plugin/plugin.json`·`README.md`·`LICENSE` 수정, `skills/domain/CHANGELOG.md` 추가, `hooks/hooks.json` 추가. 되돌린 뒤 `check_repository.py`, `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .` 통과. GitHub의 실제 workflow 실행은 미검증이다.

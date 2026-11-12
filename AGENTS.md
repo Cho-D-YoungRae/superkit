@@ -15,7 +15,7 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 - `plugins/superrelease/` — 프로젝트 전용 릴리스 툴킷 생성기. 플러그인 지침은 [plugins/superrelease/AGENTS.md](plugins/superrelease/AGENTS.md). 자기 자신을 릴리스하는 툴킷(`.superrelease/`, `.claude/skills/`)이 이 디렉터리 안에 있다.
 - `plugins/llm-wiki/` — LLM 위키. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
 - `plugins/clean-code/` — 『Clean Code』 원칙 레퍼런스, 적용·리뷰 스킬과 리뷰어 에이전트. 플러그인 지침은 [plugins/clean-code/AGENTS.md](plugins/clean-code/AGENTS.md).
-- `.github/workflows/` — 플러그인마다 하나씩, 그 디렉터리가 바뀔 때만 도는 CI.
+- `.github/workflows/` — 플러그인마다 하나씩, 그 디렉터리가 바뀔 때만 도는 CI. Codex 전환본의 CI는 원본 디렉터리가 바뀔 때도 돈다.
 
 ## 지켜야 할 것
 
@@ -53,6 +53,8 @@ python3 porting/superdomain/check_git_scopes.py
 python3 porting/superglossary/check_repository.py
 python3 porting/superglossary/check_git_scopes.py
 ```
+
+`check_repository.py`는 원본 폴더도 `porting/<이름>/source-state.json`과 비교한다. 원본의 스킬·에이전트·manifest처럼 전환 대상인 파일을 추가·변경·삭제하면 전환본과 기준 상태를 함께 갱신해야 통과한다. `porting/<이름>/decisions.md` 대응표에서 `omit`으로 정한 경로(`docs/superpowers/` 등)는 비교하지 않으며, 그 목록은 각 `check_repository.py`에 있다.
 
 플러그인별 테스트:
 

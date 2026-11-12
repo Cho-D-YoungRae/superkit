@@ -100,3 +100,17 @@ claude plugin validate plugins/superglossary
 - 독립 재검토는 변경된 README, 카탈로그, CI와 검사 도구, 저장소 안내에 한정한다. 바뀌지 않은 업무 규칙은 최초 리뷰를 재사용한다. target-state는 재검토 뒤 갱신한다.
 
 배포 준비 상태: 후보 검사 통과, 독립 재검토 pass(지적 없음). 검토된 target-state를 확정했다. 카탈로그·기준 상태, 두 패키지/독립 복사본, Git fixture, 상태 도구 6개 테스트, YAML·경로 트리거, Claude 카탈로그 검사와 diff 검사가 통과했다. 자세한 상태 식별자는 review.md의 추가 이력에 기록한다. 실제 설치·스킬 발견 여부는 main 병합과 프로젝트 활성화 후 별도로 확인한다. 모델의 용어집 편집·네이밍 판단·scanner 실행은 이 설치 확인에 포함하지 않는다.
+
+## 2026-11-10: 원본 기준 비교 범위 조정
+
+`check_repository.py`가 원본 폴더 전체를 `source-state.json`과 비교해서, 전환하지 않는 개발 문서만 바뀌어도 실패했다. 반대로 CI 경로 트리거에는 원본 폴더가 없어 원본만 바꾼 PR에서는 이 검사가 돌지 않았다. 두 가지를 함께 고쳤다. 전환본과 대응표는 바뀌지 않았다.
+
+- **비교에서 빼는 경로:** 대응표에서 `omit`인 `AGENTS.md`와 `docs/superpowers/` 아래 전체.
+- **`CHANGELOG.md`는 계속 비교한다.** 대응표는 과거 CHANGELOG 전체를 `omit`으로, 0.6→0.7 이전 안내를 `adapt`로 나눠 적었다. 원본 README는 이전 방법을 CHANGELOG의 0.7.0 항목으로 넘기므로, 전환본 README의 필드 대응은 CHANGELOG에만 있는 내용에서 왔다. 파일 단위로는 전환 입력이라 빼지 않는다. superdomain은 CHANGELOG 전체가 `omit`이라 빼는 것과 다르다.
+- **계속 비교하는 경로:** 그 밖의 모든 원본 파일. 빼는 목록에 없는 경로는 새로 생기기만 해도 실패하므로 새 스킬 파일이나 새 컴포넌트 폴더를 놓치지 않는다.
+- **구현:** `check_repository.py`가 `tree_state.py compare` 결과에서 위 경로를 거른다. 경로는 원본 루트 기준이고 파일은 완전 일치, 폴더는 접두사로 판정한다. 걸러 낸 차이는 검사가 통과해도 한 줄로 출력한다. `tree_state.py`는 고치지 않았다.
+- **기준 상태:** `source-state.json`·`target-state.json`·`managed-paths.json`과 전환본은 바꾸지 않았다. `source-state.json`에는 빼는 경로의 해시가 그대로 남아 있고, `tree_state.py compare`를 직접 실행하면 그 경로의 차이도 보고한다. 통과 여부는 `check_repository.py`로 판단한다.
+- **CI:** `.github/workflows/superglossary-codex.yml`의 `push`·`pull_request` 경로에 `plugins/superglossary/**`를 더했다. 원본의 전환 대상 파일을 바꾼 PR은 전환본과 기준 상태를 함께 갱신해야 통과한다.
+- **독립 리뷰:** 생략했다. 전환 판단(대응표)과 전환본은 그대로이고 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+
+검증 결과: 임시 변경을 하나씩 만들고 `check_repository.py`를 실행한 뒤 되돌렸다. 통과 — `docs/superpowers/specs/x.md` 추가, `AGENTS.md` 수정. 실패(AssertionError가 해당 경로를 지목) — `CHANGELOG.md` 수정, `skills/glossary/x.md` 추가, `skills/check/SKILL.md` 한 글자 수정, `agents/glossary-scanner.md` 삭제. 되돌린 뒤 `check_repository.py`, `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .` 통과. GitHub의 실제 workflow 실행은 미검증이다.
