@@ -35,12 +35,29 @@ assert (root / entry["source"]["path"]).resolve() == target, "Wrong superglossar
 claude = json.loads((root / ".claude-plugin/marketplace.json").read_text())
 assert all((root / entry["source"]).resolve() != target for entry in claude["plugins"]), "Codex package in Claude catalog"
 helper = root / ".agents/skills/claude-to-codex/scripts/tree_state.py"
+# Source paths that the decisions.md component table maps to `omit`: they never reach the
+# Codex package, so a change there does not make the reviewed port stale. Paths are relative
+# to the source root; an entry ending in "/" covers a directory, any other is one exact file.
+# CHANGELOG.md stays compared: its 0.7.0 migration steps are an `adapt` input of the Codex README.
+omitted = ("AGENTS.md", "docs/superpowers/")
+
+
+def is_omitted(path):
+    return any(path.startswith(item) if item.endswith("/") else path == item for item in omitted)
+
+
 for baseline, folder in ((records / "source-state.json", root / "plugins/superglossary"), (args.target_state, target)):
     result = json.loads(subprocess.check_output([
         sys.executable, str(helper), "compare", str(baseline), str(folder),
     ], text=True))
+    is_source = folder == root / "plugins/superglossary"
+    if is_source:
+        ignored = sorted(path for paths in result.values() for path in paths if is_omitted(path))
+        result = {kind: [path for path in paths if not is_omitted(path)] for kind, paths in result.items()}
+        if ignored:
+            print("Omitted source files differ from the baseline (not ported):", ignored)
     assert not result["modified"] and not result["removed"], (baseline, result)
-    if folder == root / "plugins/superglossary":
+    if is_source:
         assert not result["added"], (baseline, result)
     elif result["added"]:
         print("Unmanaged target files preserved:", result["added"])

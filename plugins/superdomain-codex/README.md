@@ -1,6 +1,6 @@
 # superdomain for Codex
 
-도메인 정의, 도메인·코딩 컨벤션 리뷰, ADR을 제공하는 Codex 플러그인이다. Claude Code용 superdomain **0.7.0**의 업무 규칙을 기반으로 한다.
+도메인 정의, 도메인·코딩 컨벤션 리뷰, ADR을 제공하는 Codex 플러그인이다. Claude Code용 superdomain **0.9.0**의 업무 규칙을 기반으로 한다.
 
 ## 스킬
 
@@ -11,7 +11,7 @@
 | [domain](skills/domain/SKILL.md) | “superdomain으로 프로젝트 도메인을 정의해줘” | 역할·경계·관계를 확인받고 DOMAIN.md 작성·수정 |
 | [review](skills/review/SKILL.md) | “superdomain 리뷰”, “superdomain 리뷰 code src/”, “superdomain 리뷰 domain 전체”, “superdomain 리뷰 main..HEAD” | 독립된 도메인·컨벤션 리뷰를 합쳐 보고 |
 | [conventions](skills/conventions/SKILL.md) | “superdomain 컨벤션을 적용해서 Kotlin 서비스를 수정해줘” | 코드 작성 전에 규칙을 읽고 변경 범위에 적용 |
-| [adr](skills/adr/SKILL.md) | “superdomain으로 이 결정을 ADR로 남겨줘” | 신규·승인·대체·부분 조정과 기록 제안 |
+| [adr](skills/adr/SKILL.md) | “superdomain으로 이 결정을 ADR로 남겨줘” | 신규·바꿈과 기록 제안, 관련 기록 찾기 |
 
 review의 입력은 `[domain|code] [경로 | 커밋 범위 | 전체]`다. 기본값은 기준 브랜치의 merge-base 이후 커밋·미커밋·새 파일 모두다. 명시적 커밋 범위는 그 리비전만 검토한다. DOMAIN.md가 없으면 도메인 관점을, 대상에 삭제되지 않은 Kotlin·Java 파일이 없으면 컨벤션 관점을 건너뛴다. 일반적인 버그·보안 리뷰는 다루지 않는다.
 
@@ -33,7 +33,7 @@ review의 입력은 `[domain|code] [경로 | 커밋 범위 | 전체]`다. 기본
 ## 사용자 프로젝트에 남는 파일
 
 - `docs/superdomain/DOMAIN.md`: domain이 사용자 확인 후 작성·수정한다.
-- `docs/superdomain/adr/yyyy-MM-dd-slug.md`: adr이 확인받은 사실과 결정만 기록한다. accepted/superseded 본문은 보존한다.
+- `docs/superdomain/adr/yyyy-MM-dd-slug.md`: adr이 확인받은 사실과 결정만 기록한다. 병합된 기록의 문장은 보존하고 바뀐 결정에는 `바뀜` 줄을 단다.
 - 지침 파일의 문서 포인터: 추가할지 동의받은 뒤 기존 파일에만 쓴다. 기본은 루트 AGENTS.md이며, 기존 CLAUDE.md 계열을 쓰는 프로젝트는 해당 지침 파일 정책을 따른다. CLAUDE.md 계열을 새로 만들지 않는다. 기존 CLAUDE.md에 포인터를 썼다면 Codex의 자동 로딩을 가정하지 않고 다음 세션에서 명시적으로 읽도록 안내한다.
 
 리뷰 결과는 자동 저장하거나 코드를 자동 수정하지 않는다. 프로젝트 지침이 공통 컨벤션보다 우선한다. 도메인 정의·도메인 리뷰·ADR은 언어와 관계없이 쓰며, 컨벤션 스킬·컨벤션 리뷰는 Kotlin·Java를 대상으로 한다.

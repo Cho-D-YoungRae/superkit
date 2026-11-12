@@ -19,6 +19,7 @@ Modulith의 기본 감지는 애플리케이션 루트 패키지의 직속 하�
 - 전략 클래스와 등록(`spring.modulith.detection-strategy`)은 테스트 소스·테스트 리소스에 둔다. 검증용 구성이라 운영 코드에 둘 이유가 없다.
 - 등록은 테스트 리소스의 `config/application.properties`에 둔다. 테스트 리소스 루트에 `application.properties`를 두면 같은 이름의 운영 설정을 가린다.
 - 모듈에서 뺀 역할 패키지는 어느 모듈에도 속하지 않는다. 그 안의 도메인 사이 의존(예: `infrastructure.db.order`가 payment를 참조)은 이 검사가 보지 않으므로 리뷰가 본다.
+- 조합 코드를 둔 패키지도 역할 패키지로 보고 모듈에서 뺀다. DOMAIN.md의 `의존으로 세지 않는 코드:`와 같은 위치여야 한다.
 
 ```kotlin
 // src/test/kotlin/com/acme/architecture/DomainModuleDetectionStrategy.kt
