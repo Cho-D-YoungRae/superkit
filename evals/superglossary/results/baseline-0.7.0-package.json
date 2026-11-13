@@ -1,0 +1,9 @@
+{
+  "version": "0.7.0",
+  "files": {
+    ".claude-plugin/plugin.json": "2839d9649def2b5ebd4bd233c610ea4ca9fe9e33606e990a6dfd1e4617789298",
+    "skills/glossary/SKILL.md": "c8d9806f6cad1d33f1032705f69ac3b4f85e5f972c2f80c582bb31d7785466ba",
+    "skills/glossary/glossary-guide.md": "167e1399d74ac84a38c7b4e970371e611cd6d92dc91c933e0b53447965e90ed2",
+    "skills/check/SKILL.md": "bc12965a32c609964d22bd85ea34382a9790afc010cb89c399ce80af79646d17"
+  }
+}

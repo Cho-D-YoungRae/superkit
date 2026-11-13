@@ -2,17 +2,17 @@
   "files": {
     ".claude-plugin/plugin.json": {
       "executable": false,
-      "sha256": "2839d9649def2b5ebd4bd233c610ea4ca9fe9e33606e990a6dfd1e4617789298",
+      "sha256": "5b123c4cc35efde54ded1dbd1ad0680da03686e0aa02f23e1f2ffc71f441c304",
       "type": "file"
     },
     "AGENTS.md": {
       "executable": false,
-      "sha256": "7ca5e2df9c955c035012dad595bca390ebc4c3e4f2cbf1a7096cd37d125bfdaf",
+      "sha256": "26182452337366bda8c34f46889c1f17bb2f27a65c0980e0a7d077fcf45cfce2",
       "type": "file"
     },
     "CHANGELOG.md": {
       "executable": false,
-      "sha256": "762fd67351ef0f5c679bf0b81065250220caccb1c74052bbfbee113624f91d2d",
+      "sha256": "ff425f5bf0610d7e4501fb14b035242a5a331ecb22e0f828f78bd54a0612ffbd",
       "type": "file"
     },
     "LICENSE": {
@@ -22,12 +22,12 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "2b380991f5635265651a50e5aa788c678c0be21064b8a922831ef079c81529f0",
+      "sha256": "51b84a727c330eed2c58966e1bbe17b1a8ad5669839b92e7a83be2ccd7769e67",
       "type": "file"
     },
     "agents/glossary-scanner.md": {
       "executable": false,
-      "sha256": "ebbde0366e8f2ebd6ab27fd60624a381f2746e918d47610a2054ef9ceae83264",
+      "sha256": "56f192ce284214d85a8c508418c0badf3ab2efcaaf09bbf59db53f066688a7c8",
       "type": "file"
     },
     "docs/superpowers/plans/2026-10-07-llm-glossary.md": {
@@ -42,17 +42,17 @@
     },
     "skills/check/SKILL.md": {
       "executable": false,
-      "sha256": "bc12965a32c609964d22bd85ea34382a9790afc010cb89c399ce80af79646d17",
+      "sha256": "62a838104a13fc518b9abf7da6be820bee1e6c69cf12cdc5245533dd12de926e",
       "type": "file"
     },
     "skills/glossary/SKILL.md": {
       "executable": false,
-      "sha256": "c8d9806f6cad1d33f1032705f69ac3b4f85e5f972c2f80c582bb31d7785466ba",
+      "sha256": "9685c70bba71dc608c181c95089c3312572730deaa62f5cd67c255e211b138e8",
       "type": "file"
     },
     "skills/glossary/glossary-guide.md": {
       "executable": false,
-      "sha256": "167e1399d74ac84a38c7b4e970371e611cd6d92dc91c933e0b53447965e90ed2",
+      "sha256": "3ba075975365840cbe20c3e3ba536f72b75b2547171c60cc067f0f06e199e498",
       "type": "file"
     }
   },

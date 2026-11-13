@@ -7,17 +7,17 @@
     },
     "README.md": {
       "executable": false,
-      "sha256": "2cc121c51b9e974d276342043dc189cfce182559e1ea5fcbb5903ea0ea2b9424",
+      "sha256": "e869a439fb14ae6fef15d194e7b9c3cb02262ce0673db0be5f41edcef02dcc4d",
       "type": "file"
     },
     "plugin.json": {
       "executable": false,
-      "sha256": "2f01acfa3980bb4dde10a743a1b8af521c13ac10e16bfbe5c7e9a60df10e6f1c",
+      "sha256": "e853c089e8bcfe1d3b436e024e044770fb6e377d4bbef6f8b7217f6fd9c11a91",
       "type": "file"
     },
     "skills/check/SKILL.md": {
       "executable": false,
-      "sha256": "e87bdd19ebd28a773f9e1a6cd144fcc86ef3fd96ff7c3a52ab67efe98732fac4",
+      "sha256": "bf7a47dd4d528eb4a27f89e89fa4c17489575ad15b17bb4de28bfd89741ff61e",
       "type": "file"
     },
     "skills/check/agents/openai.yaml": {
@@ -27,7 +27,7 @@
     },
     "skills/glossary/SKILL.md": {
       "executable": false,
-      "sha256": "4d275587ca4ea6aaf79f7eb6b6d698745c2beadc968b4d046a08782c4df03200",
+      "sha256": "acd269debfb2d4943e52e9591841133840b7a4be2f0ba5d6790a6b64e948b345",
       "type": "file"
     },
     "skills/glossary/agents/openai.yaml": {
@@ -37,17 +37,17 @@
     },
     "skills/glossary/glossary-guide.md": {
       "executable": false,
-      "sha256": "7ad54d06ab44d80a7b22907b76490c7e681bd754ab27a7dfccd093605cbe4f2e",
+      "sha256": "64455dd1c36177ede226693211de79dfaaf88c78d59c25ae73b5ebbe97fdc931",
       "type": "file"
     },
     "skills/glossary/references/glossary-scanner.md": {
       "executable": false,
-      "sha256": "58224b9dbd5e6234b511d0d864a2512c4ddff3a4ec27a69f2117eb5c309915b8",
+      "sha256": "d09854cac543a6d3ec60b5cbded1e40b54af898720be8359e012ae759664eddc",
       "type": "file"
     },
     "skills/glossary/references/scanner-dispatch.md": {
       "executable": false,
-      "sha256": "964caed7b6713ce88af8a68cbc788216e7ce1806d38c13244d54262189a0f00e",
+      "sha256": "2d0a905495053c5d628b1b76a79d6a4d53d296efddd380e81d97ff442c5d131f",
       "type": "file"
     }
   },

@@ -8,6 +8,8 @@ import sys
 root = Path(__file__).resolve().parents[2]
 records = root / "porting/superglossary"
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--source-state", type=Path, default=records / "source-state.json",
+                    help="Review candidate to check before promoting the source baseline")
 parser.add_argument("--target-state", type=Path, default=records / "target-state.json",
                     help="Review candidate to check before promoting the target baseline")
 args = parser.parse_args()
@@ -35,7 +37,7 @@ assert (root / entry["source"]["path"]).resolve() == target, "Wrong superglossar
 claude = json.loads((root / ".claude-plugin/marketplace.json").read_text())
 assert all((root / entry["source"]).resolve() != target for entry in claude["plugins"]), "Codex package in Claude catalog"
 helper = root / ".agents/skills/claude-to-codex/scripts/tree_state.py"
-for baseline, folder in ((records / "source-state.json", root / "plugins/superglossary"), (args.target_state, target)):
+for baseline, folder in ((args.source_state, root / "plugins/superglossary"), (args.target_state, target)):
     result = json.loads(subprocess.check_output([
         sys.executable, str(helper), "compare", str(baseline), str(folder),
     ], text=True))

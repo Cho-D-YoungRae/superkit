@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "superglossary",
   "description": "프로젝트 용어사전을 md로 관리하고 코드 변경의 이름이 같은 용어를 쓰는지 검토한다",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "author": {
     "name": "Cho-D-YoungRae",
     "email": "yrc9229@gmail.com"
