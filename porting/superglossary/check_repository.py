@@ -37,12 +37,28 @@ assert (root / entry["source"]["path"]).resolve() == target, "Wrong superglossar
 claude = json.loads((root / ".claude-plugin/marketplace.json").read_text())
 assert all((root / entry["source"]).resolve() != target for entry in claude["plugins"]), "Codex package in Claude catalog"
 helper = root / ".agents/skills/claude-to-codex/scripts/tree_state.py"
+# Source paths mapped to `omit` in decisions.md are not inputs to the Codex package.
+# Paths are relative to the source root; a trailing "/" covers a directory.
+# Since 0.8.0 removes legacy migration guidance, CHANGELOG.md is entirely omitted.
+omitted = ("AGENTS.md", "CHANGELOG.md", "docs/superpowers/")
+
+
+def is_omitted(path):
+    return any(path.startswith(item) if item.endswith("/") else path == item for item in omitted)
+
+
 for baseline, folder in ((args.source_state, root / "plugins/superglossary"), (args.target_state, target)):
     result = json.loads(subprocess.check_output([
         sys.executable, str(helper), "compare", str(baseline), str(folder),
     ], text=True))
+    is_source = folder == root / "plugins/superglossary"
+    if is_source:
+        ignored = sorted(path for paths in result.values() for path in paths if is_omitted(path))
+        result = {kind: [path for path in paths if not is_omitted(path)] for kind, paths in result.items()}
+        if ignored:
+            print("Omitted source files differ from the baseline (not ported):", ignored)
     assert not result["modified"] and not result["removed"], (baseline, result)
-    if folder == root / "plugins/superglossary":
+    if is_source:
         assert not result["added"], (baseline, result)
     elif result["added"]:
         print("Unmanaged target files preserved:", result["added"])

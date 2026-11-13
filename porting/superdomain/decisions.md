@@ -41,11 +41,11 @@
 | `agents/convention-reviewer.md` | `skills/review/references/convention-reviewer.md` | replace | 변경 줄·선언 범위, Kotlin·Java, 필수/지향의 심각도, 프로젝트 예외, 출력 계약 | 직접 원문 대조, 호출자와 역할의 링크·입력 계약 검토 |
 | agent `model: opus/sonnet` | 호출자가 model·reasoning을 지정하지 않음 | adapt | 역할 판단은 보존하며 Codex 세션 설정 상속. 모델 품질·비용 동일성은 보장하지 않음 | 호출 계약 확인 |
 | agent `tools`, `disallowedTools: Agent` | dispatch와 각 역할의 읽기 전용·재위임 금지 지침 | replace | **도구 강제와 동등하지 않음. 사용자 선택으로 이 차이를 수용** | 사용자 답변 아래 기록, 문서·호출 패킷의 제한 확인 |
-| `skills/adr/SKILL.md` | 동일 위치 | adapt | 신규/제안/승인/대체/부분 조정, 사실 확인, 본문 보존, 양방향 메타데이터 링크, 포인터 동의 | 원문 대조, 상대 경로 검사, 독립 리뷰 |
-| `skills/adr/adr-template.md` | 동일 위치 | copy | 상태와 메타데이터·본문 형식 | 원본과 바이트 동일성 |
+| `skills/adr/SKILL.md` | 동일 위치 | adapt | 신규/바꿈/제안과 찾아 읽기, 사실 확인, 병합된 기록의 문장 보존, `바뀜` 줄과 새 기록의 짝, 포인터 동의 | 원문 대조, 상대 경로 검사, 독립 리뷰 |
+| `skills/adr/adr-template.md` | 동일 위치 | copy | 머리 줄·결정 블록·`바뀜`/`대체됨` 줄의 형식, 적지 않는 것, 분량 | 원본과 바이트 동일성 |
 | `${CLAUDE_SKILL_DIR}`, `${CLAUDE_PLUGIN_ROOT}`, Agent 호출 | 실제 SKILL.md 기준 내부 상대 링크를 해석하여 절대 경로 전달 | adapt | 사용자 프로젝트 cwd·개발 머신·다른 플러그인에 의존하지 않음 | 독립 임시 경로에 패키지만 옮겨 내부 링크 29개 해결 |
 | `/superdomain:*`, `$ARGUMENTS`, `argument-hint` | 자연어/스킬 선택, 요청 안의 인자 해석, 본문 사용법 | adapt | domain/code/경로/커밋 범위/전체 입력과 기본값 유지 | 입력 표·예시·분기 대조 |
-| 사용자 프로젝트 출력 | 기존 `docs/superdomain/DOMAIN.md`, `docs/superdomain/adr/`, 지침 포인터 | adapt | 데이터 경로 유지, 동의 전 문서 변경 금지, 기존 ADR 본문 보존. 생성되는 포인터도 Codex 사용법으로 변경 | 템플릿·실제 저장 지시 함께 검토 |
+| 사용자 프로젝트 출력 | 기존 `docs/superdomain/DOMAIN.md`, `docs/superdomain/adr/`, 지침 포인터 | adapt | 데이터 경로 유지, 동의 전 문서 변경 금지, 병합된 ADR의 문장 보존(바뀐 결정에는 `바뀜` 줄만 더한다). 생성되는 포인터도 Codex 사용법으로 변경 | 템플릿·실제 저장 지시 함께 검토 |
 | `README.md` | Codex 전용 README | adapt | 기능·언어 범위·설치 전제·차이·한계 안내 | 설치 설명과 패키지 구조 대조 |
 | `LICENSE` | 동일 위치 | copy | MIT와 저작권 표기 | 바이트 동일성 |
 | `CHANGELOG.md` | 배포본 제외, 출처 버전·Codex 이력은 이 기록 | omit | Claude 과거 설치·업그레이드 이력을 Codex 실행 지시로 배포하지 않음. 원본에는 유지 | 원본 목록과 패키지 목록 대조 |
@@ -113,7 +113,7 @@ python3 .agents/skills/claude-to-codex/scripts/tree_state.py compare porting/sup
 2. Kotlin·Java 작업의 암묵적 conventions 선택, 명시적 선택 시 코드 작성 전 기준 적용.
 3. DOMAIN 신규/수정의 사용자 확인과 정의 리뷰, 두 관점 동시 리뷰의 실제 새 컨텍스트·입력·출력·실패 보고.
 4. 리뷰어의 지침 준수(무수정·재위임 없음). **강제 도구 차단은 설계상 제공하지 않는다.**
-5. ADR 신규·승인·대체·부분 조정에서 동의·본문 보존·양방향 링크, AGENTS/기존 CLAUDE 포인터 처리.
+5. ADR 신규·바꿈에서 동의·문장 보존·`바뀜` 줄과 새 기록의 짝, AGENTS/기존 CLAUDE 포인터 처리.
 
 설치 후에는 작은 샘플 프로젝트에서 이 시나리오를 실행하고 전후 Git diff와 실행 로그로 확인한다. 원본 갱신 시에는 저장한 상태와 현재 파일을 먼저 비교하고, 사용자 추가 파일을 보존한다. 기존 리뷰는 원본·대상·전환 조건에 변화가 없을 때만 재사용한다.
 
@@ -186,3 +186,121 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 | R3 | suggestion(기록) | resolved | 링크 수·strict 검사 명령을 재현할 수 없었다 | 위 검증 문장을 계수 방법과 실제 명령으로 고쳤다 |
 
 최종 상태: 리뷰한 후보(`source-candidate2.json` sha256 `70db1dcfe259abe681eb3433ed475179ae9423c104f23c8ac95ed8530cb26879`, `target-candidate2.json` sha256 `1ec8f726baa5c854f0881ff3c00484eba2524f1421a467213e41f6818612d736`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했다. 미검증: `validate.cjs`의 공식 스키마 검사(PR CI로 확인), 예시 코드의 실제 컴파일, Codex 설치·런타임. 상태: 생성·갱신 완료, 런타임 미검증.
+
+## 2026-11-10: 원본 기준 비교 범위 조정
+
+`check_repository.py`가 원본 폴더 전체를 `source-state.json`과 비교해서, 전환하지 않는 설계 문서를 원본에 더하기만 해도 실패했다. 반대로 CI 경로 트리거에는 원본 폴더가 없어 원본만 바꾼 PR에서는 이 검사가 돌지 않았다. 두 가지를 함께 고쳤다. 전환본과 대응표는 바뀌지 않았다.
+
+- **비교에서 빼는 경로:** 대응표에서 `omit`인 `CHANGELOG.md`와 `docs/superpowers/` 아래 전체. 대응표에는 스펙·계획 두 파일만 적혀 있지만, 같은 폴더에 새로 생기는 설계 문서도 같은 분류로 본다.
+- **계속 비교하는 경로:** 그 밖의 모든 원본 파일. `README.md`(`adapt`)와 `LICENSE`(`copy`)는 전환 입력이므로 그대로 비교한다. 0.7.0 반영 표가 README 변경을 `omit`으로 적은 것은 그 변경을 전환본에 옮기지 않았다는 뜻이고, 파일의 분류는 처음 대응표의 `adapt`다. 빼는 목록에 없는 경로는 새로 생기기만 해도 실패하므로 새 스킬 파일이나 새 컴포넌트 폴더(hooks·commands 등)를 놓치지 않는다.
+- **구현:** `check_repository.py`가 `tree_state.py compare` 결과에서 위 경로를 거른다. 경로는 원본 루트 기준이고 파일은 완전 일치, 폴더는 접두사로 판정한다(`skills/domain/CHANGELOG.md`는 빠지지 않는다). 걸러 낸 차이는 검사가 통과해도 한 줄로 출력한다. 기준을 `snapshot --paths-file`로 좁히는 방식은 새 스킬 파일 추가를 잡지 못해 쓰지 않았다. `tree_state.py`는 고치지 않았다.
+- **기준 상태:** `source-state.json`·`target-state.json`·`managed-paths.json`과 전환본은 바꾸지 않았다. `source-state.json`에는 빼는 경로의 해시가 그대로 남아 있고, `tree_state.py compare`를 직접 실행하면 그 경로의 차이도 보고한다. 통과 여부는 `check_repository.py`로 판단한다.
+- **CI:** `.github/workflows/superdomain-codex.yml`의 `push`·`pull_request` 경로에 `plugins/superdomain/**`를 더했다. 원본의 전환 대상 파일을 바꾼 PR은 전환본과 기준 상태를 함께 갱신해야 통과한다.
+- **독립 리뷰:** 생략했다. 전환 판단(대응표)과 전환본은 그대로이고 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+
+검증 결과: 임시 변경을 하나씩 만들고 `check_repository.py`를 실행한 뒤 되돌렸다. 통과 — `docs/superpowers/specs/x.md` 추가, `CHANGELOG.md` 수정, `docs/superpowers/plans/`의 계획 삭제. 실패(AssertionError가 해당 경로를 지목) — `skills/domain/x.md` 추가, `skills/domain/SKILL.md` 한 글자 수정, `agents/domain-reviewer.md` 삭제, `.claude-plugin/plugin.json`·`README.md`·`LICENSE` 수정, `skills/domain/CHANGELOG.md` 추가, `hooks/hooks.json` 추가. 되돌린 뒤 `check_repository.py`, `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .` 통과. GitHub의 실제 workflow 실행은 미검증이다.
+
+## 2026-11-12: 원본 0.8.0 반영
+
+원본 superdomain이 0.8.0으로 올라가 도메인 가이드에 `외부`를 맡는 도메인의 기준과 「간결하게 쓰는 기준」을 넣고, DOMAIN.md 형식을 기본 뼈대와 필요할 때만 쓰는 칸으로 나눴다(칸 이름 `코드` → `패키지`, `미정` 칸 삭제). domain 스킬, 두 리뷰어, 컨벤션 문서가 거기에 맞춰 바뀌었다. 쓰기 전에 원본·전환본·이 기록을 함께 읽었다.
+
+- 원본에서 바뀐 파일: `.claude-plugin/plugin.json`(0.8.0), `CHANGELOG.md`, `README.md`, `agents/domain-reviewer.md`, `agents/convention-reviewer.md`, `skills/domain/SKILL.md`, `skills/domain/domain-guide.md`, `skills/conventions/SKILL.md`, `skills/conventions/conventions.md`, `skills/conventions/architecture-tests.md`, `skills/adr/SKILL.md`, 그리고 `docs/superpowers/` 아래의 설계 문서 여섯 개(0.8.0과 0.9.0의 검토서·스펙·계획).
+
+| 원본 컴포넌트/동작 | Codex 대상 파일/호출 방식 | 처리 | 보존할 조건 | 검증 방법 |
+|---|---|---|---|---|
+| `skills/domain/domain-guide.md` 형식·「간결하게 쓰는 기준」·「외부 접점」·조합 코드 | `skills/domain/domain-guide.md` | copy | 바이트 동일. 플랫폼 이름을 쓰지 않는다("에이전트가 함께 읽는다") | `cmp` |
+| `skills/conventions/conventions.md` 머리말 "외부 자원"·조합 코드, `architecture-tests.md` 모듈 감지 | 같은 위치 | copy | 바이트 동일 | `cmp` |
+| `skills/domain/SKILL.md` 체크리스트 1·3~8단계, 수정 모드, 하지 않는 것 | 같은 파일 | adapt | 문장 동일. 포인터 줄은 "고칠 때는 superdomain의 domain 스킬로 고친다"로 끝난다. 상대 링크와 "Codex" 표기는 기존대로 | 원본과 diff, 표식 문자열 검사 |
+| `skills/conventions/SKILL.md` 3단계의 첫 경우 | 같은 파일 | adapt | 문장 동일. 스킬을 가리키는 기존 표기 유지 | 원본과 diff |
+| `skills/adr/SKILL.md` 6절 첫 항목 | 같은 파일 | adapt | 문장 동일. 기존 링크 `[domain 스킬](../domain/SKILL.md)` 유지 | 원본과 diff |
+| `agents/domain-reviewer.md` 모드별 항목·지키는 것 | `skills/review/references/domain-reviewer.md` | adapt | 문장 동일. 0.7.0 형식 문서의 `코드` 칸을 `패키지`로 읽는 문장 포함. `Grep` 대신 "읽기 전용 검색(rg 등)" | 원본과 diff, 표식 문자열 검사 |
+| `agents/convention-reviewer.md` 시작 3단계·보고하지 않는 것 | `skills/review/references/convention-reviewer.md` | adapt | 같은 방식 | 원본과 diff |
+| 리뷰어의 분량 검사(글자 수를 유니코드 문자 수로 센다) | `skills/review/references/dispatch.md` 허용 작업 | adapt | "글자 수 세기(파일을 읽기만 하는 한 줄 명령으로 세고 파일을 쓰지 않는다)"만 더한다. 파일 생성·테스트/빌드 실행 금지는 그대로 | 문구 확인 |
+| `.claude-plugin/plugin.json` 버전 | `plugin.json` `version`, README 기반 버전 | adapt | 0.8.0 | 값 확인 |
+| `README.md`, `CHANGELOG.md`, 설계 문서 | 없음 | omit | 기존 대응표대로 배포본에서 제외 | — |
+
+- 스킬 진입점·인자·호출 흐름·권한·트리거 경로는 바뀌지 않았다. 관리 파일은 18개 그대로다.
+- 리뷰어가 분량을 잴 때 글자 수를 세야 하므로, 실행 계약(`skills/review/references/dispatch.md`)의 허용 작업에 "글자 수 세기"를 더했다(Codex 전용 조정). 읽기 전용·재위임 없음 조건은 그대로다.
+- 리뷰어의 판단 기준과 domain 스킬의 질문 절차가 바뀌므로 독립 리뷰를 받는다.
+
+검증(리뷰 전): 세 복사본 `cmp` 동일. `validate.cjs`(ajv 8.18.0, js-yaml 4.1.1, 공식 스키마 1.0.0)로 manifest valid, 스킬 4개, 파일 18개, 해석 링크 30개. 원본과 전환본의 대응 파일에 같은 표식 문자열이 있는지와 전환본에 Claude 전용 표기가 없는지 검사했다. `claude plugin validate .`와 `check_git_scopes.py` 통과.
+
+기준 확인: 원본의 가이드와 리뷰어는 실제 프로젝트 두 곳의 DOMAIN.md로 확인했다(원본 설계 문서의 "기준 확인 결과"). 전환본의 리뷰어 참고 문서는 같은 문장을 담지만 Codex 런타임에서 돌려 보지는 않았다.
+
+독립 리뷰: 별도 새 컨텍스트의 리뷰어가 1차 pass(권고 2건)로 판정했다. S1(실행 계약의 "글자 수 세기"가 방법을 정하지 않는다)은 문구를 고치고 전환본 후보를 다시 떠 재검토 pass를 받았다. S2(원본 기준 상태에 아직 커밋되지 않은 설계 문서 여섯 개가 들어 있다)는 절차 권고이고, 기준 상태와 그 문서들을 같은 커밋에 넣어 지킨다(뒤에 바뀌었다: 비교 범위 조정으로 풀렸고 검토서 둘은 저장소에 넣지 않았다. 이 문서 끝의 두 절). 지적과 조치는 [review.md](review.md)의 "2026-11-12: 0.8.0 반영의 독립 리뷰"에 있다.
+
+최종 상태: 리뷰한 후보(`source-candidate.json` sha256 `c6edba9a1740dde2778856d2b16de7aa5d01e33f246264fad67fe6edddb9942e`, `target-candidate2.json` sha256 `36f0ada5a0b2be5571f4c066f4631dfee178b2424f7bf00c2a4f7c399e79ec7f`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했고, 기본 `check_repository.py`가 통과했다. 미검증: Codex 설치·런타임, review 스킬이 리뷰어를 부르는 실제 호출 경로(원본 쪽 확인도 CLI 인증이 만료돼 리뷰어 문서를 지침으로 준 하위 에이전트로 했다). 상태: 갱신 완료, 런타임 미검증.
+
+## 2026-11-12: 원본 0.9.0 반영
+
+원본 superdomain이 0.9.0으로 올라가 ADR을 결정을 내린 때의 이유를 남기는 기록으로 다시 정했다. 템플릿과 adr 스킬을 다시 썼고(결정 블록, 적지 않는 것, 글자 수 분량, `바뀜` 줄, 모드 신규·바꿈·제안, 요지를 먼저 보이는 확정, 찾아 읽기), 상태(`proposed`·`accepted`·`superseded`)와 승인·대체·부분 조정 모드를 없앴다. 지침 파일의 결정 기록 포인터 줄, 컨벤션의 이유를 남기는 자리, domain 스킬의 수정 모드도 거기에 맞췄다. 쓰기 전에 원본·전환본·이 기록을 함께 읽었다. 위 컴포넌트 대응표의 adr 스킬 행과 사용자 프로젝트 출력 행, 남은 런타임 검증 5번을 새 동작에 맞춰 고쳤다.
+
+- 원본에서 바뀐 파일: `.claude-plugin/plugin.json`(0.9.0), `CHANGELOG.md`, `README.md`, `skills/adr/SKILL.md`, `skills/adr/adr-template.md`, `skills/conventions/conventions.md`, `skills/domain/SKILL.md`, 그리고 설계 문서 둘(`docs/superpowers/specs/`의 ADR 설계 문서에 구현 전 시험 결과가 더해졌고, `docs/superpowers/plans/`의 ADR 구현 계획의 지시문 두 곳을 구현에 맞췄다).
+
+| 원본 컴포넌트/동작 | Codex 대상 파일/호출 방식 | 처리 | 보존할 조건 | 검증 방법 |
+|---|---|---|---|---|
+| `skills/adr/adr-template.md` 새 판 | 같은 위치 | copy | 바이트 동일 | `cmp` |
+| `skills/conventions/conventions.md`의 이유를 남기는 자리, ADR을 파일 이름으로 가리키기 | 같은 위치 | copy | 바이트 동일 | `cmp` |
+| `skills/adr/SKILL.md` 새 판 | 같은 위치 | adapt | 문장 동일. 변형 다섯: "다음 세션의 Codex다", 템플릿 상대 링크와 링크 해석 문단, `/superdomain:domain` 대신 "superdomain의 [domain 스킬](../domain/SKILL.md)", 6절 포인터 항목의 대상 지침 파일 설명은 전환본 문구, 포인터 줄은 "superdomain의 adr 스킬로" | 원본과 diff, 표식 문자열 검사 |
+| `skills/domain/SKILL.md` 8단계 포인터 줄·옛 줄 교체 문장, 수정 모드 1번 | 같은 위치 | adapt | 문장 동일. 포인터 줄은 adr 스킬의 전환본 줄과 글자가 같다 | 두 줄 비교 |
+| adr 스킬의 설명 | `skills/adr/agents/openai.yaml` `short_description` | adapt | 없어진 모드(승인·대체·부분 조정)를 말하지 않는다 | 문구 확인 |
+| `.claude-plugin/plugin.json` 버전 | `plugin.json` `version`, README 기반 버전·스킬 표·산출물 줄 | adapt | 0.9.0 | 값 확인 |
+| `README.md`, `CHANGELOG.md`, 설계 문서 | 없음 | omit | 기존 대응표대로 배포본에서 제외 | — |
+
+- 스킬 진입점·인자·권한·트리거 경로는 바뀌지 않았다. 관리 파일은 18개 그대로다.
+- adr 스킬의 동작(모드, 확정 절차, 병합된 기록을 다루는 법)이 바뀌므로 독립 리뷰를 받는다.
+- 포인터 줄은 원본의 두 곳과 전환본의 두 곳이 같은 뜻이고, 다른 것은 스킬을 가리키는 표기뿐이다.
+
+검증(리뷰 전): 두 복사본 `cmp` 동일. `validate.cjs`(ajv 8.18.0, js-yaml 4.1.1, 공식 스키마 1.0.0)로 manifest valid, 스킬 4개, 파일 18개, 해석 링크 31개. 전환본 adr 스킬에 Claude 전용 표기와 없어진 모드의 말이 없는지, 포인터 줄이 전환본 두 곳에서 같은지 검사했다. `claude plugin validate .`와 `check_git_scopes.py` 통과.
+
+구현 전 시험: 원본의 템플릿과 스킬은 하위 에이전트로 조정·블록만 읽기·판단·쓰기를 시험했고 모두 통과했다(원본 ADR 설계 문서의 "구현 전 시험 결과"). 전환본은 같은 문장을 담지만 Codex 런타임에서 돌려 보지는 않았다.
+
+독립 리뷰: 별도 새 컨텍스트의 리뷰어가 pass(권고 2건)로 판정했다. must_fix는 없었고 권고는 둘 다 이 기록의 정확성에 관한 것이다. S1(컴포넌트 대응표의 `adr-template.md` 행이 아직 "상태"를 보존 조건으로 적고 있다)과 S2(바뀐 파일 목록에 계획 문서가 빠졌다)를 고쳤다. 전환본과 원본은 리뷰한 후보 그대로라 다시 검토받지 않았다. 지적과 조치는 [review.md](review.md)의 "2026-11-12: 0.9.0 반영의 독립 리뷰"에 있다.
+
+최종 상태: 리뷰한 후보(`source-candidate.json` sha256 `e77e74d6bdf3ad9417413cf3a57f1082428dc2b82e5a02ab75f1228dec2b2435`, `target-candidate.json` sha256 `747bbc8c4f358688cbb0da633a805035139229005c201c2ece241b8eb7cca98f`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했고, 기본 `check_repository.py`가 통과했다. 미검증: Codex 설치·런타임(ADR 신규·바꿈, 포인터 줄 추가). 상태: 갱신 완료, 런타임 미검증.
+
+## 2026-11-12: 원본 0.9.0의 릴리스 전 고침
+
+원본 0.9.0을 릴리스하기 전에, 전체 리뷰가 Minor로 남긴 것 가운데 넷을 사용자 결정으로 고쳤다. 버전은 0.9.0 그대로다.
+
+- 원본에서 바뀐 파일: `agents/domain-reviewer.md`, `skills/domain/SKILL.md`, `skills/adr/SKILL.md`, `CHANGELOG.md`, 그리고 설계 문서 셋(`docs/superpowers/specs/`의 두 설계 문서에 고친 문장과 "릴리스 전에 고친 것" 절이 더해졌고, `docs/superpowers/plans/`의 ADR 구현 계획의 지시문 한 곳을 고친 문장에 맞췄다).
+
+| 원본 컴포넌트/동작 | Codex 대상 파일/호출 방식 | 처리 | 보존할 조건 | 검증 방법 |
+|---|---|---|---|---|
+| `agents/domain-reviewer.md` 정의 검토의 형식 항목: `미정` 항목의 갈 곳 셋(`규칙`, `알려진 어긋남`, 지운다), "필수 필드" 대신 "기본 뼈대의 역할·기능·분류·패키지가 도메인마다 있는가" | `skills/review/references/domain-reviewer.md` | adapt | 고친 두 문장이 원본과 같다 | 문자열 검사 |
+| `skills/domain/SKILL.md` 수정 모드 1번의 `미정` 문장 | 같은 위치 | adapt | 문장 동일 | 문자열 검사 |
+| `skills/adr/SKILL.md` 2절 머리(기록해 둔 결정을 바꾸면 바꿈, 같은 주제에 결정을 더하면 새 기록), 3절의 "2절의 1번부터 끝까지 따라 쓰고" | 같은 위치 | adapt | 문장 동일. 0.9.0 반영의 변형 다섯은 그대로다 | 원본과 diff |
+| `CHANGELOG.md`, 설계 문서 | 없음 | omit | 기존 대응표대로 배포본에서 제외 | — |
+
+- 스킬 진입점·인자·권한·트리거 경로는 바뀌지 않았다. 관리 파일은 18개 그대로다.
+- adr 스킬의 신규·바꿈 판단과 리뷰어의 제안 문구가 바뀌므로 독립 리뷰를 받는다.
+
+검증(리뷰 전): 고친 문장이 원본·전환본·설계 문서에 같은 글자로 있는지와 옛 문장이 남지 않았는지를 검사했다. 바이트 복사 네 파일은 `cmp`로 원본과 같다. adr 스킬의 원본과 전환본의 차이는 줄 수가 0.9.0 반영 때와 같다. `validate.cjs`(ajv 8.18.0, js-yaml 4.1.1, 공식 스키마 1.0.0)로 manifest valid, 스킬 4개, 파일 18개, 해석 링크 31개. `claude plugin validate .`와 `check_git_scopes.py` 통과.
+
+시험(원본의 문구, 하위 에이전트, 조건마다 한 번): adr 스킬은 임시 git 저장소에서 고치기 전·후 문구로 "같은 주제에 결정을 더하는" 요청을, 고친 문구로 "기록해 둔 결정을 바꾸는" 요청을 돌렸다. 세 실행 모두 파일 결과가 기대와 같았고, 고치기 전 문구에서는 바꿈인지 신규인지를 먼저 물었다(원본 ADR 설계 문서의 "릴리스 전에 고친 것"). 리뷰어는 `미정` 칸에 어긋난 코드를 적은 항목이 섞인 문서로 정의 검토를 돌렸고 항목을 따로 다뤘다(원본 0.8.0 설계 문서의 "릴리스 전에 고친 것"). 전환본은 같은 문장을 담지만 Codex 런타임에서 돌려 보지는 않았다.
+
+독립 리뷰: 별도 새 컨텍스트의 리뷰어가 pass(권고 2건)로 판정했다. must_fix는 없었다. R1(3절을 "2절의 1~9번대로 쓰고"로 고치자 2절 끝의 번호 없는 형식 문단이 범위에서 빠졌다)은 "2절의 1번부터 끝까지 따라 쓰고"로 고쳤고, R2(CHANGELOG 이행 안내의 "정한 방향과 다른 코드"가 스킬·리뷰어의 "정한 방향·경계와 다른 코드"와 달랐다)는 CHANGELOG와 0.8.0 설계 문서의 문장을 맞췄다. 파일이 바뀌었으므로 새 후보로 같은 리뷰어에게 바뀐 범위를 재검토받았고 pass(R1·R2 resolved, 새 지적 없음)였다. 지적과 조치는 [review.md](review.md)의 "2026-11-12: 0.9.0 릴리스 전 고침의 독립 리뷰"에 있다.
+
+재검토 뒤의 시험: 3절의 마지막 문구로 "기록해 둔 결정을 바꾸는" 요청을 한 번 더 돌렸다. 바꿈으로 처리했고, 옛 기록의 결정 1 아래에 `바뀜` 줄과 새 기록 링크만 붙었으며, 새 기록의 `버린 안`에 옛 결정이 옛 파일 링크와 함께 있다.
+
+최종 상태: 재검토한 후보(`source-candidate.json` sha256 `74ea8af13350a57cf2b4b5f69bbd58856969f9317bf2ec91a9389fa7fe7bd9df`, `target-candidate.json` sha256 `4ad5e65f9f2b310ce6dc73b5c580f69e4a5664a39a3297d874a38bf8b5ce9ee7`)와 현재 파일이 같음을 확인한 뒤 `source-state.json`·`target-state.json`을 그 후보로 확정했고, 기본 `check_repository.py`가 통과했다. 미검증: Codex 설치·런타임. 상태: 갱신 완료, 런타임 미검증.
+
+## 2026-11-12: 비교 범위 조정을 이 브랜치에 합침
+
+위 「2026-11-10: 원본 기준 비교 범위 조정」은 다른 작업 트리에서 커밋 없이 만든 변경이다. 사용자의 지시로 0.8.0·0.9.0 반영과 같은 브랜치에 가져왔다. 전환본과 대응표, 기준 상태는 이 일로 바뀌지 않았다.
+
+- **가져온 것:** 여덟 파일. `.github/workflows/superdomain-codex.yml`, `.github/workflows/superglossary-codex.yml`, 루트 `AGENTS.md`, `CONTRIBUTING.md`, 두 `check_repository.py`, `porting/superglossary/decisions.md`는 그 작업 트리의 파일과 바이트가 같다. `porting/superdomain/decisions.md`(이 파일)는 두 쪽이 같은 자리 뒤에 절을 붙여 그대로는 합쳐지지 않았다. 2026-11-10 절을 글자 그대로 가져와 날짜순으로 넣었다.
+- **독립 리뷰:** 받지 않았다. 2026-11-10 절이 적은 대로 검사 범위만 조정한 변경이고, 가져오면서 내용을 바꾸지 않았다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+- **0.8.0 리뷰의 S2:** 풀렸다. 설계 문서 여섯 개가 없는 체크아웃에서도 `check_repository.py`가 통과한다. 비교 범위 조정이 기준 상태와 같이 또는 먼저 들어가야 성립하고, 이 브랜치에서는 같이 들어간다. 설계 문서 가운데 스펙 둘과 계획 둘은 같은 PR에 넣는다(이 변경의 근거다). 검토서 둘은 넣지 않는다(아래 절).
+
+검증 결과: 작업 트리에서 두 플러그인의 `check_repository.py`와 `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .`가 통과했다. 두 workflow 파일은 YAML로 읽히고 `push`·`pull_request` 경로에 원본 폴더가 있다. 미추적 설계 문서 여섯 개를 뺀 사본(저장소 밖 임시 폴더)에서 옛 검사 스크립트는 그 여섯 경로를 `removed`로 지목하며 실패했고, 가져온 스크립트는 걸러 낸 경로를 한 줄로 출력하고 통과했다. 같은 사본에서 `skills/adr/SKILL.md`에 한 글자를 더하면 가져온 스크립트도 그 경로를 지목하며 실패한다. 사본 시험은 로컬에서 한 것이고, GitHub의 실제 workflow 실행은 미검증이다.
+
+## 2026-11-12: 검토서 둘을 저장소에 넣지 않음
+
+설계 문서 여섯 개 가운데 스펙 둘과 계획 둘만 저장소에 넣었다. 검토서 둘(`docs/superpowers/specs/2026-11-10-superdomain-improvements-review.md`, `docs/superpowers/specs/2026-11-11-superdomain-adr-review.md`)은 사용자의 결정으로 넣지 않는다. 전환본과 대응표, 기준 상태는 이 일로 바뀌지 않았다.
+
+- **고친 것:** 스펙 둘과 계획 둘에서 검토서 파일을 가리키던 다섯 곳을 글로 바꿨다. 원본의 스킬·에이전트·manifest와 전환본은 건드리지 않았다.
+- **기준 상태:** `source-state.json`에는 검토서 둘과, 고치기 전의 스펙·계획 네 개의 해시가 그대로 남아 있다. 여섯 경로 모두 비교에서 빼는 `docs/superpowers/` 아래라서 `check_repository.py`는 통과하고, 걸러 낸 차이를 한 줄로 출력한다. 원본 기준 상태를 다음에 다시 뜰 때 정리된다.
+- **독립 리뷰:** 받지 않았다. 전환하지 않는 문서의 다섯 곳과 이 기록만 고쳤다.
+
+검증 결과: 두 플러그인의 `check_repository.py`와 `check_git_scopes.py`, `claude plugin validate .`가 통과했다. 커밋할 내용만 꺼낸 사본에서 `check_repository.py`는 위 여섯 경로를 걸러 낸 차이로 출력하고 통과했다.
