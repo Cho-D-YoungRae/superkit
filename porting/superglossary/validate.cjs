@@ -60,7 +60,7 @@ for (const file of files) {
 }
 assert.deepEqual(skillNames.sort(), ['check', 'glossary']);
 assert.equal(manifest.name, 'superglossary');
-assert.equal(manifest.version, '0.7.0');
+assert.equal(manifest.version, '0.8.0');
 assert(fs.existsSync(path.join(root, 'LICENSE')));
 for (const name of skillNames) {
   const ui = yaml.load(fs.readFileSync(path.join(root, 'skills', name, 'agents/openai.yaml'), 'utf8'));

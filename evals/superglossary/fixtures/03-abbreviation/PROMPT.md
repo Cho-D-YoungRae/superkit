@@ -1,0 +1,1 @@
+glossary 스킬로 기업설명 investor relations(IR), 최고경영자 chief executive officer(CEO), 국제증권식별번호 international securities identification number(ISIN)를 등록해 주세요. 각각 업계에서 하나의 개념으로 쓰므로 합성어를 한 항목으로 두는 것을 승인합니다. 이름 표기는 소문자로 맞춰 주세요.

@@ -1,0 +1,10 @@
+{
+  "version": "0.8.0",
+  "files": {
+    "plugin.json": "e853c089e8bcfe1d3b436e024e044770fb6e377d4bbef6f8b7217f6fd9c11a91",
+    "skills/glossary/SKILL.md": "acd269debfb2d4943e52e9591841133840b7a4be2f0ba5d6790a6b64e948b345",
+    "skills/glossary/glossary-guide.md": "64455dd1c36177ede226693211de79dfaaf88c78d59c25ae73b5ebbe97fdc931",
+    "skills/check/SKILL.md": "bf7a47dd4d528eb4a27f89e89fa4c17489575ad15b17bb4de28bfd89741ff61e"
+  },
+  "final_runtime_matches_snapshot": true
+}

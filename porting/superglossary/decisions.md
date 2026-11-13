@@ -1,5 +1,7 @@
 # superglossary Codex 전환
 
+현재 0.8.0 갱신 결정은 문서 끝의 **2026-11-13** 절을 따른다. 앞의 0.7.0 종료 리비전 사전·관례 예외·이전 안내는 당시 전환 기록이며 현재 규칙이 아니다.
+
 확인일: 2026-10-09. 원본 Git 기준: `e71ae9bacbaa7b7afe42c0ae533216ecc5285b3d` (`main`). 최초 생성이며 이전 대상·사용자 수정·관리 기준은 없었다.
 
 ## 범위
@@ -114,3 +116,39 @@ claude plugin validate plugins/superglossary
 - **독립 리뷰:** 생략했다. 전환 판단(대응표)과 전환본은 그대로이고 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
 
 검증 결과: 임시 변경을 하나씩 만들고 `check_repository.py`를 실행한 뒤 되돌렸다. 통과 — `docs/superpowers/specs/x.md` 추가, `AGENTS.md` 수정. 실패(AssertionError가 해당 경로를 지목) — `CHANGELOG.md` 수정, `skills/glossary/x.md` 추가, `skills/check/SKILL.md` 한 글자 수정, `agents/glossary-scanner.md` 삭제. 되돌린 뒤 `check_repository.py`, `check_git_scopes.py`, tree_state 단위 검사 6개, `claude plugin validate .` 통과. GitHub의 실제 workflow 실행은 미검증이다.
+
+## 2026-11-13: 0.8.0 의미 범위와 현재 사전 검토
+
+사용자가 Claude 원본과 Codex 전환본의 업무 규칙 개선 및 0.8.0 갱신을 함께 요청했다. 따라서 최초 전환의 원본 불변 조건 대신, 양쪽 업무 규칙을 함께 반영하고 최종 원본·대상을 검증·독립 리뷰한 뒤 새 기준 상태를 확정한다. 설치·개인 설정 변경·배포·커밋은 이 갱신 범위에 포함하지 않는다.
+
+쓰기 전 `tree_state.py compare`로 source-state와 target-state 모두 추가·변경·삭제가 없음을 확인했다. 기존 사용자 수정 충돌이나 관리 목록 밖의 사용자 파일은 없다. 원본과 대상 위치·manifest 형식·Codex UI·스캐너 실행 계약은 유지한다.
+
+| 변경된 원본 동작 | Codex 대상 | 처리·보존 조건 | 검증 |
+| --- | --- | --- | --- |
+| 의미와 적용 범위, 영문/축약 구분 | glossary-guide, glossary 스킬, scanner 역할 | 다섯 열 유지, 의미가 같으면 재사용, 표기 중복은 의미로 판단, 행의 금지를 전역 금지로 확대하지 않음 | guide의 기존 플랫폼 치환 외 동일성·독립 대조 |
+| 검색 우선 읽기 | glossary/check 스킬, scanner 역할 | 규칙·인덱스 먼저 읽기, 전체 사전 검색, 설명까지 확인, 0건·잘림·불명확 시 범위 확대 또는 미검토 | 패키지 리소스 검증·외부 평가 자료 |
+| 현재 사전과 코드 범위 분리 | check 스킬 | 항상 현재 작업 트리 사전으로 판정하고 커밋 코드는 실제 범위·종료 리비전에서 읽음 | 현재/종료 사전이 다른 경우와 종료 사전 부재 Git fixture |
+| 사전 결정 변경의 기존 코드 영향 | check 스킬 | unstaged·staged·선택 리비전 사전 변경을 확인하고 이전·현재 표기로 현재 전체 코드의 관련 이름 검색 | 사전만 변경된 범위에서 변경 없는 코드 발견 fixture |
+| JSON 이전 안내 제거 | README | 구버전 호환·자동 이전을 제공하지 않음 | 과거 이력은 보존하고 현재 사용 안내에서 제거 |
+| 원본 변경의 Codex 검증 연결 | Codex CI | push와 pull_request 양쪽에 원본 경로 포함 | YAML 파싱·두 경로 필터 검사 |
+
+이 절은 0.7.0의 종료 리비전 사전 사용, 기존 관례에 따른 명시 사전 규칙 면제, JSON 이전 안내를 대체한다. 기존 관례는 현재 사전의 명시적인 의미·표준·허용 축약·금지 결정을 무효화하지 않는다. check는 위반·추가 후보·확인 필요·미검토를 구별하며 파일과 Git 상태를 수정하지 않는다. 의미를 확정할 자료가 부족하면 표기만으로 위반을 만들거나 금지 예외를 새로 만들지 않는다.
+
+플랫폼 계약에는 새 API나 설정을 도입하지 않는다. 2026-11-13에 [공식 Agent Plugins 1.0.0 스키마](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json)를 다시 받아 기존 portable manifest를 검증했다. 읽기 전용·재위임 금지가 행동 지침이라는 차이, 세션 모델 상속, 새 컨텍스트 위임, 패키지 내부 리소스 해석을 유지한다.
+
+갱신 상태: 업무 규칙 반영·정적 검사·독립 리뷰 완료. 새 컨텍스트의 `final_review`가 PASS(지적 없음)로 판정했고 검토한 상태를 source-state.json·target-state.json에 확정했다. 기본 인자의 repository 검사도 통과했다. 새 Git fixture는 기존 0.7.0 문서에서 현재 사전 검색 계약 부재로 먼저 실패함을 확인했다.
+
+- 공식 schema·YAML/frontmatter·내부 링크: 2 skills, 10 files, 9 links 통과. 공백이 있는 독립 복사본에서도 같은 검사 통과.
+- guide는 기존 Claude→Codex·호출 표기 치환 외 동일하고 LICENSE는 바이트 동일하다.
+- Codex Git fixture: staged/unstaged 양쪽, untracked·공백·삭제·ignored, 실제 커밋 범위와 종료 코드, 현재 사전과 종료 사전의 차이·종료 사전 부재, 사전만 변경된 범위의 기존 코드 검색, 3종 사전 diff, 빈/잘못된 범위 통과.
+- 원본 check는 `--skill plugins/superglossary/skills/check/SKILL.md --git-only`로 공통 Git 명령을 검증했다. 원본은 Grep 도구를 쓰므로 Codex rg 예시 검사는 이 실행에서 제외했다고 명시한다.
+- `check_repository.py --source-state <후보> --target-state <후보>`로 카탈로그·관리 경로·양쪽 후보 일치 검사 통과. 후보와 독립 복사본은 `/private/tmp/superglossary-0.8.0-port-ggzcd_th/`에 있다.
+- CI YAML을 파싱해 push·pull_request 양쪽 원본 경로 트리거를 확인했다. 전환 상태 도구의 단위 테스트 6개와 JavaScript 문법 검사도 통과했다.
+
+검증 도구는 설치 패키지 밖에만 둔다. 위 정적 결과는 모델 판단·실제 설치·스캐너 위임 성공을 증명하지 않는다. 행동 평가의 실제 결과·대리 하네스의 한계는 저장소 루트 `evals/superglossary/results/`에, 독립 리뷰와 확정 상태의 SHA-256은 review.md에 기록한다. 네이티브 설치·캐시·자동 발견·scanner 위임·원격 CI 실행은 미검증이다.
+
+행동 평가 완료: 새 컨텍스트의 별도 평가 에이전트가 원본 9개·Codex 9개 fixture를 실제 처리했고 모두 기대 행동을 충족했다. 0.7.0의 의미 중복 거부·사전만 변경 시 조기 종료 두 실패가 회복되었다. 평가한 runtime 해시는 최종 패키지와 같고 check 실행 전후 파일 해시도 보존됐다. 격리된 Claude CLI의 인증 실패로 네이티브 실행 대신 사용한 하네스이며, 각 회차의 사례들은 한 평가자 컨텍스트 안에서 진행했다. 상세 명령·응답·diff·재현법은 평가 결과에 남겼다.
+
+릴리스 PR의 첫 원격 CI에서 Git fixture가 `rg` 실행 파일 부재로 실패했다. Git 범위 검증에는 Python 외에 Git과 ripgrep이 필요하므로 CI에서 ripgrep을 명시적으로 설치한다. 로컬에 있던 도구를 러너 기본 설치로 가정하지 않는다.
+
+0.8.0 병합 시 원본 비교 정책도 함께 유지했다. `AGENTS.md`·`docs/superpowers/`는 계속 제외하며, 현재 패키지가 JSON 이전 안내를 제공하지 않으므로 `CHANGELOG.md`도 전부 `omit`으로 제외한다. 위 2026-11-10의 CHANGELOG 비교 유지 결정은 0.7.0에 대한 기록이다. 그 밖의 신규·수정·삭제 파일은 계속 검사하며, `--source-state`와 `--target-state` 후보 인자도 보존한다. 원본 차이는 공용 `tree_state.py compare`로 수집하고 `check_repository.py`의 `is_omitted()`가 제외 경로만 거른다.

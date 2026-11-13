@@ -1,0 +1,11 @@
+{
+  "version": "0.8.0 candidate (manifest bump pending at snapshot)",
+  "files": {
+    "skills/glossary/SKILL.md": "9685c70bba71dc608c181c95089c3312572730deaa62f5cd67c255e211b138e8",
+    "skills/glossary/glossary-guide.md": "3ba075975365840cbe20c3e3ba536f72b75b2547171c60cc067f0f06e199e498",
+    "skills/check/SKILL.md": "62a838104a13fc518b9abf7da6be820bee1e6c69cf12cdc5245533dd12de926e",
+    "agents/glossary-scanner.md": "56f192ce284214d85a8c508418c0badf3ab2efcaaf09bbf59db53f066688a7c8"
+  },
+  "final_runtime_matches_snapshot": true,
+  "final_version": "0.8.0"
+}

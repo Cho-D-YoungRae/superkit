@@ -8,6 +8,8 @@ import sys
 root = Path(__file__).resolve().parents[2]
 records = root / "porting/superglossary"
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--source-state", type=Path, default=records / "source-state.json",
+                    help="Review candidate to check before promoting the source baseline")
 parser.add_argument("--target-state", type=Path, default=records / "target-state.json",
                     help="Review candidate to check before promoting the target baseline")
 args = parser.parse_args()
@@ -35,18 +37,17 @@ assert (root / entry["source"]["path"]).resolve() == target, "Wrong superglossar
 claude = json.loads((root / ".claude-plugin/marketplace.json").read_text())
 assert all((root / entry["source"]).resolve() != target for entry in claude["plugins"]), "Codex package in Claude catalog"
 helper = root / ".agents/skills/claude-to-codex/scripts/tree_state.py"
-# Source paths that the decisions.md component table maps to `omit`: they never reach the
-# Codex package, so a change there does not make the reviewed port stale. Paths are relative
-# to the source root; an entry ending in "/" covers a directory, any other is one exact file.
-# CHANGELOG.md stays compared: its 0.7.0 migration steps are an `adapt` input of the Codex README.
-omitted = ("AGENTS.md", "docs/superpowers/")
+# Source paths mapped to `omit` in decisions.md are not inputs to the Codex package.
+# Paths are relative to the source root; a trailing "/" covers a directory.
+# Since 0.8.0 removes legacy migration guidance, CHANGELOG.md is entirely omitted.
+omitted = ("AGENTS.md", "CHANGELOG.md", "docs/superpowers/")
 
 
 def is_omitted(path):
     return any(path.startswith(item) if item.endswith("/") else path == item for item in omitted)
 
 
-for baseline, folder in ((records / "source-state.json", root / "plugins/superglossary"), (args.target_state, target)):
+for baseline, folder in ((args.source_state, root / "plugins/superglossary"), (args.target_state, target)):
     result = json.loads(subprocess.check_output([
         sys.executable, str(helper), "compare", str(baseline), str(folder),
     ], text=True))

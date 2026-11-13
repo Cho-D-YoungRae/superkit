@@ -6,7 +6,7 @@
 
 - `.claude-plugin/plugin.json` — 매니페스트. `version`이 버전의 유일한 출처다.
 - `skills/glossary/` — 용어 사전 생성·추가·수정·분리. `glossary-guide.md`가 형식·등록 규칙·분리 절차의 유일한 출처다.
-- `skills/check/` — 코드 변경이 용어 사전을 따르는지 검토해 보고한다. 형식은 `../glossary/glossary-guide.md`를 읽는다.
+- `skills/check/` — 현재 작업 트리 사전으로 코드와 사전 변경의 기존 코드 영향을 검토한다. 형식은 `../glossary/glossary-guide.md`를 읽는다.
 - `agents/glossary-scanner.md` — brownfield 용어 스캔. glossary 스킬의 생성 단계에서만 부른다.
 - `docs/superpowers/` — 설계 스펙과 구현 계획.
 
@@ -15,6 +15,8 @@
 - 스크립트를 두지 않는다. 판단은 스킬과 에이전트가 하고, 판단이 걸린 확정은 사용자가 한다. 꼭 필요해지면 그 스킬 디렉터리 안에 둔다.
 - 사용자 프로젝트의 산출물은 `docs/superglossary/`의 md 파일뿐이다. 지침 파일에는 포인터 한 줄만 넣고 `@import`는 쓰지 않는다.
 - 용어 사전 형식이나 규칙을 바꾸면 `glossary-guide.md`를 고치고, 그 내용을 요약한 SKILL.md 문구가 어긋나지 않는지 함께 본다.
+- 표는 기존 5열을 유지한다. 의미·용도·예외는 설명에 짧게 적고, 기본 영문과 허용 축약을 각 열에 구분한다. 구버전 호환·자동 마이그레이션은 제공하지 않는다.
+- 개발용 평가는 설치 패키지 밖에 둔다. 스킬·guide·scanner가 저장소의 평가 자료를 런타임에 참조하지 않는다.
 
 ## 검증
 
