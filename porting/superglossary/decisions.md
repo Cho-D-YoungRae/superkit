@@ -149,4 +149,6 @@ claude plugin validate plugins/superglossary
 
 행동 평가 완료: 새 컨텍스트의 별도 평가 에이전트가 원본 9개·Codex 9개 fixture를 실제 처리했고 모두 기대 행동을 충족했다. 0.7.0의 의미 중복 거부·사전만 변경 시 조기 종료 두 실패가 회복되었다. 평가한 runtime 해시는 최종 패키지와 같고 check 실행 전후 파일 해시도 보존됐다. 격리된 Claude CLI의 인증 실패로 네이티브 실행 대신 사용한 하네스이며, 각 회차의 사례들은 한 평가자 컨텍스트 안에서 진행했다. 상세 명령·응답·diff·재현법은 평가 결과에 남겼다.
 
+릴리스 PR의 첫 원격 CI에서 Git fixture가 `rg` 실행 파일 부재로 실패했다. Git 범위 검증에는 Python 외에 Git과 ripgrep이 필요하므로 CI에서 ripgrep을 명시적으로 설치한다. 로컬에 있던 도구를 러너 기본 설치로 가정하지 않는다.
+
 0.8.0 병합 시 원본 비교 정책도 함께 유지했다. `AGENTS.md`·`docs/superpowers/`는 계속 제외하며, 현재 패키지가 JSON 이전 안내를 제공하지 않으므로 `CHANGELOG.md`도 전부 `omit`으로 제외한다. 위 2026-11-10의 CHANGELOG 비교 유지 결정은 0.7.0에 대한 기록이다. 그 밖의 신규·수정·삭제 파일은 계속 검사하며, `--source-state`와 `--target-state` 후보 인자도 보존한다. 원본 차이는 공용 `tree_state.py compare`로 수집하고 `check_repository.py`의 `is_omitted()`가 제외 경로만 거른다.

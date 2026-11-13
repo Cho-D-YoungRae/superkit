@@ -34,6 +34,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
+      - name: 검색 도구 준비
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ripgrep
+          rg --version
       - name: 검증 의존성 준비
         run: npm install --prefix "$RUNNER_TEMP/superglossary-validation" --ignore-scripts --no-audit --no-fund --no-package-lock ajv@8.18.0 js-yaml@4.1.1
       - name: 공식 매니페스트 스키마와 패키지 검사
