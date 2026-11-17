@@ -1,6 +1,6 @@
 # superkit
 
-Claude Code 플러그인과 Codex 전환본을 관리하는 플러그인 모음이자 마켓플레이스.
+Claude Code 플러그인과 그 Codex 지원을 관리하는 플러그인 모음이자 마켓플레이스.
 
 | 플러그인 | 하는 일 |
 |---|---|
@@ -11,15 +11,15 @@ Claude Code 플러그인과 Codex 전환본을 관리하는 플러그인 모음�
 | [llm-wiki](plugins/llm-wiki) | LLM이 유지보수하는 개인 위키 — 위키 부트스트래핑과 소스 추출 툴벨트 |
 | [clean-code](plugins/clean-code) | 『Clean Code』의 원칙을 챕터별 레퍼런스로 담아, 코드를 쓰고 리팩터링하고 리뷰할 때 적용하게 한다 |
 
-Claude 원본은 `plugins/<이름>/`에, Codex 전환본은 `plugins/<이름>-codex/`에 둔다. 현재 Codex 전환본은 [superdomain](plugins/superdomain-codex)과 [superglossary](plugins/superglossary-codex)다. 전환 결정·리뷰·다음 업데이트 기준은 각 `porting/<이름>/`에 보관한다.
+Claude 원본은 `plugins/<이름>/`에, Codex 전환본은 `plugins/<이름>-codex/`에 둔다. 현재 Codex 전환본은 [superdomain](plugins/superdomain-codex)과 [superglossary](plugins/superglossary-codex)다. 전환 결정·리뷰·다음 업데이트 기준은 각 `porting/<이름>/`에 보관한다. [llm-wiki](plugins/llm-wiki)는 전환본 없이 같은 폴더를 Claude Code와 Codex가 함께 쓴다.
 
 ## 설치
 
 ### Codex
 
-저장소의 `.agents/plugins/marketplace.json`은 Codex 전환본만 등록한다. 패키지는 `plugins/superdomain-codex/`와 `plugins/superglossary-codex/`에 있으며, 설치 ID는 `superdomain@superkit`과 `superglossary@superkit`이다.
+저장소의 `.agents/plugins/marketplace.json`에는 Codex 전환본 둘과 공용 플러그인 하나가 있다. 설치 ID는 `superdomain@superkit`(`plugins/superdomain-codex/`), `superglossary@superkit`(`plugins/superglossary-codex/`), `llm-wiki@superkit`(`plugins/llm-wiki/`)이다.
 
-이 저장소를 프로젝트로 연 뒤 데스크톱 앱을 다시 시작하고, Plugins Directory의 **superkit for Codex** 소스에서 필요한 플러그인을 설치한다. 카탈로그 등록은 자동 설치나 활성화를 의미하지 않는다. 프로젝트별 Git 소스 설정은 [superglossary 설치 안내](plugins/superglossary-codex/README.md#설치)를, 도메인 스킬 사용법은 [superdomain 안내](plugins/superdomain-codex/README.md)를 본다. 실제 모델의 문서 생성·리뷰 동작은 설치 후 별도로 검증한다.
+이 저장소를 프로젝트로 연 뒤 데스크톱 앱을 다시 시작하고, Plugins Directory의 **superkit for Codex** 소스에서 필요한 플러그인을 설치한다. CLI에서는 `codex plugin marketplace add Cho-D-YoungRae/superkit` 뒤 `codex plugin add <이름>@superkit`으로 설치한다. 카탈로그 등록은 자동 설치나 활성화를 의미하지 않는다. 프로젝트별 Git 소스 설정은 [superglossary 설치 안내](plugins/superglossary-codex/README.md#설치)를, 도메인 스킬 사용법은 [superdomain 안내](plugins/superdomain-codex/README.md)를, llm-wiki의 Codex 샌드박스 설정은 [llm-wiki 안내](plugins/llm-wiki/README.md#codex에서-쓰기)를 본다. 실제 모델의 문서 생성·리뷰 동작은 설치 후 별도로 검증한다.
 
 ### Claude Code
 

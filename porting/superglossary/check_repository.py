@@ -16,6 +16,8 @@ args = parser.parse_args()
 target = root / "plugins/superglossary-codex"
 manifest = json.loads((target / "plugin.json").read_text())
 catalog = json.loads((root / ".agents/plugins/marketplace.json").read_text())
+claude = json.loads((root / ".claude-plugin/marketplace.json").read_text())
+claude_packages = {(root / entry["source"]).resolve() for entry in claude["plugins"]}
 entries = catalog["plugins"]
 assert len({entry["name"] for entry in entries}) == len(entries), "Duplicate Codex plugin names"
 for entry in entries:
@@ -24,8 +26,15 @@ for entry in entries:
     assert source["path"].startswith("./"), source
     package = (root / source["path"]).resolve()
     assert package.is_relative_to(root), "Catalog source escapes repository"
-    assert not (package / ".claude-plugin/plugin.json").exists(), "Codex catalog points at a Claude original"
-    package_manifest = json.loads((package / "plugin.json").read_text())
+    shared_manifest = package / ".claude-plugin/plugin.json"
+    if shared_manifest.exists():
+        # A folder both runtimes read (llm-wiki): allowed only when it is the Claude catalog's
+        # package too and no `-codex` port exists, so a ported original is still rejected here.
+        assert package in claude_packages, "Codex catalog points at a Claude original"
+        assert not package.with_name(f"{package.name}-codex").exists(), "Shared plugin also has a -codex port"
+        package_manifest = json.loads(shared_manifest.read_text())
+    else:
+        package_manifest = json.loads((package / "plugin.json").read_text())
     assert entry["name"] == package_manifest["name"], "Catalog and manifest names differ"
     assert "version" not in entry, "Version belongs in plugin.json"
     assert entry["policy"]["installation"] == "AVAILABLE", "Catalog must not auto-install"
@@ -34,7 +43,6 @@ for entry in entries:
 entry = next(entry for entry in entries if entry["name"] == manifest["name"])
 assert (root / entry["source"]["path"]).resolve() == target, "Wrong superglossary package"
 
-claude = json.loads((root / ".claude-plugin/marketplace.json").read_text())
 assert all((root / entry["source"]).resolve() != target for entry in claude["plugins"]), "Codex package in Claude catalog"
 helper = root / ".agents/skills/claude-to-codex/scripts/tree_state.py"
 # Source paths mapped to `omit` in decisions.md are not inputs to the Codex package.

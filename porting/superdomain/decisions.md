@@ -304,3 +304,14 @@ python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 - **독립 리뷰:** 받지 않았다. 전환하지 않는 문서의 다섯 곳과 이 기록만 고쳤다.
 
 검증 결과: 두 플러그인의 `check_repository.py`와 `check_git_scopes.py`, `claude plugin validate .`가 통과했다. 커밋할 내용만 꺼낸 사본에서 `check_repository.py`는 위 여섯 경로를 걸러 낸 차이로 출력하고 통과했다.
+
+## 2026-11-17: 두 런타임 공용 플러그인을 Codex 카탈로그에 허용
+
+llm-wiki를 `-codex` 전환본 없이 원본 폴더 하나로 Codex에서도 쓰게 하면서 `.agents/plugins/marketplace.json`에 `./plugins/llm-wiki`를 등록했다(llm-wiki ARCHITECTURE의 ADR-9). `check_repository.py`의 카탈로그 검사는 모든 항목에 루트 `plugin.json`을 요구하고 Claude 원본을 가리키면 실패했으므로, 공용 폴더만 통과하게 좁혔다. 전환본과 대응표, 기준 상태는 바뀌지 않았다.
+
+- **통과하는 경우:** 항목의 폴더에 `.claude-plugin/plugin.json`이 있고, 그 폴더가 Claude 카탈로그의 패키지이며, 같은 위치에 `<이름>-codex` 폴더가 없을 때. 이름 대조는 그 `.claude-plugin/plugin.json`으로 한다.
+- **여전히 실패하는 경우:** 전환본이 있는 원본(`plugins/superdomain`)을 Codex 카탈로그에 넣음, Claude 카탈로그에 없는 Claude 플러그인 폴더, 공용 폴더인데 `-codex` 전환본도 있음.
+- **구현:** superdomain·superglossary의 `check_repository.py`에 같은 분기를 넣었다. Claude 카탈로그를 루프 전에 읽도록 옮겼고, 그 뒤의 "Codex package in Claude catalog" 검사는 그대로다.
+- **독립 리뷰:** 생략했다. 전환 판단과 전환본은 그대로이고 카탈로그 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+
+검증 결과: 두 `check_repository.py`가 현재 카탈로그에서 통과했다. 저장소 사본에서 위 세 실패 경우를 하나씩 만들었고, 두 스크립트 모두 각 경우에 AssertionError로 실패했다. GitHub의 실제 workflow 실행은 미검증이다.

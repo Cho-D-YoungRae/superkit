@@ -1,11 +1,11 @@
 # superkit
 
-Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하는 모노레포다. Claude 원본은 `plugins/<이름>/`, Codex 전환본은 `plugins/<이름>-codex/`에 둔다. 폴더 접미사와 무관하게 두 플랫폼의 manifest 이름은 원본 이름을 유지한다. 플러그인마다 고유한 규칙은 그 디렉터리의 `AGENTS.md`나 README에 있다.
+Claude Code 플러그인과 그 Codex 지원을 한 저장소에서 관리하는 모노레포다. Claude 원본은 `plugins/<이름>/`, Codex 전환본은 `plugins/<이름>-codex/`에 둔다. 두 런타임이 같은 폴더를 함께 쓰는 공용 플러그인(현재 llm-wiki)은 `plugins/<이름>/` 하나만 둔다. 폴더 접미사와 무관하게 두 플랫폼의 manifest 이름은 원본 이름을 유지한다. 플러그인마다 고유한 규칙은 그 디렉터리의 `AGENTS.md`나 README에 있다.
 
 ## 구조
 
 - `.claude-plugin/marketplace.json` — 마켓플레이스 카탈로그. 플러그인 항목의 `source`는 `./plugins/<이름>` 상대 경로로 둔다. `version`은 여기에 적지 않는다(플러그인의 `plugin.json`이 유일한 출처).
-- `.agents/plugins/marketplace.json` — Codex 전용 카탈로그. `source.path`는 저장소 루트 기준 `./plugins/<이름>-codex`다. Claude 원본과 Codex 전환본은 각각의 카탈로그에만 등록한다.
+- `.agents/plugins/marketplace.json` — Codex 전용 카탈로그. `source.path`는 저장소 루트 기준 상대 경로로, 전환본이면 `./plugins/<이름>-codex`, 공용 플러그인이면 `./plugins/<이름>`이다. 전환본이 있는 플러그인은 원본을 Claude 카탈로그에만, 전환본을 Codex 카탈로그에만 등록한다. 공용 플러그인은 같은 폴더를 두 카탈로그에 모두 등록한다.
 - `plugins/superdomain/` — 도메인 정의·도메인/컨벤션 리뷰·ADR.
 - `plugins/superdomain-codex/` — superdomain의 Codex 전환본. 루트 `plugin.json`과 `skills/`를 사용한다.
 - `porting/<이름>/` — 전환 결정·독립 리뷰·원본/대상 기준 상태·관리 파일 목록과 검증 도구. 설치 패키지에는 포함하지 않는다.
@@ -13,7 +13,7 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 - `plugins/superglossary-codex/` — superglossary의 Codex 전환본. 용어집 관리·이름 검토 스킬과 스캐너 역할 문서.
 - `plugins/infra/` — 인프라 하네스. 플러그인 지침은 [plugins/infra/AGENTS.md](plugins/infra/AGENTS.md).
 - `plugins/superrelease/` — 프로젝트 전용 릴리스 툴킷 생성기. 플러그인 지침은 [plugins/superrelease/AGENTS.md](plugins/superrelease/AGENTS.md). 자기 자신을 릴리스하는 툴킷(`.superrelease/`, `.claude/skills/`)이 이 디렉터리 안에 있다.
-- `plugins/llm-wiki/` — LLM 위키. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
+- `plugins/llm-wiki/` — LLM 위키. Claude Code·Codex 공용 플러그인이다. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
 - `plugins/clean-code/` — 『Clean Code』 원칙 레퍼런스, 적용·리뷰 스킬과 리뷰어 에이전트. 플러그인 지침은 [plugins/clean-code/AGENTS.md](plugins/clean-code/AGENTS.md).
 - `.github/workflows/` — 플러그인마다 하나씩, 그 디렉터리가 바뀔 때만 도는 CI. Codex 전환본의 CI는 원본 디렉터리가 바뀔 때도 돈다.
 
@@ -23,7 +23,8 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 - **플러그인은 자기 디렉터리 밖을 참조하지 않는다.** 설치할 때 해당 패키지 디렉터리만 캐시로 복사되므로 패키지 밖으로 나가는 상대 경로나 다른 플러그인의 파일은 설치본에서 보이지 않는다.
 - **플러그인이 사용자 프로젝트의 지침 파일에 쓸 때**: 대상은 프로젝트 루트의 `AGENTS.md`다. 프로젝트에 `CLAUDE.md` 계열 파일이 있으면 Claude Code가 `AGENTS.md`를 읽지 않으므로 그 `CLAUDE.md`에 쓴다. 지침을 읽을 때는 `AGENTS.md`와 `CLAUDE.md`를 모두 본다.
 - 플러그인 이름(`plugin.json`의 `name`)과 마켓플레이스 항목 이름은 같게 둔다. 이름은 설치 ID(`<이름>@superkit`)라 바꾸면 기존 설치가 깨진다. 바꿔야 하면 `marketplace.json`의 `renames`에 옛 이름을 남긴다.
-- Codex 전환 시 원본·전환본·전환 기록을 함께 확인한다. 기존 전환본은 기록된 위치를 우선하며, 저장소의 기본 배치가 바뀌었다는 이유만으로 사용자 전환본을 자동 이동하지 않는다.
+- **Codex를 새로 지원할 때는 공용 폴더를 먼저 검토한다.** 런타임 차이를 스킬 문구(자리표시자를 푸는 런타임 메모, 도구가 없을 때의 폴백)로 흡수할 수 있으면 `-codex` 전환본을 만들지 않는다. 서브에이전트의 도구 제한처럼 문구로 대신할 수 없는 동작이 핵심이면 전환본을 만든다. 근거와 방식은 [llm-wiki ARCHITECTURE의 ADR-9](plugins/llm-wiki/ARCHITECTURE.md)에 있다.
+- Codex 전환 시 원본·전환본·전환 기록을 함께 확인한다. 기존 전환본은 기록된 위치를 우선하며, 저장소의 기본 배치가 바뀌었다는 이유만으로 사용자 전환본을 자동 이동하지 않는다. 기존 전환본을 공용 폴더로 합치는 일도 사용자가 정할 때만 한다.
 
 ## 브랜치·커밋
 
@@ -36,6 +37,7 @@ Claude Code 플러그인과 그 Codex 전환본을 한 저장소에서 관리하
 - 릴리즈할 때 그 플러그인의 `CHANGELOG.md`를 정리하고, `main`에 병합한 뒤 플러그인 디렉터리에서 `claude plugin tag --push`로 `<이름>--v<버전>` 태그를 단다.
 - superrelease는 자기 툴킷으로 릴리스할 수 있다 — `plugins/superrelease`에서 연 세션에서 `release` 스킬을 쓰면 버전·CHANGELOG·`superrelease--v<버전>` 태그를 함께 처리한다.
 - 위 태그 명령은 Claude 플러그인에 적용한다. Codex 전환본은 원본 업무 버전을 따르고 전환 이력은 `porting/<이름>/`에 남긴다. Codex 전환본에 Claude 태그 명령을 실행하지 않는다.
+- 공용 플러그인은 Codex도 `.claude-plugin/plugin.json`의 `version`을 읽으므로 버전이 한 곳에만 있다. 릴리즈 절차는 다른 Claude 플러그인과 같다.
 
 ## 검증
 
@@ -54,7 +56,7 @@ python3 porting/superglossary/check_repository.py
 python3 porting/superglossary/check_git_scopes.py
 ```
 
-`check_repository.py`는 원본 폴더도 `porting/<이름>/source-state.json`과 비교한다. 원본의 스킬·에이전트·manifest처럼 전환 대상인 파일을 추가·변경·삭제하면 전환본과 기준 상태를 함께 갱신해야 통과한다. `porting/<이름>/decisions.md` 대응표에서 `omit`으로 정한 경로(`docs/superpowers/` 등)는 비교하지 않으며, 그 목록은 각 `check_repository.py`에 있다.
+`check_repository.py`는 Codex 카탈로그 전체도 검사한다. 공용 플러그인 항목은 Claude 카탈로그에도 같은 폴더로 있고 `-codex` 전환본이 없을 때만 통과한다. 또 원본 폴더를 `porting/<이름>/source-state.json`과 비교한다. 원본의 스킬·에이전트·manifest처럼 전환 대상인 파일을 추가·변경·삭제하면 전환본과 기준 상태를 함께 갱신해야 통과한다. `porting/<이름>/decisions.md` 대응표에서 `omit`으로 정한 경로(`docs/superpowers/` 등)는 비교하지 않으며, 그 목록은 각 `check_repository.py`에 있다.
 
 플러그인별 테스트:
 
