@@ -152,3 +152,14 @@ claude plugin validate plugins/superglossary
 릴리스 PR의 첫 원격 CI에서 Git fixture가 `rg` 실행 파일 부재로 실패했다. Git 범위 검증에는 Python 외에 Git과 ripgrep이 필요하므로 CI에서 ripgrep을 명시적으로 설치한다. 로컬에 있던 도구를 러너 기본 설치로 가정하지 않는다.
 
 0.8.0 병합 시 원본 비교 정책도 함께 유지했다. `AGENTS.md`·`docs/superpowers/`는 계속 제외하며, 현재 패키지가 JSON 이전 안내를 제공하지 않으므로 `CHANGELOG.md`도 전부 `omit`으로 제외한다. 위 2026-11-10의 CHANGELOG 비교 유지 결정은 0.7.0에 대한 기록이다. 그 밖의 신규·수정·삭제 파일은 계속 검사하며, `--source-state`와 `--target-state` 후보 인자도 보존한다. 원본 차이는 공용 `tree_state.py compare`로 수집하고 `check_repository.py`의 `is_omitted()`가 제외 경로만 거른다.
+
+## 2026-11-17: 두 런타임 공용 플러그인을 Codex 카탈로그에 허용
+
+llm-wiki를 `-codex` 전환본 없이 원본 폴더 하나로 Codex에서도 쓰게 하면서 `.agents/plugins/marketplace.json`에 `./plugins/llm-wiki`를 등록했다(llm-wiki ARCHITECTURE의 ADR-9). `check_repository.py`의 카탈로그 검사는 모든 항목에 루트 `plugin.json`을 요구하고 Claude 원본을 가리키면 실패했으므로, 공용 폴더만 통과하게 좁혔다. 전환본과 대응표, 기준 상태는 바뀌지 않았다.
+
+- **통과하는 경우:** 항목의 폴더에 `.claude-plugin/plugin.json`이 있고, 그 폴더가 Claude 카탈로그의 패키지이며, 같은 위치에 `<이름>-codex` 폴더가 없을 때. 이름 대조는 그 `.claude-plugin/plugin.json`으로 한다.
+- **여전히 실패하는 경우:** 전환본이 있는 원본(`plugins/superglossary`)을 Codex 카탈로그에 넣음, Claude 카탈로그에 없는 Claude 플러그인 폴더, 공용 폴더인데 `-codex` 전환본도 있음.
+- **구현:** superglossary·superdomain의 `check_repository.py`에 같은 분기를 넣었다. Claude 카탈로그를 루프 전에 읽도록 옮겼고, 그 뒤의 "Codex package in Claude catalog" 검사는 그대로다. `--source-state`·`--target-state` 인자와 제외 경로는 바뀌지 않았다.
+- **독립 리뷰:** 생략했다. 전환 판단과 전환본은 그대로이고 카탈로그 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
+
+검증 결과: 두 `check_repository.py`가 현재 카탈로그에서 통과했다. 저장소 사본에서 위 세 실패 경우를 하나씩 만들었고, 두 스크립트 모두 각 경우에 AssertionError로 실패했다. GitHub의 실제 workflow 실행은 미검증이다.

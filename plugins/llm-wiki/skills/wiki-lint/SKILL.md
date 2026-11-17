@@ -5,6 +5,8 @@ description: 위키 정합성 점검 — 기계 검사(wiki_check) + LLM 판단 
 
 # /llm-wiki:wiki-lint
 
+> **런타임 메모** — 이 스킬은 Claude Code와 Codex가 함께 쓴다. Claude Code는 읽기 전에 본문의 `$` 자리표시자를 치환한다. 치환되지 않은 채 보이면(Codex 등) `CLAUDE_PLUGIN_ROOT`는 플러그인 루트(이 SKILL.md가 있는 `skills/<스킬>/`의 두 단계 위), `CLAUDE_SKILL_DIR`는 이 SKILL.md가 있는 디렉토리, `ARGUMENTS`는 사용자가 이 스킬을 부르며 함께 준 인자로 읽고, 경로는 절대 경로로 바꿔 명령에 넣는다. Read·Glob·Grep·Write·Edit·AskUserQuestion 같은 도구 이름과 `/llm-wiki:<스킬>` 호출 표기도 Claude Code 기준이다 — 그 런타임의 같은 수단으로 바꿔 쓴다.
+
 ## 1. 위키 루트
 
 현재 디렉토리부터 상위로 `.llm-wiki/config.yaml`을 Read 도구로 확인해 위키 루트를 찾는다. 없으면 "이 디렉토리는 llm-wiki 위키가 아닙니다. `/llm-wiki:wiki-init`으로 먼저 위키를 만드세요."를 출력하고 종료한다. 위키의 `AGENTS.md`와 `purpose.md`를 읽는다. 파일 읽기·찾기는 Read·Glob·Grep 도구로 하고, Bash는 `cd` 없이 명령 하나에 절대 경로로 쓴다 — `cd`·`&&`로 이은 복합 명령은 사용자 권한 확인을 부른다.
@@ -16,7 +18,7 @@ uv run "${CLAUDE_PLUGIN_ROOT}/skills/source-extract/scripts/wiki_check.py" --roo
 ```
 
 - exit 0 = clean, exit 1 = findings(JSON의 `findings` 배열). 결과를 검사 항목별로 요약한다.
-- `raw-unreferenced` 중 "미인제스트 원본"은 인자 없는 `/llm-wiki:wiki-ingest`로 처리하도록 권고하고, "인제스트 기록은 있으나 참조 없음"은 페이지 `sources[]` 누락(드리프트)이나 retire 미완료로 보고 수정 후보에 넣는다. `log-sha`(sha 없는 ingest 항목)는 재인제스트 중복 검사가 그 소스를 못 찾는다는 뜻이다 — log는 append-only이므로 고치지 말고 리포트에 알린다.
+- `raw-unreferenced` 중 "미인제스트 원본"은 인자 없는 `/llm-wiki:wiki-ingest`로 처리하도록 권고하고, "인제스트 기록은 있으나 참조 없음"은 페이지 `sources[]` 누락(드리프트)이나 retire 미완료로 보고 수정 후보에 넣는다. `log-sha`(sha 없는 ingest 항목)는 재인제스트 중복 검사가 그 소스를 못 찾는다는 뜻이다 — log는 append-only이므로 고치지 말고 리포트에 알린다. `ingest-partial`(청크 인제스트가 `part n/m`에서 멈춤)은 인자 없는 `/llm-wiki:wiki-ingest`로 다음 청크부터 이어가도록 권고한다 — 장을 나눠 읽는 중이면 그대로 둬도 된다.
 - uv가 없으면 설치 안내(`brew install uv` 등)를 출력하고, 기계 검사 없이 §3만으로 진행하되 리포트에 그 사실을 명시한다.
 
 ## 3. LLM 판단 검사 — 전수 조사 금지

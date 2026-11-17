@@ -21,6 +21,10 @@ manifest의 chunk_pages·plan_version이 이번 실행과 같으면 캐시를 �
 --info는 쪽수·목차 유무만 JSON으로 출력하고 아무 파일도 만들지 않는다.
 stdout에는 JSON만 출력한다. wiki/ 파일 직접 쓰기 금지.
 
+텍스트가 거의 없는 쪽(공백 제외 MIN_PAGE_CHARS자 미만 — 스캔·이미지 쪽, 빈 쪽)은 manifest의 empty_pages
+(쪽 범위 문자열)·empty_page_count와 part마다의 empty_page_count로 알리고, 있으면 stderr에도 경고한다.
+문서 전체에 텍스트가 없을 때만 exit 2다 — 일부만 비었는지·OCR이 필요한지는 에이전트가 판단한다.
+
 exit: 0 성공 / 1 일반 오류·사용법 오류 / 2 텍스트 추출 불가(암호화·스캔본)
 """
 from __future__ import annotations
@@ -35,6 +39,7 @@ from typing import NoReturn
 
 RESPLIT_FACTOR = 1.5
 MIN_TEXT_CHARS = 50
+MIN_PAGE_CHARS = 10  # 이보다 짧은 쪽은 "텍스트가 거의 없는 쪽"으로 보고한다(쪽 번호만 있는 스캔 쪽 등)
 PLAN_VERSION = 2  # 분할 알고리즘이 바뀌면 올린다 — manifest 값과 다르면 캐시를 재생성
 FRONT_MATTER = "(front matter)"
 
@@ -132,6 +137,17 @@ def plan_chunks(page_count: int, toc: list, chunk_pages: int) -> list[Chunk]:
     return _merge_segments(_split_span(entries, 1, page_count, top_level, title, chunk_pages), chunk_pages)
 
 
+def page_ranges(pages: list[int]) -> str:
+    """정렬된 쪽 번호 → "2-4, 7, 9-10". 빈 목록이면 빈 문자열."""
+    spans: list[list[int]] = []
+    for p in pages:
+        if spans and p == spans[-1][1] + 1:
+            spans[-1][1] = p
+        else:
+            spans.append([p, p])
+    return ", ".join(f"{a}-{b}" if a != b else str(a) for a, b in spans)
+
+
 def file_sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -168,6 +184,7 @@ def _reusable_manifest(manifest_path: Path, chunk_pages: int) -> dict | None:
         not isinstance(manifest, dict)
         or manifest.get("chunk_pages") != chunk_pages
         or manifest.get("plan_version") != PLAN_VERSION
+        or "empty_pages" not in manifest  # 빈 쪽 보고 전의 캐시 — 분할은 같으므로 다시 만들어도 part가 같다
     ):
         return None
     for part in manifest.get("parts", []):
@@ -196,6 +213,7 @@ def build_cache(pdf_path: Path, cache_dir: Path, chunk_pages: int, force: bool) 
             raise ExtractError("텍스트를 추출할 수 없는 PDF(스캔본 추정) — OCR된 사본으로 다시 시도하세요.")
         chunks = plan_chunks(doc.page_count, toc, chunk_pages)
         page_count = doc.page_count
+    empty = [i for i, t in enumerate(page_texts, start=1) if len("".join(t.split())) < MIN_PAGE_CHARS]
 
     out_dir.mkdir(parents=True, exist_ok=True)
     # 이전 분할 결과 정리 — manifest부터 지워 중간에 멈춰도 불완전한 캐시가 재사용되지 않게 한다
@@ -221,7 +239,12 @@ def build_cache(pdf_path: Path, cache_dir: Path, chunk_pages: int, force: bool) 
             body.append(page_texts[pno - 1])
             body.append("")
         (out_dir / fname).write_text("\n".join(front + body).rstrip() + "\n", encoding="utf-8")
-        parts.append({"file": str(out_dir / fname), "pages": f"{ch.start}-{ch.end}", "title": ch.title})
+        parts.append({
+            "file": str(out_dir / fname),
+            "pages": f"{ch.start}-{ch.end}",
+            "title": ch.title,
+            "empty_page_count": sum(1 for p in empty if ch.start <= p <= ch.end),
+        })
 
     manifest = {
         "source": str(pdf_path),
@@ -231,6 +254,8 @@ def build_cache(pdf_path: Path, cache_dir: Path, chunk_pages: int, force: bool) 
         "chunk_pages": chunk_pages,
         "plan_version": PLAN_VERSION,
         "toc_used": bool(_toc_entries(toc, page_count)),
+        "empty_pages": page_ranges(empty),
+        "empty_page_count": len(empty),
         "parts": parts,
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -273,6 +298,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"오류: {e}", file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    if result.get("empty_page_count"):
+        print(
+            f"텍스트가 거의 없는 쪽 {result['empty_page_count']}/{result['pages']}쪽({result['empty_pages']}) — "
+            "스캔·이미지 쪽일 수 있다. 본문이 빠졌으면 OCR된 사본으로 다시 넣는다.",
+            file=sys.stderr,
+        )
     return 0
 
 

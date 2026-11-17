@@ -6,6 +6,8 @@ user-invocable: false
 
 # source-extract — 소스 유형별 추출 레시피
 
+> **런타임 메모** — 이 스킬은 Claude Code와 Codex가 함께 쓴다. Claude Code는 읽기 전에 본문의 `$` 자리표시자를 치환한다. 치환되지 않은 채 보이면(Codex 등) `CLAUDE_PLUGIN_ROOT`는 플러그인 루트(이 SKILL.md가 있는 `skills/<스킬>/`의 두 단계 위), `CLAUDE_SKILL_DIR`는 이 SKILL.md가 있는 디렉토리, `ARGUMENTS`는 사용자가 이 스킬을 부르며 함께 준 인자로 읽고, 경로는 절대 경로로 바꿔 명령에 넣는다. Read·Glob·Grep·Write·Edit·AskUserQuestion 같은 도구 이름과 `/llm-wiki:<스킬>` 호출 표기도 Claude Code 기준이다 — 그 런타임의 같은 수단으로 바꿔 쓴다.
+
 ## 공통 규칙
 
 - 결과 원본은 `raw/sources/YYYY-MM-DD-slug.ext` — 날짜는 오늘, slug는 내용 기반 kebab-case 영어.
@@ -46,6 +48,7 @@ user-invocable: false
 
 1. 호출 **전에** wiki-ingest의 URL 중복 확인을 마친다 — 추출 결과는 실행마다 달라 sha로는 중복을 못 잡는다.
 2. Skill 도구로 `llm-wiki:web-extract`를 호출한다. 인자: `<URL>`(저장 경로를 정하고 싶으면 둘째 인자로 `<위키 루트>/raw/sources/YYYY-MM-DD-<slug>.md` — 절대 경로).
+   - Skill 도구가 없는 런타임(Codex 등)에서는 [web-extract 스킬](../web-extract/SKILL.md)의 절차를 새 컨텍스트 서브에이전트에게 맡긴다 — 작업 대화는 넘기지 않고 그 SKILL.md의 절대 경로와 위 인자만 넘긴다. 서브에이전트를 쓸 수 없으면 그 절차를 직접 따르되, 원본 HTML·본문은 캐시·저장 파일로만 다루고 대화에는 그 스킬의 §3 보고만 남긴다.
 3. 보고의 저장 경로를 원본으로 삼는다. `extraction: webfetch`면 모델 가공본이라 충실도가 낮다는 점을 분석 노트에 밝힌다.
 4. **추출 실패**(페이월·봇 차단 등): config `obsidian: true`면 "옵시디언 Web Clipper 확장으로 페이지를 저장한 뒤 그 파일을 인제스트하세요" 폴백을 안내하고, 아니면 브라우저에서 페이지를 `.html`로 저장해 로컬 HTML로 넣거나 본문을 복사해 md로 저장하는 방법을 안내한다.
 
@@ -72,7 +75,7 @@ user-invocable: false
 
    → `{"pages": N, "toc": true|false, "toc_top_entries": M}`
 2. PDF를 `<위키 루트>/raw/sources/YYYY-MM-DD-<slug>.pdf`로 복사한다(`cp`, 플래그 없이).
-3. **N ≤ config `ingest.pdf_direct_max_pages`(기본 30)**: 복사본을 직접 읽어(Read, 필요 시 pages 지정) 인제스트한다.
+3. **N ≤ config `ingest.pdf_direct_max_pages`(기본 30)**: 복사본을 직접 읽어(Read, 필요 시 pages 지정) 인제스트한다. PDF를 직접 읽을 도구가 없는 런타임(Codex 등)에서는 4번 명령을 `--chunk-pages <N>`으로 실행해 나온 part 하나를 읽는다 — N쪽 이하는 한 조각이 되고, 이때는 log에 part를 남기지 않는다.
 4. **N 초과**: 청킹한다 —
 
    ```bash
@@ -80,6 +83,7 @@ user-invocable: false
    ```
 
    (`--chunk-pages`는 config `ingest.pdf_chunk_pages` 값 사용.) stdout manifest의 `parts` 배열이 pass 계획이다: **청크당 1 pass**로 인제스트하고, 각 pass 후 log에 `part n/m (pages a-b)`를 기록한다(중단 후 재개 가능 — 재개 규칙은 wiki-ingest). 분할은 목차 경계를 따르고 작은 챕터는 `--chunk-pages`까지 묶는다. 캐시는 같은 설정이면 재사용되고, `--chunk-pages`나 분할 규칙이 바뀌면 자동으로 다시 만들어진다(`--force`는 강제 재생성).
+   manifest의 `empty_page_count`가 0이 아니면(stderr에도 경고가 나온다) `empty_pages`의 쪽은 텍스트가 거의 없다 — 스캔·이미지 쪽이거나 빈 쪽이다. 분석 노트에 그 사실을 밝히고, 본문 쪽이 비어 있으면 OCR된 사본을 권한다. part의 `empty_page_count`가 그 part의 쪽수와 같으면 텍스트 없는 청크다(log 처리는 wiki-ingest §4).
 5. **exit 2 = 텍스트 추출 불가**(암호화·스캔본): stderr 안내를 전달한다 — 암호 해제 사본 또는 OCR된 사본으로 재시도(OCR 자체는 범위 외).
 
 ## 이미지 포함 소스

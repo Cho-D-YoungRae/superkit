@@ -6,6 +6,8 @@ argument-hint: "[대상 디렉토리]"
 
 # /llm-wiki:wiki-init — 위키 생성·업그레이드
 
+> **런타임 메모** — 이 스킬은 Claude Code와 Codex가 함께 쓴다. Claude Code는 읽기 전에 본문의 `$` 자리표시자를 치환한다. 치환되지 않은 채 보이면(Codex 등) `CLAUDE_PLUGIN_ROOT`는 플러그인 루트(이 SKILL.md가 있는 `skills/<스킬>/`의 두 단계 위), `CLAUDE_SKILL_DIR`는 이 SKILL.md가 있는 디렉토리, `ARGUMENTS`는 사용자가 이 스킬을 부르며 함께 준 인자로 읽고, 경로는 절대 경로로 바꿔 명령에 넣는다. Read·Glob·Grep·Write·Edit·AskUserQuestion 같은 도구 이름과 `/llm-wiki:<스킬>` 호출 표기도 Claude Code 기준이다 — 그 런타임의 같은 수단으로 바꿔 쓴다.
+
 당신은 llm-wiki 플러그인의 init 절차를 수행한다. 템플릿 원본은 `${CLAUDE_PLUGIN_ROOT}/templates/`에 있다. 템플릿 엔진은 없다 — 아래 지시에 따라 직접 치환·제거한다.
 
 **도구 사용**: 템플릿·`ARCHITECTURE.md` 같은 플러그인 파일은 위키 밖에 있으므로 Read·Glob·Grep 도구로 읽는다(셸 `ls`·`cat`·`grep`은 작업 디렉토리 밖이라 차단되거나 권한 확인을 부른다). 렌더링 결과는 Write 도구로 쓰고, 기존 파일 병합은 Edit 도구로 한다 — `sed`·`awk`·셸 스크립트로 변환하지 않는다(권한 확인을 부르고 조건 블록 처리가 틀리기 쉽다). Bash는 `mkdir -p`·`git init`·`uv --version`에만, `cd`·셸 변수 없이 대상의 절대 경로를 그대로 적어 쓴다. 완료 확인도 Read·Glob·Grep 도구로 한다.
@@ -82,7 +84,7 @@ argument-hint: "[대상 디렉토리]"
 ### A6. 완료 안내
 
 - 생성된 구조 요약과, A3에서 보존·병합한 파일 목록을 보여준다.
-- 대상이 현재 디렉토리가 아니면: 위키 규약(`AGENTS.md`)은 그 디렉토리에서 연 세션에만 로드되므로 `cd <대상> && claude`로 새 세션을 열라고 안내한다.
+- 대상이 현재 디렉토리가 아니면: 위키 규약(`AGENTS.md`)은 그 디렉토리에서 연 세션에만 로드되므로 그 디렉토리에서 새 세션을 열라고 안내한다(예: `cd <대상>` 뒤 `claude` 또는 `codex`).
 - obsidian yes였으면: 이 디렉토리를 옵시디언 vault로 열 수 있고, **Web Clipper** 브라우저 확장으로 웹 문서를 저장한 뒤(저장 위치를 `raw/sources/`로 지정 권장) 인자 없는 `/llm-wiki:wiki-ingest`로 쌓인 파일을 한꺼번에 인제스트할 수 있으며, **graph view**로 위키 연결망을 볼 수 있다고 안내한다.
 - 다음 단계 예시를 제시한다: `/llm-wiki:wiki-ingest https://youtu.be/<영상ID>` 또는 `/llm-wiki:wiki-ingest ~/notes/some-note.md`.
 
@@ -91,7 +93,7 @@ argument-hint: "[대상 디렉토리]"
 1. 위키 `AGENTS.md`의 `<!-- llm-wiki:managed:start schema_version=N -->`에서 N을 읽는다 — **이 마커가 기준**이고 config의 `schema_version`은 사본이다. `${CLAUDE_PLUGIN_ROOT}/templates/AGENTS.md.tmpl`의 schema_version M과 비교한다.
    - 마커가 없거나 start/end 짝이 맞지 않으면: 사용자 영역을 건드리지 않고는 안전하게 교체할 수 없다 — 상황을 보고하고, 원하면 템플릿 managed 블록을 파일 맨 위에 새로 넣는 안을 diff로 보여주고 승인받은 경우에만 적용한다.
 2. **N = M**: "이미 최신 (schema_version N)"을 보고한다. config `obsidian: true`인데 `.obsidian/app.json`에 A4의 권장 키가 없으면 추가를 제안한다(승인 시 없는 키만 추가). 그 밖엔 종료.
-3. **N > M**: 위키가 이 플러그인보다 새 스키마로 만들어졌다 — **아무것도 바꾸지 않고**, `/plugin` 메뉴에서 llm-wiki를 최신으로 업데이트하라고 안내한 뒤 종료한다(다운그레이드 금지).
+3. **N > M**: 위키가 이 플러그인보다 새 스키마로 만들어졌다 — **아무것도 바꾸지 않고**, llm-wiki 플러그인을 최신으로 업데이트하라고(Claude Code는 `/plugin` 메뉴, 다른 런타임은 그 런타임의 플러그인 관리) 안내한 뒤 종료한다(다운그레이드 금지).
 4. **N < M**: 현재 `.llm-wiki/config.yaml`의 `link_style`·`obsidian` 값으로 템플릿의 새 managed 블록을 렌더링(A4의 조건 블록 규칙과 동일)하고, 기존 managed 블록과의 **diff를 사용자에게 보여주고 승인받는다**. `${CLAUDE_PLUGIN_ROOT}/ARCHITECTURE.md`의 "스키마 버전 이력"(Grep 도구로 찾아 Read)에서 vN 다음부터 vM까지의 항목으로 무엇이 왜 바뀌는지 함께 요약한다(여러 버전을 건너뛰어도 최신 블록으로 한 번에 교체한다).
 5. 승인 시: 마커 사이 내용만 교체한다(마커 밖 사용자 영역은 그대로 보존). config에 템플릿 신버전이 요구하는 새 키가 있으면 기본값으로 추가하되 기존 값은 유지하고, config의 `schema_version`을 M으로 맞춘다. `wiki/log.md`에 `## [날짜] init | 스키마 업그레이드 vN→vM`을 append한다. 적용 후 확인(관리 영역이 렌더링과 같은지, 사용자 영역이 그대로인지)은 Read·Grep 도구로 한다 — 셸 `diff`·`sed`는 권한 확인을 부른다.
 6. 거부 시 아무것도 바꾸지 않는다.

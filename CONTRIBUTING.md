@@ -27,7 +27,7 @@ superkit에 기여해 주셔서 감사합니다. 이 문서는 브랜치 전략,
 
 ## 개발·검증
 
-Claude 원본은 `plugins/<이름>/`, Codex 전환본은 `plugins/<이름>-codex/`에서 관리합니다. 전환 기록은 `porting/<이름>/`에 둡니다. 원본을 갱신한 뒤 프로젝트의 `claude-to-codex` 스킬로 기존 전환본에 변경을 반영합니다.
+Claude 원본은 `plugins/<이름>/`, Codex 전환본은 `plugins/<이름>-codex/`에서 관리합니다. 전환 기록은 `porting/<이름>/`에 둡니다. 원본을 갱신한 뒤 프로젝트의 `claude-to-codex` 스킬로 기존 전환본에 변경을 반영합니다. 공용 플러그인(llm-wiki)은 전환본이 없으므로 그 폴더만 고칩니다. 스킬 문구가 두 런타임에서 통하는지는 그 플러그인의 `AGENTS.md`를 따릅니다.
 
 ```bash
 # 마켓플레이스와 플러그인 매니페스트 검증 (저장소 루트에서)
@@ -43,11 +43,11 @@ uv run --no-project --with pytest --with pyyaml --with pymupdf pytest plugins/ll
 (cd plugins/clean-code && python3 -m unittest discover -s tests -q)
 ```
 
-Codex 전환본은 `.agents/plugins/marketplace.json`에만 등록합니다. `superdomain`과 `superglossary` 각각 `python3 porting/<이름>/check_repository.py`로 카탈로그·기준 상태를, `python3 porting/<이름>/check_git_scopes.py`로 리뷰의 Git 범위를 검사합니다. 기준 상태 검사는 원본 폴더도 비교하므로, 원본에서 전환 대상 파일을 바꾸면 전환본과 기준 상태를 함께 갱신해야 통과합니다(전환하지 않는 `docs/superpowers/` 등은 제외). 공식 매니페스트 스키마·스킬 형식·내부 링크 검사는 `.github/workflows/<이름>-codex.yml`의 절차를 따릅니다. 설치 후 스킬 선택과 모델 실행은 별도로 확인합니다.
+Codex 전환본은 `.agents/plugins/marketplace.json`에만 등록하고, 공용 플러그인은 두 카탈로그에 같은 폴더로 등록합니다. `superdomain`과 `superglossary` 각각 `python3 porting/<이름>/check_repository.py`로 카탈로그·기준 상태를, `python3 porting/<이름>/check_git_scopes.py`로 리뷰의 Git 범위를 검사합니다. 기준 상태 검사는 원본 폴더도 비교하므로, 원본에서 전환 대상 파일을 바꾸면 전환본과 기준 상태를 함께 갱신해야 통과합니다(전환하지 않는 `docs/superpowers/` 등은 제외). 공식 매니페스트 스키마·스킬 형식·내부 링크 검사는 `.github/workflows/<이름>-codex.yml`의 절차를 따릅니다. 설치 후 스킬 선택과 모델 실행은 별도로 확인합니다.
 
 ## 릴리즈 절차
 
-Claude 플러그인마다 따로 릴리즈합니다. 버전은 [유의적 버전(SemVer)](https://semver.org/lang/ko/)을 따릅니다. 아래 `claude plugin tag` 절차는 Claude 원본에만 적용합니다. Codex 전환본은 원본 업무 버전을 유지하고 전환 이력·검증 결과를 `porting/<이름>/`에 남깁니다.
+Claude 플러그인마다 따로 릴리즈합니다. 버전은 [유의적 버전(SemVer)](https://semver.org/lang/ko/)을 따릅니다. 아래 `claude plugin tag` 절차는 Claude 원본에만 적용합니다. Codex 전환본은 원본 업무 버전을 유지하고 전환 이력·검증 결과를 `porting/<이름>/`에 남깁니다. 공용 플러그인은 Codex도 같은 `plugin.json`의 버전을 읽으므로 이 절차 그대로 릴리즈합니다.
 
 1. 작업 브랜치에서 그 플러그인의 `plugin.json` `version`을 올립니다. superrelease는 `plugins/superrelease/.superrelease/scripts/version.py set <version>`(또는 그 디렉터리에서 연 세션의 `release` 스킬)을 씁니다.
 2. 그 플러그인의 `CHANGELOG.md`에 버전과 날짜로 변경 사항을 정리합니다.

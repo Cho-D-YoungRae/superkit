@@ -11,16 +11,20 @@ usage: uv run wiki_check.py [--root PATH] [--format md|json] [--stats | --pendin
   넘긴다 — `cd <위키> && …` 복합 명령은 사용자 권한 확인을 부르기 쉽다.
 
 검사: broken-link / link-style / orphan / index-missing / index-ghost /
-frontmatter / source-missing / collision / log-format / log-sha / raw-unreferenced
+frontmatter / source-missing / collision / log-format / log-sha / raw-unreferenced / ingest-partial
 --stats: 타입별 페이지 수·소스 수·log 항목 수·마지막 lint 날짜만 출력(검사 생략).
---pending: raw/sources/ 바로 아래 원본 중 sha12(sha256 앞 12자리)가 wiki/log.md 어디에도 없는 것 —
-  인제스트 대기 목록만 출력(검사 생략, 항상 exit 0). --stats와 함께 쓸 수 없다.
+--pending: raw/sources/ 바로 아래 원본 중 인제스트를 기다리는 것 — sha12(sha256 앞 12자리)가 wiki/log.md
+  어디에도 없거나, 마지막 기록이 part n/m(n < m)에서 멈춘 것(`part` 키). 목록만 출력(검사 생략, 항상 exit 0).
+  --stats와 함께 쓸 수 없다.
 
 원본 드리프트:
 - log-sha: ingest 항목 본문(다음 '## ' 헤딩 전까지)에 `sha: <12자리 이상 hex>` 줄이 없음. 재인제스트 중복
   확인이 `grep <sha12> wiki/log.md`이므로 기록이 빠지면 같은 원본이 다시 인제스트된다.
 - raw-unreferenced: raw/sources/ 바로 아래 원본(점 파일 제외)이 어느 페이지 frontmatter sources[]에도 없음.
   log에 sha12가 없으면 미인제스트, 있으면 인제스트 후 페이지 참조가 끊긴 드리프트다.
+- ingest-partial: 청크로 나눠 인제스트하는 원본(.pdf)의 마지막 ingest 기록(헤딩·본문)이 `part n/m (pages a-b)`
+  (n < m) — 중단된 인제스트. 첫 청크만 반영돼도 sha가 log에 있어 미인제스트로 잡히지 않고 페이지도 참조하므로,
+  따로 보고한다. 쪽 범위 없는 "Part 1/3"(연재 제목 등)과 PDF가 아닌 원본은 대상이 아니다.
 
 링크 판정:
 - 코드(``` · ~~~ 펜스 블록, 인라인 코드) 안의 링크와 외부 타깃(URI 스킴 https:·obsidian: 등, //, #앵커)은
@@ -62,7 +66,11 @@ WIKILINK_RE = re.compile(r"\[\[([^\[\]\n]+)\]\]")
 LOG_HEADING_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (init|ingest|query|lint|retire) \| .+$")
 LOG_ENTRY_RE = re.compile(r"^## \[", re.M)
 # ingest 항목의 sha 기록: `sha: <hex 12+>`(백틱 감싸기 허용). hex는 소문자만 — shasum 출력과 grep이 맞아야 한다
-SHA_LINE_RE = re.compile(r"\b(?i:sha):\s*`?[0-9a-f]{12,}")
+SHA_LINE_RE = re.compile(r"\b(?i:sha):\s*`?([0-9a-f]{12,})")
+# 청크 인제스트의 진행 기록: wiki-ingest가 쓰는 `part n/m (pages a-b)`(`part:`·백틱 허용). 쪽 범위까지 요구한다 —
+# 연재 글 제목의 "Part 1/3"을 중단된 인제스트로 잘못 잡지 않게
+PART_RE = re.compile(r"\b(?i:part):?\s*`?(\d+)\s*/\s*(\d+)`?\s*\((?i:pages?)\s+\d+\s*[-–]\s*\d+\)")
+CHUNKED_SUFFIXES = (".pdf",)  # 청크로 나눠 인제스트하는 원본(pdf_chunk.py)
 LINT_REPORT_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-lint\.md$")
 # 외부 타깃: URI 스킴(https:·mailto:·obsidian: …)·프로토콜 상대(//host)·같은 페이지 앵커(#…)
 EXTERNAL_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//|#)")
@@ -204,6 +212,25 @@ def parse_log_entries(text: str) -> list[tuple[int, str, list[str]]]:
     return [e for e in entries if e[1]]
 
 
+def interrupted_ingests(log_text: str) -> dict[str, str]:
+    """sha12 → "n/m" — 그 원본의 마지막 ingest 기록이 `part n/m (pages a-b)`(n < m)에서 멈춘 것.
+    호출하는 쪽은 청크 대상 원본(CHUNKED_SUFFIXES)에만 적용한다.
+
+    완료(part 기록 없음 또는 n = m)로 끝난 원본은 없다. 항목 헤딩과 본문을 함께 보고, `--force` 재인제스트가
+    처음부터 다시 시작했다면 그 마지막 기록이 기준이다."""
+    lines = log_text.splitlines()
+    last: dict[str, tuple[int, int] | None] = {}
+    for lineno, op, body in parse_log_entries(log_text):
+        if op != "ingest":
+            continue
+        text = "\n".join([lines[lineno - 1], *body])
+        part = PART_RE.findall(text)
+        progress = (int(part[-1][0]), int(part[-1][1])) if part else None
+        for sha in SHA_LINE_RE.findall(text):
+            last[sha[:12]] = progress
+    return {sha: f"{p[0]}/{p[1]}" for sha, p in last.items() if p and p[0] < p[1]}
+
+
 def _rel(path: Path, root: Path) -> str:
     try:
         return str(path.relative_to(root))
@@ -255,6 +282,7 @@ class Checker:
         self.check_log()
         self.check_log_sha()
         self.check_raw_sources()
+        self.check_interrupted_ingests()
         return self.findings
 
     # ① 깨진 링크 + config.link_style 불일치 (log·reports 기록은 당시 상태 그대로 두므로 제외)
@@ -425,8 +453,24 @@ class Checker:
             if digest in (self.log_text or ""):
                 message = f"인제스트 기록(sha: {digest})은 있으나 어느 페이지 sources[]에도 없음"
             else:
-                message = "미인제스트 원본(log에 sha 기록 없음) — /llm-wiki:wiki-ingest 대상"
+                message = "미인제스트 원본(log에 sha 기록 없음) — wiki-ingest 스킬 대상"
             self.add("raw-unreferenced", "warning", f, message)
+
+    # ⑩ 중단된 청크 인제스트 — 원본의 마지막 ingest 기록이 part n/m(n < m)
+    def check_interrupted_ingests(self) -> None:
+        interrupted = interrupted_ingests(self.log_text or "")
+        if not interrupted:
+            return
+        for f in raw_files(self.root / "raw" / "sources"):
+            if f.suffix.lower() not in CHUNKED_SUFFIXES:
+                continue
+            digest = sha12(f)
+            if digest in interrupted:
+                self.add(
+                    "ingest-partial", "warning", f,
+                    f"인제스트가 part {interrupted[digest]}에서 멈춤(sha: {digest}) — 인자 없는 wiki-ingest로 이어서 한다. "
+                    "장을 나눠 읽는 중이라면 그대로 둬도 된다",
+                )
 
 
 def run_checks(root: Path) -> list[dict]:
@@ -460,14 +504,18 @@ def collect_stats(root: Path) -> dict:
 
 
 def collect_pending(root: Path) -> list[dict]:
-    """raw/sources/ 바로 아래 원본 중 sha12가 wiki/log.md 어디에도 없는 것(인제스트 대기), 파일 경로순."""
+    """raw/sources/ 바로 아래 원본 중 인제스트를 기다리는 것, 파일 경로순 — sha12가 wiki/log.md 어디에도 없거나
+    (미인제스트) 마지막 기록이 part n/m(n < m)에서 멈춘 것(중단, `part` 키에 "n/m")."""
     log_path = root / "wiki" / "log.md"
     log_text = log_path.read_text(encoding="utf-8") if log_path.is_file() else ""
+    interrupted = interrupted_ingests(log_text)
     pending: list[dict] = []
     for f in raw_files(root / "raw" / "sources"):
         digest = sha12(f)
         if digest not in log_text:
             pending.append({"file": f.relative_to(root).as_posix(), "sha12": digest})
+        elif digest in interrupted and f.suffix.lower() in CHUNKED_SUFFIXES:
+            pending.append({"file": f.relative_to(root).as_posix(), "sha12": digest, "part": interrupted[digest]})
     return pending
 
 
@@ -500,7 +548,9 @@ def format_stats_md(stats: dict) -> str:
 def format_pending_md(pending: list[dict]) -> str:
     if not pending:
         return "미인제스트 원본 없음\n"
-    return "".join(f"- {p['file']} (sha: {p['sha12']})\n" for p in pending)
+    return "".join(
+        f"- {p['file']} (sha: {p['sha12']}" + (f", 중단: part {p['part']})\n" if "part" in p else ")\n") for p in pending
+    )
 
 
 class _Parser(argparse.ArgumentParser):
@@ -525,7 +575,7 @@ def main(argv: list[str] | None = None) -> int:
     root = find_wiki_root(Path(args.root).resolve() if args.root else Path.cwd())
     if root is None:
         print(
-            "llm-wiki 위키가 아닙니다(.llm-wiki/config.yaml을 찾지 못함). /llm-wiki:wiki-init 으로 생성하세요.",
+            "llm-wiki 위키가 아닙니다(.llm-wiki/config.yaml을 찾지 못함). llm-wiki의 wiki-init 스킬로 생성하세요.",
             file=sys.stderr,
         )
         return 1

@@ -413,7 +413,8 @@ def test_raw_unreferenced_not_ingested(wiki_check, wiki):
             "check": "raw-unreferenced",
             "severity": "warning",
             "file": "raw/sources/2026-07-28-new.md",
-            "message": "미인제스트 원본(log에 sha 기록 없음) — /llm-wiki:wiki-ingest 대상",
+            # 스크립트는 Claude Code·Codex가 함께 쓴다 — 런타임별 호출 표기(/llm-wiki:…) 대신 스킬 이름
+            "message": "미인제스트 원본(log에 sha 기록 없음) — wiki-ingest 스킬 대상",
         }
     ]
 
@@ -494,6 +495,88 @@ def test_pending_md_runs_no_checks_and_exits_zero(wiki_check, wiki):
     assert out == f"- raw/sources/2026-07-28-new.md (sha: {NEW_SHA12})\n"
 
 
+# --- 중단된 청크 인제스트: 장문 PDF 원본의 마지막 기록이 part n/m (pages a-b)(n < m) ---
+
+BOOK = "raw/sources/2026-07-28-book.pdf"
+PART_LOGS = [
+    # (log에 덧붙일 항목들, 기대 part — None이면 완료)
+    ([("ingest | 책", "part 1/3 (pages 1-20)")], "1/3"),
+    ([("ingest | 책", "part 1/3 (pages 1-20)"), ("ingest | 책", "- part: 3/3 (pages 41-60)")], None),
+    # --force 재인제스트가 처음부터 다시 시작해 멈춘 경우 — 마지막 기록이 기준
+    ([("ingest | 책", "part 3/3 (pages 41-60)"), ("ingest | 책 다시", "`part 2/3` (pages 21-40)")], "2/3"),
+    # 헤딩에 part를 적은 경우
+    ([("ingest | 책 part 2/3 (pages 21-40)", "")], "2/3"),
+    # 쪽 범위 없는 "Part 1/3"은 청크 기록이 아니다(연재 제목 등)
+    ([("ingest | 책 Part 1/3", "")], None),
+]
+
+
+def _append_ingest(wiki, entries, sha):
+    for heading, body in entries:
+        _append(wiki / "wiki" / "log.md", f"\n## [2026-07-28] {heading}\n\nsha: {sha}\n{body}\n")
+
+
+def _add_book(wiki) -> str:
+    """청킹 대상인 장문 PDF 원본을 두고 소스 요약 페이지가 참조하게 한다. sha12를 돌려준다."""
+    book = wiki / BOOK
+    book.write_bytes(b"%PDF-1.4 long book")
+    summary = wiki / "wiki" / "sources" / "note-summary.md"
+    summary.write_text(
+        summary.read_text(encoding="utf-8").replace(
+            "  - raw/sources/2026-07-27-note.md\n", f"  - raw/sources/2026-07-27-note.md\n  - {BOOK}\n"
+        ),
+        encoding="utf-8",
+    )
+    return _sha12(book)
+
+
+@pytest.mark.parametrize(("entries", "part"), PART_LOGS)
+def test_pending_lists_interrupted_chunked_ingest(wiki_check, wiki, entries, part):
+    sha = _add_book(wiki)
+    _append_ingest(wiki, entries, sha)
+    code, out = run(wiki_check, wiki, ["--pending", "--format", "json"])
+    assert code == 0
+    expected = [] if part is None else [{"file": BOOK, "sha12": sha, "part": part}]
+    assert json.loads(out) == {"pending": expected}
+
+
+def test_pending_md_marks_interrupted_ingest(wiki_check, wiki):
+    sha = _add_book(wiki)
+    _append_ingest(wiki, [("ingest | 책", "part 1/3 (pages 1-20)")], sha)
+    code, out = run(wiki_check, wiki, ["--pending"])
+    assert code == 0
+    assert out == f"- {BOOK} (sha: {sha}, 중단: part 1/3)\n"
+
+
+def test_lint_reports_interrupted_ingest(wiki_check, wiki):
+    sha = _add_book(wiki)
+    _append_ingest(wiki, [("ingest | 책", "part 1/3 (pages 1-20)")], sha)
+    code, findings = findings_of(wiki_check, wiki)
+    assert code == 1
+    assert [(f["check"], f["severity"], f["file"]) for f in findings] == [("ingest-partial", "warning", BOOK)]
+    assert "part 1/3" in findings[0]["message"] and sha in findings[0]["message"]
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "ingest | Building Agents, Part 1/3",  # 연재 글 제목 — 청킹과 무관
+        "ingest | 연재 part 2/5 (pages 1-20)",  # 형식은 같아도 PDF가 아닌 원본
+    ],
+)
+def test_part_in_title_of_unchunked_source_is_not_interrupted(wiki_check, wiki, heading):
+    _append_ingest(wiki, [(heading, "")], NOTE_SHA12)  # 픽스처 원본은 .md 노트
+    code, out = run(wiki_check, wiki, ["--pending", "--format", "json"])
+    assert json.loads(out) == {"pending": []}
+    assert findings_of(wiki_check, wiki) == (0, [])
+
+
+def test_completed_chunked_ingest_is_clean(wiki_check, wiki):
+    _append_ingest(wiki, PART_LOGS[1][0], _add_book(wiki))
+    code, findings = findings_of(wiki_check, wiki)
+    assert (code, findings) == (0, [])
+
+
 def test_pending_and_stats_are_mutually_exclusive(wiki_check, capsys):
     with pytest.raises(SystemExit) as exc:
         wiki_check.main(["--stats", "--pending"])
@@ -514,4 +597,5 @@ def test_root_option_works_from_any_cwd(wiki_check, wiki, tmp_path):
 def test_root_option_rejects_non_wiki(wiki_check, tmp_path, capsys):
     code, _ = run(wiki_check, tmp_path, ["--root", str(tmp_path)])
     assert code == 1
-    assert "위키가 아닙니다" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "위키가 아닙니다" in err and "wiki-init 스킬" in err and "/llm-wiki:" not in err

@@ -136,6 +136,14 @@ def test_plan_chunks_invariants(pdf_chunk, page_count, toc, chunk_pages):
             assert size <= chunk_pages * pdf_chunk.RESPLIT_FACTOR
 
 
+@pytest.mark.parametrize(("page_count", "toc", "_"), PLAN_SHAPES)
+def test_chunk_pages_equal_to_page_count_gives_one_part(pdf_chunk, page_count, toc, _):
+    # PDF를 직접 읽을 도구가 없는 런타임(Codex)은 짧은 PDF를 --chunk-pages <쪽수>로 한 조각만 뽑아 읽는다
+    if page_count > 0:
+        chunks = pdf_chunk.plan_chunks(page_count, toc, page_count)
+        assert [(c.start, c.end) for c in chunks] == [(1, page_count)]
+
+
 def test_info_mode(pdf_chunk, tmp_path):
     pdf = make_pdf(tmp_path / "a.pdf", pages=5)
     code, out = run(pdf_chunk, [str(pdf), "--info", "--cache-dir", str(tmp_path / "cache")])
@@ -184,7 +192,50 @@ def test_chunk_pages_change_regenerates_cache(pdf_chunk, tmp_path):
     assert sorted(p.name for p in sha_dir.glob("part-*.md")) == ["part-01.md", "part-02.md", "part-03.md"]
 
 
-@pytest.mark.parametrize("stale", ["no_plan_version", "corrupt"])
+def make_partial_scan(path, pages, text_pages):
+    """text_pages(1-기반 쪽 번호)에만 텍스트 레이어가 있는 PDF — 나머지는 스캔 이미지처럼 빈 쪽."""
+    import pymupdf
+
+    doc = pymupdf.open()
+    for i in range(1, pages + 1):
+        page = doc.new_page()
+        if i in text_pages:
+            page.insert_text((72, 72), f"Page {i} has a real text layer for testing.")
+    doc.save(str(path))
+    doc.close()
+    return path
+
+
+def test_manifest_reports_pages_without_text(pdf_chunk, tmp_path, capsys):
+    # 표지 몇 쪽만 텍스트가 있는 스캔본 — 합계 글자 수는 넘지만 본문 대부분이 비어 있다
+    pdf = make_partial_scan(tmp_path / "scan.pdf", pages=40, text_pages={1, 2, 3})
+    cache = tmp_path / "cache"
+    for _ in range(2):  # 처음 만들 때와 캐시를 재사용할 때 모두 알린다
+        code, out = run(pdf_chunk, [str(pdf), "--cache-dir", str(cache), "--chunk-pages", "20"])
+        assert code == 0
+        manifest = json.loads(out)
+        assert manifest["empty_pages"] == "4-40" and manifest["empty_page_count"] == 37
+        assert [p["empty_page_count"] for p in manifest["parts"]] == [17, 20]
+        err = capsys.readouterr().err
+        assert "텍스트가 거의 없는 쪽 37/40" in err and "4-40" in err
+
+
+def test_manifest_without_empty_pages_is_quiet(pdf_chunk, tmp_path, capsys):
+    pdf = make_pdf(tmp_path / "full.pdf", pages=25)
+    code, out = run(pdf_chunk, [str(pdf), "--cache-dir", str(tmp_path / "cache")])
+    assert code == 0
+    manifest = json.loads(out)
+    assert manifest["empty_pages"] == "" and manifest["empty_page_count"] == 0
+    assert all(p["empty_page_count"] == 0 for p in manifest["parts"])
+    assert capsys.readouterr().err == ""
+
+
+def test_page_ranges(pdf_chunk):
+    assert pdf_chunk.page_ranges([2, 3, 4, 7, 9, 10]) == "2-4, 7, 9-10"
+    assert pdf_chunk.page_ranges([]) == ""
+
+
+@pytest.mark.parametrize("stale", ["no_plan_version", "no_empty_pages", "corrupt"])
 def test_stale_manifest_is_regenerated(pdf_chunk, tmp_path, stale):
     pdf = make_pdf(tmp_path / "e.pdf", pages=45)
     cache = tmp_path / "cache"
@@ -195,6 +246,9 @@ def test_stale_manifest_is_regenerated(pdf_chunk, tmp_path, stale):
     manifest_path = cache / manifest["sha12"] / "manifest.json"
     if stale == "no_plan_version":  # 구버전 분할 알고리즘이 만든 캐시
         old = {k: v for k, v in manifest.items() if k != "plan_version"}
+        manifest_path.write_text(json.dumps(old), encoding="utf-8")
+    elif stale == "no_empty_pages":  # 빈 쪽 보고가 생기기 전의 캐시 — 분할은 같아도 다시 만든다
+        old = {k: v for k, v in manifest.items() if k != "empty_pages"}
         manifest_path.write_text(json.dumps(old), encoding="utf-8")
     else:  # 쓰기 도중 중단된 manifest
         manifest_path.write_text("{", encoding="utf-8")

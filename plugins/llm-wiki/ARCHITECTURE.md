@@ -66,7 +66,7 @@ sequenceDiagram
 | `purpose.md` · `.llm-wiki/config.yaml` | **위키** | 왜(목적·핵심 질문) · 설정 |
 | `raw/` · `wiki/` 콘텐츠 | **위키** | 데이터 전부 |
 
-플러그인을 지워도 위키는 완전하다. 플러그인은 세팅·업그레이드·소스 추출만 담당한다.
+플러그인을 지워도 위키는 완전하다. 플러그인은 세팅·업그레이드·소스 추출만 담당한다. 플러그인 폴더는 한 벌이고 Claude Code와 Codex가 함께 설치한다(ADR-9).
 
 ## 4. 옵션 매트릭스
 
@@ -102,6 +102,14 @@ WebFetch는 페이지를 소형 모델이 가공한 답을 돌려주므로, 그�
 
 **ADR-8. 스킬은 셸보다 파일 도구를, 셸은 절대 경로의 단일 명령으로 쓴다.**
 실행 점검에서 `cd <위키> && cat …` 같은 복합 명령·셸 변수·플래그 붙은 `cp`가 사용자의 권한 확인을 불렀고(읽기 차단 규칙이 있으면 `cd` 뒤의 상대 경로는 어느 파일인지 정적으로 판정할 수 없다), 위키 밖에 있는 플러그인 템플릿은 셸로는 아예 읽히지 않았다. 그래서 스킬 지시문은 파일 읽기·검색을 Read·Glob·Grep 도구로, 템플릿 렌더링을 Read→Write로 하고, Bash는 도구로 대신할 수 없는 일(`uv run` 스크립트·`curl`·`shasum`·`cp`·`mv`·`git init`)에만 `cd` 없이 절대 경로로 쓴다. `wiki_check.py`는 `--root`로 위키를 받는다. 긴 원본(자막·웹 본문)은 캐시 파일로 받아 옮기고 Write로 다시 쓰지 않는다 — 토큰 낭비이고 원문이 바뀔 위험이 있다. `tests/test_skills.py`가 `cd` 복합 명령 지시와 `--root` 없는 호출을 검사한다.
+
+**ADR-9. 한 플러그인 폴더를 Claude Code와 Codex가 함께 쓴다.**
+Codex는 저장소의 `.agents/plugins/marketplace.json`에 등록된 폴더를 설치하고, 루트 `plugin.json`이 없으면 `.claude-plugin/plugin.json`에서 이름·버전을 읽는다. 스킬 frontmatter에 Claude 전용 필드(`user-invocable`·`context`·`disallowed-tools`·`argument-hint`)가 있어도 일곱 스킬이 모두 `llm-wiki:<이름>`으로 나열된다(2026-11-17, Codex CLI 0.160.0을 격리한 `CODEX_HOME`에서 확인). 그래서 superkit의 다른 플러그인처럼 `-codex` 전환본을 두지 않는다. 이 플러그인의 핵심은 위키 스키마(`templates/`)와 스크립트인데, 두 벌로 나누면 하나가 뒤처지는 순간 같은 위키를 두 런타임이 다른 스키마로 다룬다. 남는 차이는 스킬 본문에서 흡수한다.
+- 자리표시자: Claude Code는 `${CLAUDE_PLUGIN_ROOT}`·`${CLAUDE_SKILL_DIR}`·`$ARGUMENTS`를 본문에서 치환하고, Codex는 치환하지 않는 대신 스킬 목록에 SKILL.md의 절대 경로를 준다. 그래서 자리표시자는 그대로 두고(Claude 동작 불변) 각 스킬 머리의 **런타임 메모**에 치환되지 않았을 때 SKILL.md 위치에서 푸는 법을 적는다. 메모 자체에는 치환되는 표기를 쓰지 않는다 — Claude가 메모 속 표기까지 바꿔 뜻이 망가진다.
+- 도구가 없을 때의 폴백: 포크 실행(`web-extract`)은 새 컨텍스트 서브에이전트나 직접 실행으로, PDF 직접 읽기는 `pdf_chunk.py`로 한 조각을 뽑아서, WebFetch는 그 런타임의 웹 도구로 대신한다.
+- 강제가 지시로 바뀌는 곳: `wiki-status`의 `disallowed-tools`는 Codex에서 무시되어 읽기 전용이 지시문으로만 남는다. 어겨도 피해가 작고, `web-extract`의 쓰기 제한도 원래 지시문이라 받아들인다. 서브에이전트의 도구 제한처럼 문구로 대신할 수 없는 동작이 핵심이면(superdomain·superglossary의 리뷰어) 이 방식이 맞지 않는다.
+- 스크립트의 안내 문구는 런타임별 호출 표기(`/llm-wiki:…`) 대신 스킬 이름을 쓴다.
+`tests/test_skills.py`가 자리표시자를 쓰는 스킬의 런타임 메모와, 메모에 치환 표기가 없는지를 검사한다. Codex의 기본 샌드박스는 네트워크와 uv 캐시 쓰기를 막으므로 README에 설정을 안내한다.
 
 ## 6. 스키마 버전 이력
 
