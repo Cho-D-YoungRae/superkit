@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "superglossary",
   "displayName": "Superglossary",
-  "description": "프로젝트 용어사전을 md로 관리하고 일관된 이름 짓기를 돕는 Claude Code 플러그인",
-  "version": "0.8.0",
+  "description": "프로젝트 용어사전을 md로 관리하고 일관된 이름 짓기를 돕는 Claude Code·Codex 플러그인",
+  "version": "0.9.0",
   "author": {
     "name": "Cho-D-YoungRae",
     "email": "yrc9229@gmail.com"

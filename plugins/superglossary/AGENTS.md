@@ -1,13 +1,14 @@
 # superglossary
 
-프로젝트 용어 사전을 md 표로 관리하고, 에이전트가 같은 단어로 이름을 짓게 돕는 플러그인이다. 스킬 둘과 서브에이전트 하나로 이루어지며 스크립트는 없다. 저장소 공통 규칙(브랜치·커밋·버전·태그, 사용자 프로젝트 지침 파일)은 루트 [AGENTS.md](../../AGENTS.md)를 따른다.
+프로젝트 용어 사전을 md 표로 관리하고, 에이전트가 같은 단어로 이름을 짓게 돕는 플러그인이다. 스킬 둘과 서브에이전트 하나로 이루어지며 스크립트는 없다. Claude Code와 Codex가 이 폴더를 함께 쓴다(0.9.0부터). 저장소 공통 규칙(브랜치·커밋·버전·태그, 사용자 프로젝트 지침 파일)은 루트 [AGENTS.md](../../AGENTS.md)를 따른다.
 
 ## 구조
 
-- `.claude-plugin/plugin.json` — 매니페스트. `version`이 버전의 유일한 출처다.
-- `skills/glossary/` — 용어 사전 생성·추가·수정·분리. `glossary-guide.md`가 형식·등록 규칙·분리 절차의 유일한 출처다.
+- `.claude-plugin/plugin.json` — 매니페스트. `version`이 버전의 유일한 출처다. Codex도 루트 `plugin.json`이 없으면 이 파일을 읽는다.
+- `skills/glossary/` — 용어 사전 생성·추가·수정·분리. `glossary-guide.md`가 형식·등록 규칙·분리 절차의 유일한 출처다. `references/scanner-dispatch.md`는 Agent 도구가 없는 런타임(Codex 등)이 스캐너를 띄우는 실행 계약이다.
 - `skills/check/` — 현재 작업 트리 사전으로 코드와 사전 변경의 기존 코드 영향을 검토한다. 형식은 `../glossary/glossary-guide.md`를 읽는다.
-- `agents/glossary-scanner.md` — brownfield 용어 스캔. glossary 스킬의 생성 단계에서만 부른다.
+- `skills/*/agents/openai.yaml` — Codex 스킬 목록의 표시 정보.
+- `agents/glossary-scanner.md` — brownfield 용어 스캔. glossary 스킬의 생성 단계에서만 부른다. Claude Code에서는 에이전트 정의(머리의 `model`·`tools`가 강제된다)이고, Codex에서는 서브에이전트가 읽는 역할 문서다.
 - `docs/superpowers/` — 설계 스펙과 구현 계획.
 
 ## 규칙
@@ -16,11 +17,14 @@
 - 사용자 프로젝트의 산출물은 `docs/superglossary/`의 md 파일뿐이다. 지침 파일에는 포인터 한 줄만 넣고 `@import`는 쓰지 않는다.
 - 용어 사전 형식이나 규칙을 바꾸면 `glossary-guide.md`를 고치고, 그 내용을 요약한 SKILL.md 문구가 어긋나지 않는지 함께 본다.
 - 표는 기존 5열을 유지한다. 의미·용도·예외는 설명에 짧게 적고, 기본 영문과 허용 축약을 각 열에 구분한다. 구버전 호환·자동 마이그레이션은 제공하지 않는다.
-- 개발용 평가는 설치 패키지 밖에 둔다. 스킬·guide·scanner가 저장소의 평가 자료를 런타임에 참조하지 않는다.
+- 개발용 평가와 검사는 설치 패키지 밖(`evals/superglossary/`)에 둔다. 스킬·guide·scanner가 저장소의 평가 자료를 런타임에 참조하지 않는다.
+- **두 런타임이 같은 파일을 읽는다.** 사용자 프로젝트에 남는 글(용어집 템플릿, 포인터 줄)과 guide에는 런타임 이름이나 `/superglossary:` 같은 호출 표기를 쓰지 않고 스킬 이름을 쓴다. `${CLAUDE_SKILL_DIR}`처럼 Claude Code만 치환하는 자리표시자를 쓰는 파일에는 H1 아래 런타임 메모를 두고, 메모 안에는 치환되는 표기(`$`와 이름)를 쓰지 않는다.
+- Claude 전용 도구(Agent·Grep 등)를 전제한 단계에는 그 도구가 없을 때의 경로를 함께 적는다. `rg` 같은 셸 검색 예시는 "Grep 도구가 없는 런타임"의 대안으로만 둔다 — Claude Code에서 스캐너는 셸이 없고, check의 `allowed-tools`에는 `rg`가 없다.
 
 ## 검증
 
 저장소 루트에서 실행한다.
 
 - 매니페스트·스킬 검증: `claude plugin validate . && claude plugin validate plugins/superglossary`
+- 레이아웃·Git 범위 검사: `python3 -m unittest discover -s evals/superglossary/tests -q` (Git 범위 검사는 ripgrep 실행 파일이 있어야 돈다)
 - 로컬 로드: `claude --plugin-dir plugins/superglossary` (세션 중 변경 적용은 `/reload-plugins`)

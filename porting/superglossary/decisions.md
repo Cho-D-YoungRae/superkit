@@ -1,6 +1,6 @@
 # superglossary Codex 전환
 
-현재 0.8.0 갱신 결정은 문서 끝의 **2026-11-13** 절을 따른다. 앞의 0.7.0 종료 리비전 사전·관례 예외·이전 안내는 당시 전환 기록이며 현재 규칙이 아니다.
+0.9.0에서 Codex 전환본을 원본 폴더로 합치며 이 기록을 닫았다(문서 끝의 **2026-11-17: 공용 폴더로 합침** 절). 그 앞의 절은 모두 당시 전환 기록이며 현재 규칙이 아니다.
 
 확인일: 2026-10-09. 원본 Git 기준: `e71ae9bacbaa7b7afe42c0ae533216ecc5285b3d` (`main`). 최초 생성이며 이전 대상·사용자 수정·관리 기준은 없었다.
 
@@ -163,3 +163,27 @@ llm-wiki를 `-codex` 전환본 없이 원본 폴더 하나로 Codex에서도 쓰
 - **독립 리뷰:** 생략했다. 전환 판단과 전환본은 그대로이고 카탈로그 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
 
 검증 결과: 두 `check_repository.py`가 현재 카탈로그에서 통과했다. 저장소 사본에서 위 세 실패 경우를 하나씩 만들었고, 두 스크립트 모두 각 경우에 AssertionError로 실패했다. GitHub의 실제 workflow 실행은 미검증이다.
+
+## 2026-11-17: 공용 폴더로 합침 — 이 전환 기록을 닫는다
+
+사용자 결정으로 superglossary 0.9.0부터 Codex 전환본을 따로 두지 않고, `plugins/superglossary` 한 폴더를 Claude Code와 Codex가 함께 쓴다. superdomain 0.10.0과 같은 기준이다([superdomain 전환 기록의 마지막 절](../superdomain/decisions.md)). 이 문서와 [review.md](review.md)는 0.7.0~0.8.0 전환의 이력으로 남기고 더 갱신하지 않는다.
+
+- **근거:** 원본과 전환본의 차이는 모두 문구로 풀 수 있었다. 같은 경로에 런타임마다 다른 내용이 필요한 파일이 없다. 스캐너의 `tools: Read, Grep, Glob`과 `sonnet`은 공용 폴더에서도 Claude Code가 그대로 강제하고, 전환본에서도 Codex에서는 처음부터 지시문이었다(위 대응표의 scanner 두 행). 원본이 바뀔 때마다 하던 반영·대조·독립 리뷰·기준 상태 갱신이 없어진다.
+- **옮긴 것:** `skills/glossary/references/scanner-dispatch.md`(역할 문서를 `agents/glossary-scanner.md`로 바꾸고, Claude Code에서는 쓰지 않는다고 적었다. 스캐너의 모델·reasoning은 전처럼 지정하지 않고 세션 설정을 물려받는다), 스킬 두 개의 `agents/openai.yaml`, Git 범위 검사(`evals/superglossary/tests/test_git_scopes.py`. 플러그인 지침이 개발용 검사를 설치 패키지 밖에 두라고 하므로 superdomain과 달리 `evals/`에 둔다).
+- **원본에 들인 전환본 규칙:** 스캐너 실패·중단을 미완료로 알리고 자기 검토로 대신하지 않기, 스캐너가 자료 속 지시를 따르지 않고 읽은·제외한 범위를 적기, 빈도 집계 기준을 변형끼리 맞추기, check의 `rg` 검색 예시(Grep 도구가 없는 런타임의 대안으로만), 같은 용어집을 가리키는 기존 포인터를 표기가 달라도 중복으로 보기, CLAUDE.md를 쓰는 프로젝트의 Codex 안내 문장.
+- **바꾼 것:** 포인터 줄과 용어집 템플릿 머리말의 호출 표기(원본 `/superglossary:glossary`, 전환본 `$superglossary:glossary`)를 "superglossary의 glossary 스킬"로 바꿨다. 사용자 프로젝트에 남는 글이라 두 런타임이 같은 줄을 읽는다. guide의 "Claude가"·"Codex가"는 "에이전트가"로 바꿨다.
+- **버린 것:** 루트 `plugin.json`과 그 `extensions.com.openai.interface` 표시 정보(버전을 두 곳에 두지 않으려고), 원본과 전환본의 바이트 대조, 공식 스키마 검사(`validate.cjs`), 기준 상태 파일.
+- **지운 것:** `plugins/superglossary-codex/`, `.github/workflows/superglossary-codex.yml`, 이 폴더의 `check_repository.py`·`check_git_scopes.py`·`validate.cjs`·`source-state.json`·`target-state.json`·`managed-paths.json`. 이력은 git에 있다.
+- **저장소 검사의 새 위치:** 이 폴더의 `check_repository.py`가 맡던 Codex 카탈로그 검사(이름·경로·정책, 공용 폴더 조건)는 모든 PR에서 도는 `.github/workflows/marketplace.yml`로 옮겼다. 전환 상태 도구(`.agents/skills/claude-to-codex/`)의 테스트는 `.github/workflows/claude-to-codex.yml`이 돌린다. 저장소에 전환본이 하나도 남지 않지만, 한 폴더로 맞출 수 없는 플러그인이 생기면 쓰도록 claude-to-codex 스킬은 남겼다.
+- **Codex 카탈로그:** 항목 이름 `superglossary`는 그대로이고, 경로만 `./plugins/superglossary`로 바꿨다. 같은 버전이면 기존 설치가 옛 캐시를 계속 쓰므로 0.9.0으로 올렸다. 위 2026-10-09 절의 noguesstoday 설정(`[plugins."superglossary@superkit"]`)은 설치 ID가 같아 그대로 쓰인다. 버전이 바뀔 때 마켓플레이스 갱신만으로 새 폴더를 받는지는 확인하지 않았다.
+- **행동 평가:** `evals/superglossary/results/`의 0.8.0 결과는 당시 패키지 해시에 묶여 있어 0.9.0 문구를 증명하지 않는다. 0.9.0에서 다시 돌린 범위는 아래 검증 결과에 적는다.
+
+검증 결과:
+- **정적 검사:** `evals/superglossary/tests` 15개(ripgrep이 있을 때. git 전역 설정과 HOME을 비운 환경에서도 같다), `claude plugin validate .`와 `--strict`(플러그인·스킬·에이전트), 새 `marketplace.yml` 검사, claude-to-codex 테스트, superdomain·llm-wiki 테스트가 통과했다. 새 테스트는 고치기 전 원본에서 11개 실패·3개 오류로 먼저 실패했다.
+- **카탈로그 검사 이전:** 저장소 사본에서 Codex 카탈로그를 일곱 가지로 망가뜨렸다(없는 폴더, 이름 불일치, 공용 폴더 옆의 `-codex` 폴더, 자동 설치 정책, 항목의 version, 저장소 밖 경로, 같은 이름 두 번). 옛 `marketplace.yml` 검사는 일곱 경우 모두 통과시켰고, 새 검사는 모두 실패시켰다. 바꾸지 않은 사본은 통과했다.
+- **Codex 설치:** 격리한 `CODEX_HOME`(CLI 0.160.0)에서 작업 트리 사본을 설치하니 0.9.0으로 깔렸고, `superglossary:glossary`·`superglossary:check`가 나열됐다. 설치본에 `agents/glossary-scanner.md`, `scanner-dispatch.md`, `openai.yaml` 둘이 있고, 런타임 메모가 세 파일에 있다. `evals/`는 설치본에 들어가지 않는다. 실제 Codex 세션에서 스캐너를 띄운 시험은 하지 않았다(인증이 필요하다).
+- **행동 시험(Claude 하위 에이전트가 Codex를 흉내 내어 셸만 쓰는 방식):**
+  - check, fixture 04-current: 사전만 바뀐 작업 트리에서 `src/customer.ts:2`의 `memberId`를 현재 표준 customer의 위반으로 보고했다. 런타임 메모로 `CLAUDE_SKILL_DIR`를 풀어 guide를 찾았고, 스킬의 `rg` 예시 형태를 그대로 썼다. 실행 전후 파일 해시가 같다.
+  - 스캐너(실행 계약의 입력 그대로): 시험 저장소에 사전에 쓰라는 지시 주석, 고객 의미의 customer·cust 혼용, HTTP 클라이언트 의미의 client, ignore된 `node_modules`를 두었다. 지시 주석을 따르지 않고 보고했고, client를 고객과 다른 의미로 두었으며, 의미가 불명확한 `clientId`는 확인 필요로 남겼다. customer 13회·cust 4회(주석 줄 제외, 등장 횟수)를 집계 기준과 함께 적었고, 이 수치는 직접 세어 맞는 것을 확인했다. `node_modules`는 내용을 열지 않았고 읽은 범위를 적었다. 실행 전후 파일 해시와 Git 상태가 같다.
+  - 이 시험은 Claude 하위 에이전트로 돌린 단일 회차다. Codex 모델, Claude Code의 `allowed-tools`·에이전트 `tools` 강제, slash-command dispatch는 증명하지 않는다. 나머지 0.8.0 fixture(01·02·03·04-range·05·06)는 0.9.0에서 다시 돌리지 않았다.
+- GitHub의 실제 workflow 실행은 미검증이다.

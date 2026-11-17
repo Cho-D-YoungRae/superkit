@@ -1,8 +1,8 @@
 # superglossary
 
-프로젝트 용어사전 — 이름에 쓰는 단어를 md 표 하나로 관리하고, Claude가 같은 단어로 이름을 짓도록 돕는 [Claude Code](https://code.claude.com) 플러그인입니다. 개발자와 Claude가 **같은 용어집**을 보고 이름을 지어, 같은 개념을 매번 다르게 번역하는 일(청구 → claim / billing / charge)을 막습니다.
+프로젝트 용어사전 — 이름에 쓰는 단어를 md 표 하나로 관리하고, 에이전트가 같은 단어로 이름을 짓도록 돕는 [Claude Code](https://code.claude.com)·Codex 플러그인입니다. 개발자와 에이전트가 **같은 용어집**을 보고 이름을 지어, 같은 개념을 매번 다르게 번역하는 일(청구 → claim / billing / charge)을 막습니다.
 
-스크립트나 중간 형식 없이, Claude가 `docs/superglossary/glossary.md`를 직접 읽고 고칩니다.
+스크립트나 중간 형식 없이, 에이전트가 `docs/superglossary/glossary.md`를 직접 읽고 고칩니다. Claude Code와 Codex는 같은 플러그인 폴더와 같은 용어집을 씁니다.
 
 ## 핵심 개념
 
@@ -14,7 +14,11 @@
 
 ## 설치
 
-```bash
+### Claude Code
+
+Claude Code 세션 안에서:
+
+```
 /plugin marketplace add Cho-D-YoungRae/superkit
 /plugin install superglossary@superkit
 ```
@@ -23,15 +27,49 @@ superglossary는 superkit 마켓플레이스로 배포됩니다.
 
 로컬 개발용으로는 superkit 저장소 루트에서 `claude --plugin-dir plugins/superglossary`로 띄우고, 고친 뒤 `/reload-plugins`로 반영합니다.
 
+### Codex에서 쓰기
+
+Codex도 같은 플러그인 폴더를 읽습니다. 터미널에서:
+
+```bash
+codex plugin marketplace add Cho-D-YoungRae/superkit
+```
+
+```bash
+codex plugin add superglossary@superkit
+```
+
+데스크톱 앱은 Plugins Directory의 **superkit for Codex**에서 설치합니다. 프로젝트 범위로 쓰려면 프로젝트 `.codex/config.toml`에 아래를 합칩니다. 이미 `marketplaces.superkit`이 있으면 테이블을 중복해서 만들지 않습니다.
+
+```toml
+[marketplaces.superkit]
+source_type = "git"
+source = "https://github.com/Cho-D-YoungRae/superkit.git"
+ref = "main"
+
+[plugins."superglossary@superkit"]
+enabled = true
+```
+
+0.8.0 이하의 Codex 전환본(`plugins/superglossary-codex`)을 설치했다면 설치 ID는 그대로이니 0.9.0으로 다시 설치합니다(`codex plugin marketplace upgrade superkit` 뒤 `codex plugin add superglossary@superkit`). 스킬은 `superglossary:glossary`·`superglossary:check`로 나열되므로, 스킬 목록에서 고르거나 "용어집 만들어줘", "이름을 용어집과 대조해줘 main..HEAD"처럼 요청합니다.
+
+Claude Code와 다른 점:
+
+- glossary-scanner는 Claude Code 에이전트로 등록되지 않습니다. glossary 스킬이 [스캐너 실행 계약](skills/glossary/references/scanner-dispatch.md)대로 새 컨텍스트의 서브에이전트를 띄워 `agents/glossary-scanner.md`를 역할 문서로 넘깁니다.
+- 스캐너의 읽기 전용·재위임 금지는 지시문으로만 지킵니다. Claude Code처럼 도구를 막지 않으며, 샌드박스나 custom agent를 자동으로 설치하지 않습니다.
+- 스캐너 모델은 지정하지 않고 세션 설정을 물려받습니다(`sonnet`은 Claude 모델 별칭입니다).
+- 스킬 머리의 `allowed-tools`(도구 사전 허용)와 `argument-hint`는 Codex에서 쓰이지 않습니다. 검색은 Grep 도구 대신 `rg` 같은 읽기 전용 검색을 씁니다.
+- Codex에서는 설치와 스킬 목록까지 확인했고(CLI 0.160.0), 실제 세션에서 스캐너를 띄워 돌려 보지는 않았습니다.
+
 ## 빠른 시작
 
 ```
-1. /superglossary:glossary 용어집 만들어줘
+1. /superglossary:glossary 용어집 만들어줘       (Codex: superglossary:glossary를 고르고 "용어집 만들어줘")
    → docs/superglossary/glossary.md 생성(기본 용어: 식별자·이름·일시)
    → 코드가 이미 있으면 기존 이름에서 용어를 찾아볼지 묻습니다(glossary-scanner)
    → 지침 파일(AGENTS.md, CLAUDE.md가 있으면 그 파일)에 포인터 줄을 넣을지 묻습니다
 
-2. (작업)  Claude가 이름을 짓기 전에 규칙·인덱스를 읽고 관련 용어를 검색합니다.
+2. (작업)  에이전트가 이름을 짓기 전에 규칙·인덱스를 읽고 관련 용어를 검색합니다.
            없는 단어가 필요하면 그 자리에서 등록하고 한 줄로 알립니다 — "용어 등록: 체결 → execution"
 
 3. /superglossary:check
@@ -39,19 +77,19 @@ superglossary는 superkit 마켓플레이스로 배포됩니다.
    → 위반·추가 후보·확인 필요·미검토를 구분해 보고합니다
 ```
 
-포인터 줄은 이렇게 들어갑니다. `@import`를 쓰지 않으므로 용어집은 매 세션이 아니라 이름을 지을 때만 읽힙니다.
+포인터 줄은 이렇게 들어갑니다. `@import`를 쓰지 않으므로 용어집은 매 세션이 아니라 이름을 지을 때만 읽힙니다. 두 런타임이 같은 줄을 읽으므로 호출 표기 대신 스킬 이름을 씁니다. 0.8.0 이하가 넣은 옛 줄(`/superglossary:glossary`로 추가한다)이 있으면 새로 넣지 않고, 바꿀지 묻습니다.
 
 ```
-- 용어 사전: docs/superglossary/glossary.md (이름을 짓기 전에 읽는다. 없는 단어는 /superglossary:glossary로 추가한다)
+- 용어 사전: docs/superglossary/glossary.md (이름을 짓기 전에 읽는다. 없는 단어는 superglossary의 glossary 스킬로 추가한다)
 ```
 
 ## 구성 요소
 
 | 종류 | 이름 | 역할 |
 |------|------|------|
-| 스킬 | `/superglossary:glossary` | 용어집 생성·추가·수정·삭제·분리. 이름을 짓다 사전에 없는 단어가 필요하면 Claude가 스스로 씁니다 |
+| 스킬 | `/superglossary:glossary` | 용어집 생성·추가·수정·삭제·분리. 이름을 짓다 사전에 없는 단어가 필요하면 에이전트가 스스로 씁니다 |
 | 스킬 | `/superglossary:check` | 코드와 사전 변경의 기존 코드 영향을 현재 용어집으로 검토 |
-| 서브에이전트 | `glossary-scanner` | 기존 코드에서 용어 후보와 혼용(영문 변형·빈도)을 찾음 (model: sonnet) |
+| 서브에이전트 | `glossary-scanner` | 기존 코드에서 용어 후보와 혼용(영문 변형·빈도)을 찾음 (Claude Code: model sonnet, 도구 Read·Grep·Glob. Codex: 실행 계약대로 띄우는 서브에이전트) |
 
 ## 용어집 파일
 
@@ -65,7 +103,7 @@ superglossary는 superkit 마켓플레이스로 배포됩니다.
 
 행은 한글 가나다순입니다. 사람이 직접 고쳐도 됩니다.
 
-용어가 **300개를 넘으면** Claude가 도메인별 분리를 제안합니다. 동의하면 이렇게 나눕니다.
+용어가 **300개를 넘으면** 에이전트가 도메인별 분리를 제안합니다. 동의하면 이렇게 나눕니다.
 
 ```
 docs/superglossary/
@@ -74,7 +112,7 @@ docs/superglossary/
   member.md     ← 회원 도메인 용어
 ```
 
-Claude는 규칙·인덱스를 먼저 읽고 사전 전체에서 한글 의미·영문·축약·금지·활용형을 검색합니다. 일치한 행은 설명까지 읽으며, 부족하면 관련 구간으로 넓힙니다. 검색 결과가 없다는 이유만으로 미등록을 확정하지 않습니다. 별도 Markdown 파서나 색인은 만들지 않습니다. 형식과 규칙은 [glossary-guide.md](skills/glossary/glossary-guide.md)에 있습니다.
+에이전트는 규칙·인덱스를 먼저 읽고 사전 전체에서 한글 의미·영문·축약·금지·활용형을 검색합니다. 일치한 행은 설명까지 읽으며, 부족하면 관련 구간으로 넓힙니다. 검색 결과가 없다는 이유만으로 미등록을 확정하지 않습니다. 별도 Markdown 파서나 색인은 만들지 않습니다. 형식과 규칙은 [glossary-guide.md](skills/glossary/glossary-guide.md)에 있습니다.
 
 **팀 공유**: `docs/superglossary/`와 포인터 줄이 든 지침 파일을 git에 커밋하세요.
 

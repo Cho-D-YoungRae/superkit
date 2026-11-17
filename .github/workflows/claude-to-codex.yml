@@ -1,0 +1,28 @@
+name: claude-to-codex
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".agents/skills/claude-to-codex/**"
+      - ".github/workflows/claude-to-codex.yml"
+  pull_request:
+    paths:
+      - ".agents/skills/claude-to-codex/**"
+      - ".github/workflows/claude-to-codex.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: 전환 상태 도구 테스트
+        run: python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q

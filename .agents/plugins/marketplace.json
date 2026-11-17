@@ -20,7 +20,7 @@
       "name": "superglossary",
       "source": {
         "source": "local",
-        "path": "./plugins/superglossary-codex"
+        "path": "./plugins/superglossary"
       },
       "policy": {
         "installation": "AVAILABLE",
