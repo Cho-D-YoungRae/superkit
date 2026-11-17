@@ -8,7 +8,7 @@
       "name": "superdomain",
       "source": {
         "source": "local",
-        "path": "./plugins/superdomain-codex"
+        "path": "./plugins/superdomain"
       },
       "policy": {
         "installation": "AVAILABLE",

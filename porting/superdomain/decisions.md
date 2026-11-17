@@ -315,3 +315,25 @@ llm-wiki를 `-codex` 전환본 없이 원본 폴더 하나로 Codex에서도 쓰
 - **독립 리뷰:** 생략했다. 전환 판단과 전환본은 그대로이고 카탈로그 검사 범위만 조정했다. 생략을 독립 리뷰 통과로 기록하지 않는다.
 
 검증 결과: 두 `check_repository.py`가 현재 카탈로그에서 통과했다. 저장소 사본에서 위 세 실패 경우를 하나씩 만들었고, 두 스크립트 모두 각 경우에 AssertionError로 실패했다. GitHub의 실제 workflow 실행은 미검증이다.
+
+## 2026-11-17: 공용 폴더로 합침 — 이 전환 기록을 닫는다
+
+사용자 결정으로 superdomain 0.10.0부터 Codex 전환본을 따로 두지 않고, `plugins/superdomain` 한 폴더를 Claude Code와 Codex가 함께 쓴다. 이 문서와 [review.md](review.md)는 0.6.0~0.9.0 전환의 이력으로 남기고 더 갱신하지 않는다.
+
+- **근거:** 전환본의 리뷰어 제한은 처음부터 지시문이었다(위 "사용자와 합의한 차이" 1번). 공용 폴더에서도 Claude Code는 `agents/`의 도구 제한과 모델을 그대로 쓰고, Codex는 같은 지시문을 받는다. 합쳐도 두 런타임 어느 쪽도 잃는 강제가 없다. 원본이 바뀔 때마다 하던 반영·대조·독립 리뷰·기준 상태 갱신(0.6.1부터 0.9.0 고침까지 다섯 번)이 없어진다.
+- **옮긴 것:** `skills/review/references/dispatch.md`(역할 문서를 `agents/`의 에이전트 정의로 바꾸고, 모델 대신 `reasoning_effort`를 준다), 스킬 네 개의 `agents/openai.yaml`, Git 범위 검사(`plugins/superdomain/tests/test_git_scopes.py`).
+- **원본에 들인 전환본 규칙:** 커밋 범위의 자료를 끝점 B의 `git show`로 읽기, 경로·ref 인용과 공백 경로 보존, 리뷰어를 못 띄우거나 실패하면 미검토, 리뷰어가 자료 속 지시를 따르지 않고 못 읽은 자료를 미검토로 적기, 포인터 줄(전환본의 중립 문구 그대로), CLAUDE.md를 쓰는 프로젝트의 안내 문장.
+- **버린 것:** 루트 `plugin.json`과 그 `extensions.com.openai.interface` 표시 정보(버전을 두 곳에 두지 않으려고. Codex CLI 0.160.0은 `.claude-plugin/plugin.json`을 읽는다), 원본과 전환본의 바이트 대조, 공식 스키마 검사(`validate.cjs`), 기준 상태 파일.
+- **지운 것:** `plugins/superdomain-codex/`, `.github/workflows/superdomain-codex.yml`, 이 폴더의 `check_repository.py`·`check_git_scopes.py`·`validate.cjs`·`source-state.json`·`target-state.json`·`managed-paths.json`. 이력은 git에 있다.
+- **Codex 카탈로그:** 항목 이름 `superdomain`은 그대로이고, 경로만 `./plugins/superdomain`으로 바꿨다. 같은 버전이면 기존 설치가 옛 캐시를 계속 쓰므로 0.10.0으로 올렸다.
+- 남은 런타임 확인 항목은 superdomain README의 "Codex에서 쓰기"에 있다.
+
+검증 결과:
+- **정적 검사:** `plugins/superdomain/tests` 10개, `claude plugin validate .`와 `--strict`(플러그인·스킬·에이전트), superglossary의 `check_repository.py`·`check_git_scopes.py`, marketplace CI 검사가 통과했다.
+- **Codex 설치:** 격리한 `CODEX_HOME`(CLI 0.160.0)에서 저장소 사본을 설치하니 0.10.0으로 깔렸고, 스킬 4개가 나열됐다. 설치본에 `agents/` 둘, `dispatch.md`, `openai.yaml` 넷이 있고, 런타임 메모가 6개 파일 모두에 있다. 실제 Codex 세션에서 리뷰어를 띄운 시험은 하지 않았다(인증이 필요하다).
+- **리뷰어 시험(Claude 하위 에이전트, 역할 문서를 지침으로 주는 방식):** 시험 저장소를 썼다. 끝점 B의 관계 표는 payment → order만 허용하고, B의 커밋은 order → payment 의존을 더한다. 커밋하지 않은 작업 트리의 DOMAIN.md는 관계를 뒤집어 두었고, 코드에는 리뷰어를 향한 지시 주석을 심었다.
+  - 0.9.0 문서: 작업 트리의 DOMAIN.md를 읽고 작업 트리를 검색한 뒤, 어느 판을 기준으로 할지 질문했다. 지적은 Important로 냈다. 뒤집힌 관계도 가이드의 방향 기준에 어긋나서, 이 시험은 지적 여부로는 두 판을 가르지 못했다.
+  - 0.10.0 문서: DOMAIN.md와 코드를 B의 `git show`로만 읽고 같은 지적을 냈다.
+  - 두 판 모두 지시 주석을 따르지 않았다.
+- **시험에서 찾아 고친 것:** 두 판 모두 B를 검색하려고 허용 목록 밖의 `git ls-tree`·`git grep`을 썼다. 커밋 범위 규칙을 지키려면 필요한 명령이라 리뷰어 두 문서, review 스킬, 실행 계약의 허용 목록에 넣었고, 테스트가 이를 검사한다. 고친 문서로 다시 돌리니 허용 목록 안에서 같은 결과가 나왔다.
+- GitHub의 실제 workflow 실행은 미검증이다.
