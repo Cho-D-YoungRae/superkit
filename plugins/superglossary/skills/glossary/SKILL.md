@@ -7,7 +7,9 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Agent, Bash(git rev-parse:*)
 
 # 용어 사전 관리
 
-`docs/superglossary/`의 md 표에 이름에 쓰는 단어를 모은다. 사람과 Claude가 같은 단어로 이름을 짓게 하는 것이 목적이다. 같은 개념이 claim·billing·charge처럼 매번 다르게 번역되는 일을 막는다.
+> **런타임 메모** — 이 스킬은 Claude Code와 Codex가 함께 쓴다. Claude Code는 읽기 전에 본문의 `$` 자리표시자를 치환한다. 치환되지 않은 채 보이면(Codex 등) `CLAUDE_SKILL_DIR`는 이 SKILL.md가 있는 디렉터리로 읽고, 경로는 절대 경로로 바꿔 쓴다. Read·Grep·Glob·Edit·Write·Agent 같은 도구 이름과 `/superglossary:<스킬>` 호출 표기도 Claude Code 기준이다 — 그 런타임의 같은 수단으로 바꿔 쓴다. 사용자 확인이 필요한 단계는 그 런타임의 질문 도구나 대화로 답을 받은 뒤 진행한다.
+
+`docs/superglossary/`의 md 표에 이름에 쓰는 단어를 모은다. 사람과 에이전트가 같은 단어로 이름을 짓게 하는 것이 목적이다. 같은 개념이 claim·billing·charge처럼 매번 다르게 번역되는 일을 막는다.
 
 형식, 필요한 부분 읽기, 등록 규칙, 분리 절차는 `${CLAUDE_SKILL_DIR}/glossary-guide.md`에 있다. 이 세션에서 처음 사용할 때 읽고 이후에도 판단에 필요한 절을 참고한다.
 
@@ -43,14 +45,20 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Agent, Bash(git rev-parse:*)
    기준 문서: ${CLAUDE_SKILL_DIR}/glossary-guide.md
    ```
 
+   Agent 도구가 없는 런타임(Codex 등)에서는 [스캐너 실행 계약](references/scanner-dispatch.md)을 읽고, 새 컨텍스트의 서브에이전트에 [glossary-scanner](../../agents/glossary-scanner.md)를 역할 문서로 넘긴다. 입력은 실행 계약의 형식을 따른다(위 세 항목에 역할 문서·실행 계약의 경로와 제한·출력을 더한다).
+
+   스캐너를 띄울 수 없거나 스캐너가 실패·중단되면 범위와 이유를 알리고 스캔을 미완료로 둔다. 빈 결과나 이 스킬의 자기 검토로 대신하지 않는다. 이미 만든 기본 용어집은 그대로 둔다.
+
 3. scanner가 돌려준 후보와 혼용 리포트를 보여 주고, 사용자가 고른 것을 등록한다. 같은 의미·용도의 혼용에만 표준 하나를 고르고 나머지 변형을 그 행의 금지 열에 둔다. 다른 의미는 설명으로 구분하고, 금지 적용이 불명확하면 확인받는다.
 4. 지침 파일에 아래 포인터 줄이 없으면 넣을지 묻고, 동의하면 넣는다.
 
    ```
-   - 용어 사전: docs/superglossary/glossary.md (이름을 짓기 전에 읽는다. 없는 단어는 /superglossary:glossary로 추가한다)
+   - 용어 사전: docs/superglossary/glossary.md (이름을 짓기 전에 읽는다. 없는 단어는 superglossary의 glossary 스킬로 추가한다)
    ```
 
-   대상은 프로젝트 루트의 `AGENTS.md`다. 루트에 `CLAUDE.md`·`.claude/CLAUDE.md`·`CLAUDE.local.md` 중 하나라도 있으면 그 파일이다(그때 Claude Code는 `AGENTS.md`를 읽지 않는다). 대상 파일이 없으면 만들지 않고 줄을 제안만 한다. `@import`는 쓰지 않는다 — 매 세션 사전 전체를 불러오기 때문이다.
+   대상은 프로젝트 루트의 `AGENTS.md`다. 루트에 `CLAUDE.md`·`.claude/CLAUDE.md`·`CLAUDE.local.md` 중 하나라도 있으면 그 파일이다(그때 Claude Code는 `AGENTS.md`를 읽지 않는다). Codex는 CLAUDE.md를 자동으로 읽지 않으므로, Codex에서 그 파일에 줄을 썼으면 다음 세션에서 그 파일을 읽으라고 안내한다. 대상 파일이 없으면 만들지 않고 줄을 제안만 한다. `@import`는 쓰지 않는다 — 매 세션 사전 전체를 불러오기 때문이다.
+
+   같은 용어집을 가리키는 포인터 줄이 이미 있으면 표기가 달라도(옛 `/superglossary:glossary` 표기나 Codex 전환본 시절의 표기) 새로 넣지 않는다. 지금 줄로 바꿀지는 묻고, 동의할 때만 바꾼다. 포인터 줄은 두 런타임이 같은 줄을 읽으므로 호출 표기 대신 스킬 이름을 쓴다.
 
 ## 하지 않는 것
 

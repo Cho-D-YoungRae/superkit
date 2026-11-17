@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: 마켓플레이스 항목과 플러그인 매니페스트 대조
+      - name: 두 마켓플레이스 카탈로그와 플러그인 매니페스트 대조
         shell: python
         run: |
           import json, pathlib, sys
@@ -40,6 +40,44 @@ jobs:
           on_disk = {p.parent.parent.name for p in root.glob("plugins/*/.claude-plugin/plugin.json")}
           if listed != on_disk:
               errors.append(f"마켓플레이스 목록 {sorted(listed)}과 plugins/ {sorted(on_disk)}가 다름")
+          # Codex 카탈로그: 공용 폴더는 Claude 카탈로그에도 같은 폴더로 있고 -codex 전환본이 없어야 한다.
+          # 전환본(루트 plugin.json)은 Claude 카탈로그에 넣지 않는다.
+          codex = json.loads((root / ".agents/plugins/marketplace.json").read_text(encoding="utf-8"))
+          claude_packages = {(root / e["source"]).resolve() for e in catalog["plugins"]}
+          names = [e["name"] for e in codex["plugins"]]
+          if len(set(names)) != len(names):
+              errors.append("Codex 카탈로그에 같은 이름이 둘 이상 있다")
+          for entry in codex["plugins"]:
+              name, source = entry["name"], entry["source"]
+              if source.get("source") != "local" or not source.get("path", "").startswith("./"):
+                  errors.append(f"codex {name}: source는 ./로 시작하는 local 경로다")
+                  continue
+              package = (root / source["path"]).resolve()
+              if not package.is_relative_to(root.resolve()):
+                  errors.append(f"codex {name}: 저장소 밖을 가리킨다")
+                  continue
+              if (package / ".claude-plugin/plugin.json").is_file():
+                  manifest_path = package / ".claude-plugin/plugin.json"
+                  if package not in claude_packages:
+                      errors.append(f"codex {name}: Claude 플러그인 폴더인데 Claude 카탈로그에 없다")
+                  if package.with_name(f"{package.name}-codex").exists():
+                      errors.append(f"codex {name}: 공용 폴더인데 -codex 전환본도 있다")
+              elif (package / "plugin.json").is_file():
+                  manifest_path = package / "plugin.json"
+                  if package in claude_packages:
+                      errors.append(f"codex {name}: Codex 전환본이 Claude 카탈로그에도 있다")
+              else:
+                  errors.append(f"codex {name}: {source['path']}에 plugin.json이 없다")
+                  continue
+              if json.loads(manifest_path.read_text(encoding="utf-8")).get("name") != name:
+                  errors.append(f"codex {name}: 카탈로그 이름과 manifest 이름이 다르다")
+              if "version" in entry:
+                  errors.append(f"codex {name}: version은 plugin.json에만 적는다")
+              policy = entry.get("policy", {})
+              if policy.get("installation") != "AVAILABLE" or policy.get("authentication") != "ON_INSTALL":
+                  errors.append(f"codex {name}: policy는 AVAILABLE·ON_INSTALL이다(자동 설치하지 않는다)")
+              if not entry.get("category"):
+                  errors.append(f"codex {name}: category가 없다")
           # CLAUDE.md가 하나라도 있으면 Claude Code가 AGENTS.md를 읽지 않는다.
           ignored = ("tests/fixtures/",)
           for name in ("CLAUDE.md", "CLAUDE.local.md"):

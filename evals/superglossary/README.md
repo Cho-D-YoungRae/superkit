@@ -16,7 +16,7 @@ python3 evals/superglossary/prepare.py /tmp/superglossary-run
 
 ### Claude CLI
 
-인증 가능한 별도 평가 환경에서 아래와 같이 실행하면 native plugin 로딩과 기계 판독 가능한 도구 기록을 함께 확인할 수 있다. `--bare`는 사용자 설정/메모리/자동 탐색을 배제하고 API key 기반 인증만 사용한다. 로그인하거나 키를 복사하는 작업은 이 suite가 하지 않는다. 패키지 경로는 평가할 **Claude 원본**의 절대 경로다.
+인증 가능한 별도 평가 환경에서 아래와 같이 실행하면 native plugin 로딩과 기계 판독 가능한 도구 기록을 함께 확인할 수 있다. `--bare`는 사용자 설정/메모리/자동 탐색을 배제하고 API key 기반 인증만 사용한다. 로그인하거나 키를 복사하는 작업은 이 suite가 하지 않는다. 패키지 경로는 평가할 `plugins/superglossary`의 절대 경로다(0.9.0부터 Claude Code와 Codex가 같은 폴더를 쓴다).
 
 ```bash
 task_package=/absolute/path/to/plugins/superglossary
@@ -38,7 +38,7 @@ git status --short > "$task_output/status.txt"
 
 ### 대체 하네스
 
-native CLI 인증/실행이 불가능하면 대화 이력을 넘기지 않은 새 서브에이전트에게 패키지 경로, fixture 경로, 해당 `PROMPT.md`만 준다. 전용 `Read/Grep` 대신 shell `rg`와 범위 읽기를 사용하는 등 실제 도구 차이를 기록한다. 이 방식은 지침을 따른 판단을 검증하지만 Claude의 slash-command dispatch, frontmatter의 `allowed-tools` 강제, 설치 캐시 동작, 특정 모델의 성능은 증명하지 않는다. Codex 전환본에도 같은 방식으로 별도 실행할 수 있다.
+native CLI 인증/실행이 불가능하면 대화 이력을 넘기지 않은 새 서브에이전트에게 패키지 경로, fixture 경로, 해당 `PROMPT.md`만 준다. 전용 `Read/Grep` 대신 shell `rg`와 범위 읽기를 사용하는 등 실제 도구 차이를 기록한다. 이 방식은 지침을 따른 판단을 검증하지만 Claude의 slash-command dispatch, frontmatter의 `allowed-tools` 강제, 설치 캐시 동작, 특정 모델의 성능은 증명하지 않는다. Codex에서 실행할 때도 같은 패키지를 쓴다. 0.8.0까지는 Codex 전환본(`plugins/superglossary-codex`)을 따로 평가했다.
 
 평가 요청 템플릿:
 
@@ -59,3 +59,7 @@ EXPECTED.md 및 이전 결과는 읽지 마세요.
 - 읽기 효율은 답변 내용만으로 판정하지 않는다. 05의 실제 검색과 범위 읽기 기록을 검토한다. 검색 없음만으로 용어 미등록을 단정하면 실패다.
 - 합성 이력 커밋은 `/tmp`의 평가 저장소 안에만 생긴다. 평가 대상 저장소에는 커밋하거나 플러그인을 설치하지 않는다.
 - 결과는 `results/`에 남긴다. 단일 회차의 통과는 통계적 안정성이나 native runtime 호환성 전체를 보증하지 않는다.
+
+## 패키지 검사
+
+`tests/`는 모델을 돌리지 않는 정적 검사다. 레이아웃(런타임 메모, 스캐너의 도구 제한, 두 런타임의 스캐너 호출 경로, 사용자 프로젝트에 남는 글, 내부 링크)과, check 스킬이 적어 둔 Git·검색 명령을 일회용 저장소에서 실제로 실행하는 Git 범위 검사로 이루어진다. 저장소 루트에서 `python3 -m unittest discover -s evals/superglossary/tests -q`로 돌린다. Git 범위 검사는 ripgrep 실행 파일이 PATH에 있어야 돌고, 없으면 로컬에서는 건너뛰며 CI(`CI` 환경 변수가 있을 때)에서는 실패한다.

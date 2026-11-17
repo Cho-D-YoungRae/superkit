@@ -1,5 +1,7 @@
 # 실행 결과
 
+> 이 문서의 결과는 0.7.0·0.8.0 패키지(당시의 Claude 원본과 Codex 전환본)에 대한 것이다. 0.9.0에서 두 패키지를 `plugins/superglossary` 하나로 합쳤고, 그때 다시 돌린 범위(04-current와 스캐너 시험)는 [porting/superglossary/decisions.md](../../../porting/superglossary/decisions.md)의 마지막 절에 있다.
+
 실행일: 2026-11-13 (Asia/Seoul).
 
 ## 하네스

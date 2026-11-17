@@ -7,6 +7,28 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-17
+
+Claude Code와 Codex가 같은 플러그인 폴더를 씁니다. 따로 두던 Codex 전환본(`plugins/superglossary-codex`)을 이 폴더로 합쳤습니다.
+
+### Added
+
+- Codex 지원: `codex plugin add superglossary@superkit`으로 이 폴더를 설치합니다. 스킬과 스캐너 정의마다 런타임 메모를 두어 Codex가 치환하지 않는 자리표시자와 Claude 전용 도구 이름을 푸는 법을 적었습니다. 스킬마다 Codex 표시 정보(`agents/openai.yaml`)를 둡니다.
+- Agent 도구가 없는 런타임은 스캐너 실행 계약(`skills/glossary/references/scanner-dispatch.md`)대로 새 컨텍스트의 서브에이전트를 띄워 `agents/glossary-scanner.md`를 역할 문서로 넘깁니다. Claude Code에서는 스캐너의 모델(`sonnet`)과 도구 제한(Read·Grep·Glob)이 전처럼 적용됩니다.
+- 스캐너를 띄울 수 없거나 실패하면 스캔을 미완료로 알립니다(빈 결과나 자기 검토로 대신하지 않습니다). 스캐너는 읽은 자료 속 지시를 따르지 않고, 읽은 범위·제외한 범위를 적으며, 빈도의 집계 기준(같은 범위·대소문자·단어 경계)을 맞춥니다.
+- check: Grep 도구가 없는 런타임을 위한 `rg` 검색 예시를 더했습니다.
+- 개발용 검사(`evals/superglossary/tests/`): 런타임 메모, 스캐너의 도구 제한, 두 런타임의 스캐너 호출 경로, 포인터 줄과 용어집 템플릿, 내부 링크, check의 Git·검색 명령.
+
+### Changed
+
+- 지침 파일의 포인터 줄과 용어집 템플릿 머리말이 `/superglossary:glossary` 대신 "superglossary의 glossary 스킬"로 적습니다. 두 런타임이 같은 파일을 읽기 때문입니다. 같은 용어집을 가리키는 옛 포인터가 있으면 줄을 새로 넣지 않고, 바꿀지 묻습니다.
+- guide와 스킬 문구의 "Claude가"를 "에이전트가"로 바꿨습니다.
+
+### 이행
+
+- Claude Code: 할 일이 없습니다. 이미 만든 용어집의 머리말과 포인터 줄은 그대로 써도 됩니다.
+- Codex: 설치 ID는 그대로 `superglossary@superkit`입니다. 카탈로그가 가리키는 폴더가 바뀌었으므로 0.9.0으로 다시 설치합니다.
+
 ## [0.8.0] - 2026-11-13
 
 ### Changed

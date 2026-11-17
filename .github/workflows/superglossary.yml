@@ -1,0 +1,37 @@
+name: superglossary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/superglossary/**"
+      - "evals/superglossary/**"
+      - ".github/workflows/superglossary.yml"
+  pull_request:
+    paths:
+      - "plugins/superglossary/**"
+      - "evals/superglossary/**"
+      - ".github/workflows/superglossary.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      # check 스킬의 rg 예시를 실제로 실행한다. 러너 기본 설치로 가정하지 않는다.
+      - name: 검색 도구 준비
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ripgrep
+          rg --version
+
+      - name: 테스트
+        run: python3 -m unittest discover -s evals/superglossary/tests -q
