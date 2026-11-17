@@ -27,7 +27,7 @@ superkit에 기여해 주셔서 감사합니다. 이 문서는 브랜치 전략,
 
 ## 개발·검증
 
-플러그인은 `plugins/<이름>/`에서 관리합니다. Codex를 지원하는 플러그인(llm-wiki·superdomain·superglossary)은 Claude Code와 Codex가 같은 폴더를 쓰므로 그 폴더만 고칩니다. 스킬 문구가 두 런타임에서 통하는지는 그 플러그인의 `AGENTS.md`를 따릅니다. 한 폴더로 맞출 수 없어 Codex 전환본(`plugins/<이름>-codex/`)을 두게 되면 프로젝트의 `claude-to-codex` 스킬로 만들고 갱신하며, 전환 기록은 `porting/<이름>/`에 둡니다.
+플러그인은 `plugins/<이름>/`에서 관리합니다. Codex를 지원하는 플러그인(llm-wiki·superdomain·superglossary·pstack)은 Claude Code와 Codex가 같은 폴더를 쓰므로 그 폴더만 고칩니다. 스킬 문구가 두 런타임에서 통하는지는 그 플러그인의 `AGENTS.md`를 따릅니다. pstack은 외부 원본에서 생성하므로 `plugins/pstack/`을 직접 고치지 않고 `porting/pstack/`의 overlay나 동기화 스크립트를 고칩니다. 한 폴더로 맞출 수 없어 Codex 전환본(`plugins/<이름>-codex/`)을 두게 되면 프로젝트의 `claude-to-codex` 스킬로 만들고 갱신하며, 전환 기록은 `porting/<이름>/`에 둡니다.
 
 ```bash
 # 마켓플레이스와 플러그인 매니페스트 검증 (저장소 루트에서)
@@ -43,6 +43,7 @@ uv run --no-project --with pytest --with pyyaml --with pymupdf pytest plugins/ll
 (cd plugins/clean-code && python3 -m unittest discover -s tests -q)
 (cd plugins/superdomain && python3 -m unittest discover -s tests -q)
 python3 -m unittest discover -s evals/superglossary/tests -q   # Git 범위 검사에 ripgrep 필요
+python3 -m unittest discover -s porting/pstack/tests -q
 python3 -m unittest discover -s .agents/skills/claude-to-codex/tests -q
 ```
 
