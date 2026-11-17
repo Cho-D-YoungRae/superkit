@@ -1,0 +1,30 @@
+name: pstack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugins/pstack/**"
+      - "porting/pstack/**"
+      - ".github/workflows/pstack.yml"
+  pull_request:
+    paths:
+      - "plugins/pstack/**"
+      - "porting/pstack/**"
+      - ".github/workflows/pstack.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: 고정한 원본·변환 규칙·Codex 어댑터 대조
+        run: python3 -m unittest discover -s porting/pstack/tests -q

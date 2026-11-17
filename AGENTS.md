@@ -1,18 +1,19 @@
 # superkit
 
-Claude Code 플러그인과 그 Codex 지원을 한 저장소에서 관리하는 모노레포다. 플러그인은 `plugins/<이름>/`에 둔다. Codex를 지원하는 플러그인(현재 llm-wiki·superdomain·superglossary)은 두 런타임이 같은 폴더를 함께 쓰는 공용 플러그인이다. 한 폴더로 두 런타임을 맞출 수 없을 때만 Codex 전환본을 `plugins/<이름>-codex/`에 따로 두며, 지금은 전환본이 없다. 폴더 접미사와 무관하게 두 플랫폼의 manifest 이름은 원본 이름을 유지한다. 플러그인마다 고유한 규칙은 그 디렉터리의 `AGENTS.md`나 README에 있다.
+Claude Code 플러그인과 그 Codex 지원을 한 저장소에서 관리하는 모노레포다. 플러그인은 `plugins/<이름>/`에 둔다. Codex를 지원하는 플러그인(현재 llm-wiki·superdomain·superglossary·pstack)은 두 런타임이 같은 폴더를 함께 쓰는 공용 플러그인이다. 한 폴더로 두 런타임을 맞출 수 없을 때만 Codex 전환본을 `plugins/<이름>-codex/`에 따로 두며, 지금은 전환본이 없다. 폴더 접미사와 무관하게 두 플랫폼의 manifest 이름은 원본 이름을 유지한다. 플러그인마다 고유한 규칙은 그 디렉터리의 `AGENTS.md`나 README에 있다.
 
 ## 구조
 
 - `.claude-plugin/marketplace.json` — 마켓플레이스 카탈로그. 플러그인 항목의 `source`는 `./plugins/<이름>` 상대 경로로 둔다. `version`은 여기에 적지 않는다(플러그인의 `plugin.json`이 유일한 출처).
 - `.agents/plugins/marketplace.json` — Codex 전용 카탈로그. `source.path`는 저장소 루트 기준 상대 경로로, 공용 플러그인이면 `./plugins/<이름>`, 전환본이면 `./plugins/<이름>-codex`이다. 공용 플러그인은 같은 폴더를 두 카탈로그에 모두 등록한다. 전환본을 두면 원본은 Claude 카탈로그에만, 전환본은 Codex 카탈로그에만 등록한다. 두 카탈로그는 `marketplace` CI가 함께 검사한다.
 - `plugins/superdomain/` — 도메인 정의·도메인/컨벤션 리뷰·ADR. Claude Code·Codex 공용 플러그인이다(0.10.0부터).
-- `porting/<이름>/` — Codex 전환 기록. 설치 패키지에는 포함하지 않는다. 지금은 공용 폴더로 합치기 전의 기록(superdomain·superglossary의 `decisions.md`·`review.md`)만 이력으로 남아 있다. 전환본을 새로 두면 전환 결정·독립 리뷰·기준 상태와 검증 도구를 여기에 둔다.
+- `porting/<이름>/` — Codex 전환 기록. 설치 패키지에는 포함하지 않는다. superdomain·superglossary는 공용 폴더로 합치기 전의 기록(`decisions.md`·`review.md`)이 이력으로 남아 있다. `porting/pstack/`은 외부 플러그인을 옮겨 오는 도구(동기화 스크립트·고정한 원본·overlay·테스트)와 결정 기록이다. 전환본을 새로 두면 전환 결정·독립 리뷰·기준 상태와 검증 도구를 여기에 둔다.
 - `plugins/superglossary/` — 프로젝트 용어사전. Claude Code·Codex 공용 플러그인이다(0.9.0부터). 플러그인 지침은 [plugins/superglossary/AGENTS.md](plugins/superglossary/AGENTS.md).
 - `plugins/infra/` — 인프라 하네스. 플러그인 지침은 [plugins/infra/AGENTS.md](plugins/infra/AGENTS.md).
 - `plugins/superrelease/` — 프로젝트 전용 릴리스 툴킷 생성기. 플러그인 지침은 [plugins/superrelease/AGENTS.md](plugins/superrelease/AGENTS.md). 자기 자신을 릴리스하는 툴킷(`.superrelease/`, `.claude/skills/`)이 이 디렉터리 안에 있다.
 - `plugins/llm-wiki/` — LLM 위키. Claude Code·Codex 공용 플러그인이다. 플러그인 지침은 [plugins/llm-wiki/AGENTS.md](plugins/llm-wiki/AGENTS.md).
 - `plugins/clean-code/` — 『Clean Code』 원칙 레퍼런스, 적용·리뷰 스킬과 리뷰어 에이전트. 플러그인 지침은 [plugins/clean-code/AGENTS.md](plugins/clean-code/AGENTS.md).
+- `plugins/pstack/` — poteto(Lauren Tan)의 [pstack](https://github.com/cursor/plugins/tree/main/pstack)을 옮긴 Claude Code·Codex 공용 플러그인. upstream의 Claude Code 생성본에 Codex 어댑터를 얹어 `porting/pstack/sync.py`가 만든다 — 손으로 고치지 않는다. 플러그인 지침은 [plugins/pstack/AGENTS.md](plugins/pstack/AGENTS.md).
 - `evals/<이름>/` — 설치 패키지 밖의 개발용 평가와 검사(현재 superglossary).
 - `.agents/skills/claude-to-codex/` — Codex 전환본을 만들고 갱신하는 프로젝트 스킬. 공용 폴더로 충분한지 먼저 검토하는 기준도 여기에 있다.
 - `.github/workflows/` — 플러그인마다 하나씩, 그 디렉터리가 바뀔 때만 도는 CI. `marketplace`는 모든 변경에서 두 카탈로그를 검사하고, `claude-to-codex`는 그 스킬의 테스트를 돌린다. 전환본을 두면 그 CI는 원본 디렉터리가 바뀔 때도 돌게 한다.
@@ -73,6 +74,10 @@ cd plugins/superdomain && python3 -m unittest discover -s tests -q
 
 ```bash
 python3 -m unittest discover -s evals/superglossary/tests -q
+```
+
+```bash
+python3 -m unittest discover -s porting/pstack/tests -q
 ```
 
 superglossary의 Git 범위 검사는 check 스킬의 `rg` 예시를 실제로 실행하므로 ripgrep 실행 파일이 필요하다(없으면 로컬에서는 건너뛰고 CI에서는 실패한다).
