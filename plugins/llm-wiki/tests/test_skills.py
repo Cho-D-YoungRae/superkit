@@ -46,6 +46,28 @@ def test_skills_do_not_prescribe_cd_chains(path):
     assert 'cd "<위키 루트>" &&' not in path.read_text(encoding="utf-8")
 
 
+# 같은 스킬 폴더를 Claude Code와 Codex가 함께 읽는다(ARCHITECTURE ADR-9). Codex는 Claude Code의 자리표시자를
+# 치환하지 않으므로, 자리표시자를 쓰는 스킬은 푸는 법을 적은 런타임 메모를 둔다.
+RUNTIME_NOTE = "**런타임 메모**"
+CLAUDE_PLACEHOLDER_RE = re.compile(r"\$\{CLAUDE_[A-Z_]+\}|\$ARGUMENTS")
+# Claude Code가 본문에서 치환하는 표기($ARGUMENTS·$0·${…} 등) — 메모 자체에 있으면 Claude에서 뜻이 망가진다
+SUBSTITUTABLE_RE = re.compile(r"\$[\w{]")
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=lambda p: p.parent.name)
+def test_skills_with_claude_placeholders_carry_runtime_note(path):
+    text = path.read_text(encoding="utf-8")
+    if CLAUDE_PLACEHOLDER_RE.search(text):
+        assert RUNTIME_NOTE in text, f"{path.parent.name}: Codex에서 자리표시자를 푸는 런타임 메모가 없다"
+
+
+@pytest.mark.parametrize("path", SKILL_FILES, ids=lambda p: p.parent.name)
+def test_runtime_note_survives_claude_substitution(path):
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if RUNTIME_NOTE in line:
+            assert not SUBSTITUTABLE_RE.search(line), f"{path.parent.name}: 런타임 메모에 치환되는 표기가 있다"
+
+
 @pytest.mark.parametrize("path", SKILL_FILES, ids=lambda p: p.parent.name)
 def test_wiki_check_invocations_pass_root(path):
     for line in path.read_text(encoding="utf-8").splitlines():

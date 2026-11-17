@@ -5,7 +5,8 @@
 ## 저장소 구조
 
 ```
-.claude-plugin/          plugin.json(매니페스트) — 마켓플레이스는 superkit 루트의 .claude-plugin/marketplace.json
+.claude-plugin/          plugin.json(매니페스트 — Codex도 이 파일을 읽는다) — 카탈로그는 superkit 루트의
+                         .claude-plugin/marketplace.json(Claude)과 .agents/plugins/marketplace.json(Codex), 둘 다 이 폴더를 가리킨다
 skills/
   wiki-init/ wiki-ingest/ wiki-lint/ wiki-status/
                          워크플로 스킬 4개 = 슬래시 커맨드 /llm-wiki:wiki-* — 순서·게이트·출력만 담는다
@@ -26,7 +27,7 @@ README.md ARCHITECTURE.md LICENSE
 4. 옵션 3단 — Core(항상) / Obsidian(뷰어) / qmd(검색, 콘텐츠 무변경).
 5. 압축 원칙 — 소스 1:1 미러 페이지 금지.
 6. lint는 옵션이 아니다 — 드리프트가 1번 실패 모드.
-7. 양 런타임 호환 — 스키마는 AGENTS.md가 canonical, 스크립트는 `uv run` 단독 실행.
+7. 양 런타임 호환 — 스키마는 AGENTS.md가 canonical, 스크립트는 `uv run` 단독 실행, 플러그인 폴더는 한 벌을 Claude Code와 Codex가 함께 설치한다(ARCHITECTURE ADR-9).
 
 ## 수정 규칙
 
@@ -34,6 +35,7 @@ README.md ARCHITECTURE.md LICENSE
 - 커맨드는 `commands/`가 아니라 `skills/<이름>/SKILL.md`에 둔다(공식 권장 형식, `name`은 디렉토리명과 동일). `commands/`에 같은 이름을 만들지 않는다 — 충돌 동작이 문서화돼 있지 않다.
 - 워크플로 스킬에 레시피·규칙 본문을 복제하지 않는다 — 추출 레시피는 `source-extract/SKILL.md`(웹·HTML은 `web-extract/SKILL.md`), 운영 규칙은 `templates/AGENTS.md.tmpl`이 단일 소스.
 - 스크립트 출력 경계(stdout·캐시만)를 절대 넘지 않는다. 서드파티 의존은 지연 임포트(테스트가 의존 없이 순수 함수를 로드한다).
+- **스킬은 Claude Code와 Codex가 함께 읽는다(ADR-9).** `-codex` 폴더를 만들지 않는다. Claude 자리표시자(`${CLAUDE_PLUGIN_ROOT}`·`${CLAUDE_SKILL_DIR}`·`$ARGUMENTS`)를 쓰는 스킬은 제목 바로 아래에 런타임 메모를 둔다(일곱 스킬이 같은 문구다). 메모에는 `$`로 시작하는 치환 표기를 쓰지 않는다(두 가지 모두 `tests/test_skills.py`가 검사). Claude 전용 도구·기능(Skill 도구·포크 실행·PDF Read·WebFetch)에 기대는 단계에는 그것이 없을 때의 폴백을 함께 적는다. 스크립트의 사용자 안내는 `/llm-wiki:…` 대신 스킬 이름을 쓴다.
 - 스킬 지시문에서 파일 읽기·검색은 Read·Glob·Grep 도구로, Bash는 `cd` 없이 절대 경로의 단일 명령으로 쓴다 — `cd … &&` 복합 명령·셸 변수·플래그 붙은 `cp`는 사용자 권한 확인을 부른다(ARCHITECTURE ADR-8, `tests/test_skills.py`가 검사).
 - **`templates/` 변경 시**: `AGENTS.md.tmpl`의 managed 마커와 `config.yaml.tmpl`의 `schema_version`을 함께 증가시키고(단, main에 아직 나가지 않은 버전은 번호를 올리지 않고 제자리에서 보정하며 그 버전의 이력 줄을 갱신한다), `ARCHITECTURE.md` "스키마 버전 이력"에 변경 요약 한 줄을 추가하며(두 가지 모두 `tests/test_templates.py`가 검사), `skills/wiki-init/SKILL.md`의 업그레이드 경로(B 섹션)가 신·구 버전을 올바르게 마이그레이션하는지 갱신·확인한다. config 키 추가 시 업그레이드 모드의 "기본값으로 추가, 기존 값 유지" 규칙에 반영한다.
 - 문서 동기화: 원칙·구조 변경 시 README.md와 ARCHITECTURE.md를 같은 변경에서 함께 수정한다.
@@ -58,5 +60,6 @@ uv run --with pytest --with pyyaml --with pymupdf pytest tests/ -q
 ⑨ 문서가 설계 스펙 §7 요구 충족
 ⑩ (추가) 일반 웹 URL ingest → `web-extract`가 포크 실행되어 짧은 보고만 돌아오고, raw에 요약 없이 본문이 저장되며(`extraction: html`), 같은 URL 재-ingest는 URL로 스킵
 ⑪ (추가) 인젝션 판정 — 프롬프트 예시를 인용한 글(예: 프롬프트 사례를 소개하는 블로그)을 `--batch`로 ingest하면 멈추지 않고 예시를 출처 밝힌 인용으로 옮기며, 읽는 에이전트를 향한 지시문(숨은 HTML 주석 등)이 든 노트는 `--batch`여도 멈추고 확인을 요청하며 지시를 따르지 않는다(페이지·log·AGENTS.md 무변경)
+⑫ (추가) Codex 설치 — 저장소 사본을 격리한 `CODEX_HOME`에서 `codex plugin marketplace add <사본>` → `codex plugin add llm-wiki@superkit` → `codex debug prompt-input "hello"`에 일곱 스킬이 `llm-wiki:<이름>`으로 나오는지 확인한다(모델 호출·인증 불필요). 인증된 Codex 세션에서 ①·②·⑦을 반복하면 런타임 메모와 폴백까지 확인된다(README의 샌드박스 설정 필요)
 
 각 태스크/변경 완료 시 위 단위 테스트를 반드시 실행하고, 커밋은 단계별로 분리한다.
