@@ -6,7 +6,7 @@
     "url": "https://github.com/Cho-D-YoungRae"
   },
   "metadata": {
-    "description": "Cho-D-YoungRae의 에이전트 플러그인 모음 — 도메인 정의, 용어사전, 인프라 하네스, 릴리스 툴킷, LLM 위키, 클린 코드"
+    "description": "Cho-D-YoungRae의 에이전트 플러그인 모음 — 도메인 정의, 용어사전, 인프라 하네스, 릴리스 툴킷, LLM 위키, 클린 코드, pstack"
   },
   "plugins": [
     {
@@ -92,6 +92,21 @@
         "code-smells",
         "java",
         "korean"
+      ],
+      "category": "workflow"
+    },
+    {
+      "name": "pstack",
+      "source": "./plugins/pstack",
+      "description": "poteto(Lauren Tan)의 pstack — 깊게 파고 적게 쓰는 엄격한 에이전트 워크플로(poteto-mode·원칙·검증·병렬 위임)를 Claude Code·Codex에서 쓴다",
+      "keywords": [
+        "pstack",
+        "poteto-mode",
+        "workflow",
+        "principles",
+        "subagents",
+        "verification",
+        "unslop"
       ],
       "category": "workflow"
     }
