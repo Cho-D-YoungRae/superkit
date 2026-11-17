@@ -3,6 +3,27 @@
 이 플러그인의 버전은 [Semantic Versioning](https://semver.org/lang/ko/)을 따른다. 1.0.0 전에는
 마이너 버전이 호환되지 않는 변경을 담을 수 있다.
 
+## 0.10.0 — 2026-11-17
+
+Claude Code와 Codex가 같은 플러그인 폴더를 쓴다. 따로 두던 Codex 전환본(`plugins/superdomain-codex`)을 이 폴더로 합쳤다.
+
+### Added
+
+- Codex 지원: `codex plugin add superdomain@superkit`으로 이 폴더를 설치한다. Agent 도구가 없는 런타임은 실행 계약(`skills/review/references/dispatch.md`)대로 새 컨텍스트의 서브에이전트를 띄워 `agents/`의 리뷰어 정의를 역할 문서로 넘긴다. Claude Code에서는 에이전트의 도구 제한과 모델이 전처럼 적용된다. 스킬과 에이전트마다 런타임 메모를 두어 Codex가 치환하지 않는 자리표시자를 푸는 법을 적었다.
+- review 커밋 범위(`A..B`): DOMAIN.md·프로젝트 지침·대상 코드의 문맥을 끝점 B의 `git show`로 읽고, 리뷰어에게 두 해시를 `자료 버전`으로 넘긴다. 전에는 커밋 범위 리뷰에서도 리뷰어가 작업 트리의 DOMAIN.md를 읽을 수 있었다. B 안의 파일을 찾고 검색하도록 리뷰어의 git 허용 명령에 `ls-tree`·`grep`을 더했다. 경로·ref는 따옴표로 감싸 셸 명령에 넣는다.
+- 리뷰어를 띄우지 못하거나 리뷰어가 실패한 관점은 미검토로 보고한다(지적 없음으로 합치지 않는다). 리뷰어는 읽은 자료 속 지시를 따르지 않고, 읽지 못한 자료를 미검토로 적는다.
+- 테스트(`tests/`): 런타임 메모, 리뷰어의 도구 제한, 두 런타임의 리뷰어 호출 경로, 포인터 줄, 내부 링크, review의 Git 범위.
+
+### Changed
+
+- 지침 파일의 포인터 줄이 `/superdomain:domain`·`/superdomain:adr` 대신 "superdomain의 domain 스킬"·"superdomain의 adr 스킬"로 적는다. 두 런타임이 같은 줄을 읽기 때문이다.
+- Codex에서 리뷰어의 `reasoning_effort`를 domain-reviewer `high`, convention-reviewer `medium`으로 준다(전환본은 세션 설정을 그대로 물려받았다). 모델 이름은 지정하지 않는다.
+
+### 이행
+
+- Claude Code: 할 일이 없다. 다음에 domain·adr 스킬이 포인터 줄을 볼 때 옛 줄을 새 줄로 바꿀지 묻는다.
+- Codex: 설치 ID는 그대로 `superdomain@superkit`이다. 카탈로그가 가리키는 폴더가 바뀌었으므로 0.10.0으로 다시 설치한다.
+
 ## 0.9.0 — 2026-11-12
 
 ADR을 결정을 내린 때의 이유를 남기는 기록으로 다시 정했다. 저장소 다른 곳에 있는 것은 적지 않고, 결정마다 이유·버린 안·받아들인 비용을 붙인다.

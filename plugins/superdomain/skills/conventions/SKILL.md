@@ -6,6 +6,8 @@ paths: ["**/*.kt", "**/*.java"]
 
 # 코딩 컨벤션 적용
 
+> **런타임 메모** — 이 스킬은 Claude Code와 Codex가 함께 쓴다. Claude Code는 읽기 전에 본문의 `$` 자리표시자를 치환한다. 치환되지 않은 채 보이면(Codex 등) `CLAUDE_PLUGIN_ROOT`는 플러그인 루트(이 SKILL.md가 있는 `skills/<스킬>/`의 두 단계 위), `CLAUDE_SKILL_DIR`는 이 SKILL.md가 있는 디렉터리, `ARGUMENTS`는 사용자가 이 스킬을 부르며 함께 준 인자로 읽고, 경로는 절대 경로로 바꿔 쓴다. Read·Grep·Glob·Agent 같은 도구 이름과 `/superdomain:<스킬>` 호출 표기도 Claude Code 기준이다 — 그 런타임의 같은 수단으로 바꿔 쓴다.
+
 도메인 로직이 드러나고 테스트하기 쉬운 코드를 처음부터 쓰기 위해, 코드를 쓰기 전에 컨벤션을 읽고 따른다. `/superdomain:review`의 convention-reviewer도 같은 문서를 기준으로 쓴다.
 
 ## 적용 방법
